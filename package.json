@@ -9,15 +9,23 @@
     "lint": "next lint"
   },
   "dependencies": {
+    "@heroicons/react": "^2.2.0",
+    "firebase": "^11.5.0",
+    "form-data": "^4.0.2",
+    "framer-motion": "^12.5.0",
+    "next": "15.2.3",
+    "node-fetch": "^3.3.2",
     "react": "^19.0.0",
+    "react-burger-menu": "^3.1.0",
     "react-dom": "^19.0.0",
-    "next": "15.2.3"
+    "react-modal": "^3.16.3",
+    "react-wavify": "^1.11.1"
   },
   "devDependencies": {
+    "@eslint/eslintrc": "^3",
     "@tailwindcss/postcss": "^4",
-    "tailwindcss": "^4",
     "eslint": "^9",
     "eslint-config-next": "15.2.3",
-    "@eslint/eslintrc": "^3"
+    "tailwindcss": "^4"
   }
 }
