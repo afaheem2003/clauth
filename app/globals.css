@@ -20,17 +20,15 @@ body {
 
 /* Continuous Scrolling Animation */
 @keyframes scroll-loop {
-  from {
-    transform: translateX(100%);
+  0% {
+    transform: translateX(0);
   }
-  to {
-    transform: translateX(-100%);
+  100% {
+    transform: translateX(-50%);
   }
 }
 
-/* Ensures smooth looping per image */
+/* Utility class for scrolling animation */
 .animate-scroll-loop {
-  display: flex;
-  white-space: nowrap;
-  animation: scroll-loop linear infinite;
+  animation: scroll-loop 30s linear infinite;
 }
