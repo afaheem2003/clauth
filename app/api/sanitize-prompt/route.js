@@ -1,5 +1,4 @@
-import { NextResponse } from "next/server";
-
+// app/utils/sanitizePrompt.js
 const REPLACEMENTS = [
   {
     pattern:
@@ -25,36 +24,40 @@ const REPLACEMENTS = [
     pattern: /\b(gigantic|huge|oversized|life-size|full-scale)\b/gi,
     replacement: "small, under 12 inches",
   },
+  {
+    pattern:
+      /\b(leather|leather harness|leather strap|straps|belt|buckle|buckles|metal clasp|metal buckle)\b/gi,
+    replacement: "fabric harness",
+  },
+  {
+    pattern: /\b(buttons|metal buttons)\b/gi,
+    replacement: "embroidered buttons",
+  },
+  {
+    pattern: /\b(helmet|armor helmet|military helmet)\b/gi,
+    replacement: "soft plush-style helmet",
+  },
 ];
 
-// Prevents duplicate word replacements
 function cleanUpText(text) {
-  text = text.replace(/\b(\w+)\s+\1\b/gi, "$1"); // Remove duplicate words
-  text = text.replace(/\s{2,}/g, " "); // Fix extra spaces
+  text = text.replace(/\b(\w+)\s+\1\b/gi, "$1");
+  text = text.replace(/\s{2,}/g, " ");
   return text.trim();
 }
 
-export async function POST(req) {
-  try {
-    const { prompt } = await req.json();
-    let sanitizedPrompt = prompt.toLowerCase();
+export function sanitizePrompt(prompt) {
+  let sanitized = prompt.toLowerCase();
 
-    REPLACEMENTS.forEach(({ pattern, replacement }) => {
-      sanitizedPrompt = sanitizedPrompt.replace(pattern, replacement);
-    });
+  REPLACEMENTS.forEach(({ pattern, replacement }) => {
+    sanitized = sanitized.replace(pattern, replacement);
+  });
 
-    sanitizedPrompt = cleanUpText(sanitizedPrompt); // Apply final cleanup
+  sanitized = cleanUpText(sanitized);
 
-    if (!sanitizedPrompt.includes("under 12 inches")) {
-      sanitizedPrompt +=
-        " The plush is small, under 12 inches for easy manufacturing, made from soft, commercial-grade materials such as cotton or polyester blend. It has a rounded, symmetrical body, with clearly defined stitching and embroidered facial features for durability and ease of mass production.";
-    }
-
-    return NextResponse.json({ sanitizedPrompt });
-  } catch (error) {
-    return NextResponse.json(
-      { error: "Error sanitizing prompt" },
-      { status: 500 }
-    );
+  if (!sanitized.includes("under 12 inches")) {
+    sanitized +=
+      " The plush is small, under 12 inches for easy manufacturing, made from soft, commercial-grade materials such as cotton or polyester blend. It has a rounded, symmetrical body, with clearly defined stitching and embroidered facial features for durability and ease of mass production.";
   }
+
+  return sanitized;
 }

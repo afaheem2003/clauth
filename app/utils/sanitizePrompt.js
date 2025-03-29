@@ -1,5 +1,3 @@
-// app/utils/sanitizePrompt.js
-
 const REPLACEMENTS = [
   {
     pattern:
@@ -41,20 +39,26 @@ const REPLACEMENTS = [
 ];
 
 function cleanUpText(text) {
-  text = text.replace(/\b(\w+)\s+\1\b/gi, "$1");
-  text = text.replace(/\s{2,}/g, " ");
+  text = text.replace(/\b(\w+)\s+\1\b/gi, "$1"); // remove duplicate words
+  text = text.replace(/\s{2,}/g, " "); // remove extra spaces
   return text.trim();
 }
 
 export function sanitizePrompt(prompt) {
   let sanitized = prompt.toLowerCase();
+
   REPLACEMENTS.forEach(({ pattern, replacement }) => {
     sanitized = sanitized.replace(pattern, replacement);
   });
+
   sanitized = cleanUpText(sanitized);
+
   if (!sanitized.includes("under 12 inches")) {
     sanitized +=
       " The plush is small, under 12 inches for easy manufacturing, made from soft, commercial-grade materials such as cotton or polyester blend. It has a rounded, symmetrical body, with clearly defined stitching and embroidered facial features for durability and ease of mass production.";
   }
+
   return sanitized;
 }
+
+export default sanitizePrompt;

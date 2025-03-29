@@ -1,15 +1,35 @@
+// app/api/generate-stability/route.js
 import { NextResponse } from "next/server";
-import { sanitizePrompt } from "@/app/utils/sanitizePrompt"; // Ensure this path is correct
+import sanitizePrompt from "@/app/utils/sanitizePrompt";
+import {
+  getStorage,
+  ref,
+  uploadString,
+  getDownloadURL,
+} from "firebase/storage";
+import { initializeApp, getApps, getApp } from "firebase/app";
+import { v4 as uuidv4 } from "uuid";
+
+const firebaseConfig = {
+  apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
+  authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
+  projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
+  storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
+  messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
+  appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
+};
+
+const app = !getApps().length ? initializeApp(firebaseConfig) : getApp();
+const storage = getStorage(app);
 
 export async function POST(req) {
   try {
     const { prompt } = await req.json();
     const useMockApi = process.env.NEXT_PUBLIC_USE_MOCK_API === "true";
-
     const sanitizedPrompt = sanitizePrompt(prompt);
 
     if (useMockApi) {
-      console.log("🟡 Mock API Mode Enabled: Returning local plushie image.");
+      console.log("🟡 Mock API Mode: returning a local plushie image");
       const mockImages = [
         "/images/plushie-1.png",
         "/images/plushie-2.png",
@@ -22,22 +42,17 @@ export async function POST(req) {
 
     const STABILITY_API_KEY = process.env.STABILITY_API_KEY;
     if (!STABILITY_API_KEY) {
-      console.error("❌ Missing Stability AI API Key!");
+      console.error("❌ Missing Stability API key");
       return NextResponse.json(
-        { error: "Internal server error: API key is missing." },
+        { error: "Missing Stability API key" },
         { status: 500 }
       );
     }
 
-    console.log(
-      "📤 Sending sanitized prompt to Stability AI:",
-      sanitizedPrompt
-    );
-
     const formData = new FormData();
     formData.append("prompt", sanitizedPrompt);
     formData.append("model", "stable-diffusion-xl");
-    formData.append("width", "512"); // Optional: 1024 is too large for plushie scale
+    formData.append("width", "512");
     formData.append("height", "512");
     formData.append("steps", "30");
     formData.append("cfg_scale", "7.5");
@@ -55,13 +70,11 @@ export async function POST(req) {
       }
     );
 
-    console.log("📥 Stability AI Response Status:", response.status);
-
     if (!response.ok) {
       const errorText = await response.text();
-      console.error("❌ Stability AI API Error:", errorText);
+      console.error("❌ Stability AI Error:", errorText);
       return NextResponse.json(
-        { error: "We’re experiencing a temporary issue generating plushies." },
+        { error: "Error from Stability API" },
         { status: response.status }
       );
     }
@@ -69,20 +82,25 @@ export async function POST(req) {
     const data = await response.json();
 
     if (!data.image) {
-      console.error("❌ Unexpected response from Stability AI:", data);
       return NextResponse.json(
-        { error: "Unexpected response from AI service." },
+        { error: "No image returned from AI" },
         { status: 500 }
       );
     }
 
-    const imageUrl = `data:image/png;base64,${data.image}`;
-    console.log("✅ Plushie Generated. Returning image.");
-    return NextResponse.json({ imageUrl });
+    // Upload base64 image to Firebase Storage
+    const filename = `plushies/${uuidv4()}.png`;
+    const imageRef = ref(storage, filename);
+    await uploadString(imageRef, data.image, "base64", {
+      contentType: "image/png",
+    });
+    const firebaseImageUrl = await getDownloadURL(imageRef);
+
+    return NextResponse.json({ imageUrl: firebaseImageUrl });
   } catch (error) {
-    console.error("🔥 Internal Server Error:", error);
+    console.error("🔥 Unexpected Error:", error);
     return NextResponse.json(
-      { error: "An unexpected error occurred. Please try again later." },
+      { error: "Unexpected server error" },
       { status: 500 }
     );
   }

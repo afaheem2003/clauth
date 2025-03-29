@@ -8,7 +8,6 @@ import PlushieGeneratorModal from "@/components/layout/PlushieGeneratorModal";
 import Footer from "@/components/common/Footer";
 import AuthPromptModal from "@/components/common/AuthPromptModal";
 import PlushieCard from "@/components/plushie/PlushieCard";
-import PlushieBackground from "@/components/plushie/PlushieBackground"; // New background component
 import Link from "next/link";
 import Image from "next/image";
 
@@ -42,12 +41,9 @@ export default function HomePage() {
   return (
     <>
       {/* Hero Section */}
-      <section className="relative min-h-screen bg-gradient-to-b from-gray-50 to-gray-100 flex flex-col items-center justify-center overflow-hidden">
-        {/* Decorative Scrolling Plushie Background */}
-        <PlushieBackground />
-
+      <section className="relative min-h-screen bg-gradient-to-b from-gray-50 to-gray-100 flex flex-col items-center justify-center">
         {/* Foreground Content */}
-        <div className="container mx-auto px-6 py-16 text-center relative z-10">
+        <div className="container mx-auto px-6 py-16 text-center">
           <h1 className="text-6xl md:text-7xl font-extrabold text-gray-800 mb-6 drop-shadow-sm">
             Welcome to Ploosh
           </h1>

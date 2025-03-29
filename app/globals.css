@@ -17,18 +17,3 @@ body {
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
 }
-
-/* Continuous Scrolling Animation */
-@keyframes scroll-loop {
-  0% {
-    transform: translateX(0);
-  }
-  100% {
-    transform: translateX(-50%);
-  }
-}
-
-/* Utility class for scrolling animation */
-.animate-scroll-loop {
-  animation: scroll-loop 30s linear infinite;
-}
