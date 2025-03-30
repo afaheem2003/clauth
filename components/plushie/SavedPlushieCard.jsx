@@ -87,8 +87,8 @@ export default function SavedPlushieCard({ plushie, setPlushies }) {
   const { data: session } = useSession();
   const modalRef = useRef(null);
 
-  // Map Prisma fields to local state.
-  // "animal" in your UI corresponds to "name" in the database.
+  // Map database fields to local state.
+  // "animal" in the UI corresponds to the DB field "name"
   const [animal, setAnimal] = useState(plushie.name || "");
   const [texture, setTexture] = useState(plushie.texture || "");
   const [color, setColor] = useState(plushie.color || "");
@@ -98,29 +98,31 @@ export default function SavedPlushieCard({ plushie, setPlushies }) {
   const [pose, setPose] = useState(plushie.pose || "");
   const [size, setSize] = useState(plushie.size || "");
 
-  // The plushie already has an imageUrl from the DB
+  // The plushie already has an imageUrl from the database.
   const [imageUrl, setImageUrl] = useState(
     plushie.imageUrl || "/images/plushie-placeholder.png"
   );
-  const [loadingButton, setLoadingButton] = useState(null); // "update" or null
+
+  // Track which action is loading: "regenerate", "update" (save changes), "publish", or null.
+  const [loadingButton, setLoadingButton] = useState(null);
   const [errorMessage, setErrorMessage] = useState("");
   const [isModalOpen, setIsModalOpen] = useState(false);
 
-  // Build the "prompt" from the fields
+  // Build the prompt text from the fields.
   const prompt = `${size} ${texture} plushie of a ${color} ${animal} with ${accessories}, wearing ${outfit}, showing a ${emotion} expression, posed ${pose}`;
   const sanitizedPrompt = sanitizePrompt(prompt);
 
-  // If you want to open the modal by clicking the card
+  // Open the modal.
   const openModal = () => {
     setIsModalOpen(true);
   };
 
-  // Close modal if user clicks outside
+  // Close modal if clicking outside.
   const handleBackdropClick = (e) => {
     if (e.target === modalRef.current) setIsModalOpen(false);
   };
 
-  // Convert a Blob to base64
+  // Helper: Convert a Blob to base64.
   function blobToBase64(blob) {
     return new Promise((resolve, reject) => {
       const reader = new FileReader();
@@ -130,7 +132,7 @@ export default function SavedPlushieCard({ plushie, setPlushies }) {
     });
   }
 
-  // Upload the final image to the user’s folder in Firebase
+  // Upload image to Firebase in the user's folder.
   async function uploadImageToFirebase(localImageUrl) {
     if (!session?.user) {
       throw new Error("No NextAuth user session found for uploading.");
@@ -155,11 +157,48 @@ export default function SavedPlushieCard({ plushie, setPlushies }) {
     return getDownloadURL(fileRef);
   }
 
-  // Called when user clicks "Save Changes" in the modal
-  async function updatePlushie() {
-    setLoadingButton("update");
+  // "Regenerate" button: calls the generate-stability API to update the image.
+  async function regeneratePlushie() {
+    setLoadingButton("regenerate");
     setErrorMessage("");
+    try {
+      const response = await fetch("/api/generate-stability", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ prompt }),
+      });
+      if (!response.ok) {
+        const errData = await response.json().catch(() => ({}));
+        throw new Error(errData.error || "Error regenerating plushie");
+      }
+      const data = await response.json();
+      if (!data.imageUrl) {
+        throw new Error("No image returned from server.");
+      }
+      let finalUrl = data.imageUrl;
+      if (
+        !(
+          finalUrl.startsWith("data:image/") ||
+          finalUrl.startsWith("/") ||
+          finalUrl.startsWith("http")
+        )
+      ) {
+        finalUrl = `data:image/png;base64,${finalUrl}`;
+      }
+      setImageUrl(finalUrl);
+    } catch (err) {
+      console.error("❌ Regenerate error:", err);
+      setErrorMessage(err.message || "Failed to regenerate plushie.");
+    } finally {
+      setLoadingButton(null);
+    }
+  }
 
+  // Update the plushie (either save changes or publish)
+  async function updatePlushie(publish = false) {
+    setLoadingButton(publish ? "publish" : "update");
+    setErrorMessage("");
     try {
       if (!session?.user) {
         throw new Error("Not logged in. Please sign in.");
@@ -167,21 +206,11 @@ export default function SavedPlushieCard({ plushie, setPlushies }) {
       if (!imageUrl) {
         throw new Error("No image available.");
       }
-
-      // 1) Possibly re-upload the image if needed
-      // (If you have a new image or new base64, you can do so.
-      //  If the user never changed the image, you can skip re-uploading.)
-      // For now, assume we keep the existing imageUrl from DB.
-      // If you needed to generate a new image or let the user replace it, you'd do:
-      // const newImageUrl = await uploadImageToFirebase(imageUrl);
-      // but for existing images, we skip.
-
-      // 2) Send updated fields to /api/saved-plushies with plushieId
       const updatedPlushie = {
         plushieId: plushie.id,
-        // Our DB "name" field is mapped to "animal" in the UI
+        // Map UI "animal" to DB "name"
         name: animal,
-        imageUrl, // keep the existing or newly uploaded URL
+        imageUrl,
         promptRaw: prompt,
         promptSanitized: sanitizedPrompt,
         texture,
@@ -191,7 +220,7 @@ export default function SavedPlushieCard({ plushie, setPlushies }) {
         outfit,
         accessories,
         pose,
-        isPublished: false, // since it's a "saved" plushie (draft)
+        isPublished: publish, // true if publishing, false if just saving changes
       };
 
       const resp = await fetch("/api/saved-plushies", {
@@ -204,11 +233,6 @@ export default function SavedPlushieCard({ plushie, setPlushies }) {
         const errorData = await resp.json().catch(() => ({}));
         throw new Error(errorData.error || "Failed to update plushie");
       }
-
-      // Optionally, refresh or update parent state
-      // e.g. setPlushies((prev) => ... ) or re-fetch the list
-
-      // Close modal on success
       setIsModalOpen(false);
     } catch (err) {
       console.error("❌ Update error:", err);
@@ -218,7 +242,7 @@ export default function SavedPlushieCard({ plushie, setPlushies }) {
     }
   }
 
-  // React-Modal requirement
+  // React-Modal setup
   useEffect(() => {
     if (typeof window !== "undefined") {
       Modal.setAppElement("body");
@@ -227,7 +251,7 @@ export default function SavedPlushieCard({ plushie, setPlushies }) {
 
   return (
     <>
-      {/* The card to display in the grid */}
+      {/* The card displayed in the grid */}
       <div
         className="relative group cursor-pointer w-full h-auto overflow-hidden rounded-lg"
         onClick={openModal}
@@ -247,7 +271,7 @@ export default function SavedPlushieCard({ plushie, setPlushies }) {
         </div>
       </div>
 
-      {/* The Modal for editing the saved plushie */}
+      {/* Modal for editing the saved plushie */}
       <Modal
         isOpen={isModalOpen}
         onRequestClose={() => setIsModalOpen(false)}
@@ -285,7 +309,7 @@ export default function SavedPlushieCard({ plushie, setPlushies }) {
         </h2>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {/* Left side: current image */}
+          {/* Left side: current image and regenerate button */}
           <div>
             <Image
               src={imageUrl}
@@ -295,6 +319,17 @@ export default function SavedPlushieCard({ plushie, setPlushies }) {
               className="rounded-xl"
               unoptimized
             />
+            <button
+              onClick={regeneratePlushie}
+              disabled={loadingButton === "regenerate"}
+              className="w-full mt-4 py-2.5 rounded bg-purple-600 text-white hover:bg-purple-700 transition"
+            >
+              {loadingButton === "regenerate" ? (
+                <BigSpinner />
+              ) : (
+                "Regenerate Image"
+              )}
+            </button>
           </div>
 
           {/* Right side: form fields */}
@@ -336,7 +371,7 @@ export default function SavedPlushieCard({ plushie, setPlushies }) {
           </div>
         </div>
 
-        {/* Footer buttons + error */}
+        {/* Footer buttons */}
         <div className="mt-6 flex justify-end space-x-4">
           <button
             onClick={() => setIsModalOpen(false)}
@@ -345,11 +380,18 @@ export default function SavedPlushieCard({ plushie, setPlushies }) {
             Cancel
           </button>
           <button
-            onClick={updatePlushie}
-            disabled={loadingButton === "update"}
+            onClick={() => updatePlushie(false)}
+            disabled={loadingButton === "update" || loadingButton === "publish"}
             className="px-6 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition"
           >
             {loadingButton === "update" ? <BigSpinner /> : "Save Changes"}
+          </button>
+          <button
+            onClick={() => updatePlushie(true)}
+            disabled={loadingButton === "update" || loadingButton === "publish"}
+            className="px-6 py-2 bg-green-600 text-white rounded hover:bg-green-700 transition"
+          >
+            {loadingButton === "publish" ? <BigSpinner /> : "Publish Plushie"}
           </button>
         </div>
 
