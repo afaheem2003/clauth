@@ -3,8 +3,8 @@
 import Link from "next/link";
 import { useState } from "react";
 import { slide as Menu } from "react-burger-menu";
-import { auth, signOutUser } from "@/app/lib/firebaseClient";
 import { useRouter } from "next/navigation";
+import { useSession, signOut } from "next-auth/react";
 
 const menuStyles = {
   bmMenuWrap: { top: "0" },
@@ -24,8 +24,8 @@ const menuStyles = {
 
 export default function Nav() {
   const [isOpen, setIsOpen] = useState(false);
+  const { data: session } = useSession();
   const router = useRouter();
-  const user = auth.currentUser; // Directly accessing authenticated user
 
   const handleStateChange = (state) => {
     setIsOpen(state.isOpen);
@@ -37,7 +37,7 @@ export default function Nav() {
   };
 
   const handleLogout = async () => {
-    await signOutUser();
+    await signOut();
     setIsOpen(false);
   };
 
@@ -124,7 +124,7 @@ export default function Nav() {
         </Link>
 
         {/* If logged in, show Profile/Settings */}
-        {user && (
+        {session?.user ? (
           <div className="flex flex-col space-y-2 mt-6">
             <Link
               href="/profile"
@@ -141,10 +141,10 @@ export default function Nav() {
               Account Settings
             </Link>
           </div>
-        )}
+        ) : null}
 
         {/* Auth Options */}
-        {user ? (
+        {session?.user ? (
           <button
             onClick={handleLogout}
             className="mt-6 block w-full text-left text-white text-xl hover:text-gray-300"

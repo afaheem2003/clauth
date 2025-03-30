@@ -1,5 +1,6 @@
 import { PrismaClient } from "@prisma/client";
 
+// In development, avoid creating extra PrismaClient instances
 const globalForPrisma = globalThis;
 
 export const prisma = globalForPrisma.prisma || new PrismaClient();

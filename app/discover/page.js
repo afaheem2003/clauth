@@ -1,50 +1,12 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import PlushieCard from "@/components/plushie/PlushieCard";
 import { TEXTURES, SIZES } from "@/app/constants/options";
 
-// Updated dummy data with `animal`, `texture`, `size`, `author`
-const DUMMY_PLUSHIES = [
-  {
-    id: "1",
-    name: "Galaxy Dragon",
-    animal: "Dragon",
-    texture: "Minky",
-    size: "Keychain",
-    author: "@PlushieMaker",
-    unitsBought: 10,
-    image: "/images/plushie-placeholder.png",
-    description: "A cosmic plush made of dreams.",
-  },
-  {
-    id: "2",
-    name: "Bubble Bunny",
-    animal: "Bunny",
-    texture: "Fleece",
-    size: "Small",
-    author: "@CuddleCrafts",
-    unitsBought: 0,
-    image: "/images/plushie-placeholder.png",
-    description: "Adorable bunny with pastel vibes.",
-  },
-  {
-    id: "3",
-    name: "Robot Cat",
-    animal: "Cat",
-    texture: "Velboa",
-    size: "Medium",
-    author: "@MechMew",
-    unitsBought: 25,
-    image: "/images/plushie-placeholder.png",
-    description: "Futuristic kitty plush with LED eyes.",
-  },
-];
-
 export default function DiscoverPage() {
-  const [plushies, setPlushies] = useState(DUMMY_PLUSHIES);
-
-  // Sort By (FilterBar) => trending/newest/popular
+  const [plushies, setPlushies] = useState([]);
+  const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState("trending");
 
   // Additional filters
@@ -53,34 +15,48 @@ export default function DiscoverPage() {
   const [selectedSize, setSelectedSize] = useState("");
   const [artistFilter, setArtistFilter] = useState("");
 
-  // 1) Sort
-  const sortedPlushies = [...plushies].sort((a, b) => {
-    switch (filter) {
-      case "newest":
-        return parseInt(b.id) - parseInt(a.id);
-      case "popular":
-        return (b.unitsBought || 0) - (a.unitsBought || 0);
-      default:
-        return (b.unitsBought || 0) - (a.unitsBought || 0);
+  // Fetch plushies from the backend on component mount
+  useEffect(() => {
+    async function fetchPlushies() {
+      try {
+        const res = await fetch("/api/discover");
+        const data = await res.json();
+        setPlushies(data.plushies || []);
+      } catch (err) {
+        console.error("Failed to fetch plushies:", err);
+      } finally {
+        setLoading(false);
+      }
     }
-  });
+    fetchPlushies();
+  }, []);
 
-  // 2) Filter
+  // The API already sorts by closeness to goal
+  const sortedPlushies = plushies;
+
+  // Client-side filtering
   const filteredPlushies = sortedPlushies.filter((p) => {
     if (selectedTexture && p.texture !== selectedTexture) return false;
     if (
       animalFilter &&
-      !p.animal.toLowerCase().includes(animalFilter.toLowerCase())
+      !p.name.toLowerCase().includes(animalFilter.toLowerCase())
     )
       return false;
     if (selectedSize && p.size !== selectedSize) return false;
-    if (
-      artistFilter &&
-      !p.author.toLowerCase().includes(artistFilter.toLowerCase())
-    )
-      return false;
+    if (artistFilter && p.creator && p.creator.name) {
+      if (!p.creator.name.toLowerCase().includes(artistFilter.toLowerCase()))
+        return false;
+    }
     return true;
   });
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <p className="text-lg font-semibold">Loading...</p>
+      </div>
+    );
+  }
 
   return (
     <main className="min-h-screen bg-gray-50">
@@ -88,7 +64,7 @@ export default function DiscoverPage() {
       <section className="py-12 bg-white shadow-sm mb-8">
         <div className="container mx-auto px-6">
           <h1 className="text-4xl font-extrabold text-gray-800 mb-2 text-center">
-            Discover AI Plushies
+            Discover and Shop AI Plushies
           </h1>
           <p className="text-lg text-gray-600 text-center">
             Browse top community picks, newest drops, and personalized
@@ -97,7 +73,7 @@ export default function DiscoverPage() {
         </div>
       </section>
 
-      {/* Filters Row (Now Grouped by Type) */}
+      {/* Filters Row */}
       <section className="container mx-auto px-6 mb-10">
         <div className="grid grid-cols-5 gap-10 items-center w-full max-w-6xl mx-auto">
           {/* Sorting (Dropdown) */}
@@ -175,7 +151,7 @@ export default function DiscoverPage() {
             </label>
             <input
               type="text"
-              placeholder="e.g. @PlushieMaker"
+              placeholder="e.g. PlushieMaker"
               value={artistFilter}
               onChange={(e) => setArtistFilter(e.target.value)}
               className="w-full px-4 py-3 border border-gray-300 rounded-lg text-gray-800 shadow-md"
@@ -184,7 +160,7 @@ export default function DiscoverPage() {
         </div>
       </section>
 
-      {/* Plushie Grid (Full Width, Larger Images) */}
+      {/* Plushie Grid */}
       <section className="w-full px-6 mx-auto pb-16">
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-5 gap-8">
           {filteredPlushies.map((p) => (

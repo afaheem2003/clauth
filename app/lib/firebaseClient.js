@@ -1,10 +1,4 @@
 import { initializeApp, getApps, getApp } from "firebase/app";
-import {
-  getAuth,
-  GoogleAuthProvider,
-  signInWithPopup,
-  signOut,
-} from "firebase/auth";
 import { getStorage } from "firebase/storage";
 
 const firebaseConfig = {
@@ -17,18 +11,4 @@ const firebaseConfig = {
 };
 
 const app = !getApps().length ? initializeApp(firebaseConfig) : getApp();
-const auth = getAuth(app);
-const storage = getStorage(app);
-
-const provider = new GoogleAuthProvider();
-
-export async function signInWithGoogle() {
-  const result = await signInWithPopup(auth, provider);
-  return result.user;
-}
-
-export async function signOutUser() {
-  await signOut(auth);
-}
-
-export { auth, storage };
+export const storage = getStorage(app);

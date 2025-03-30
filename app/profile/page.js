@@ -1,54 +1,45 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { auth } from "@/app/lib/firebaseClient"; // Adjust if needed
-import PlushieCard from "./PlushieCard";
-
-// Example placeholders for plushies
-const savedPlushiesPlaceholder = [
-  {
-    id: 1,
-    title: "Galaxy Dragon",
-    description: "A cosmic plush with stars.",
-    imageUrl: "/images/plushie-placeholder.png",
-  },
-  {
-    id: 2,
-    title: "Rainbow Unicorn",
-    description: "Bright, colorful, sparkly plush!",
-    imageUrl: "/images/plushie-placeholder.png",
-  },
-];
-
-const publishedPlushiesPlaceholder = [
-  {
-    id: 3,
-    title: "Robot Cat",
-    description: "Futuristic kitty plush.",
-    imageUrl: "/images/plushie-placeholder.png",
-  },
-];
+import { useSession } from "next-auth/react";
+import PlushieCard from "@/components/plushie/PlushieCard";
+import SavedPlushieCard from "@/components/plushie/SavedPlushieCard";
 
 export default function ProfilePage() {
   const router = useRouter();
-  const [user, setUser] = useState(null);
-  const [activeTab, setActiveTab] = useState("saved");
+  const { data: session, status } = useSession();
+  const [plushies, setPlushies] = useState([]);
+  const [loading, setLoading] = useState(true);
+  // activeTab: "published" means live designs; "saved" means drafts
+  const [activeTab, setActiveTab] = useState("published");
 
   useEffect(() => {
-    // Check if user is logged in
-    const unsubscribe = auth.onAuthStateChanged((currentUser) => {
-      if (!currentUser) {
-        router.push("/login"); // Not logged in → redirect
-      } else {
-        setUser(currentUser);
+    if (status === "loading") return;
+    if (!session?.user) {
+      router.push("/login");
+      return;
+    }
+    async function fetchMyPlushies() {
+      try {
+        // This endpoint should return plushies where creator.id === session.user.uid
+        const res = await fetch("/api/my-plushies");
+        const data = await res.json();
+        // Sort by creation date (newest first)
+        const sortedPlushies = data.plushies.sort(
+          (a, b) => new Date(b.createdAt) - new Date(a.createdAt)
+        );
+        setPlushies(sortedPlushies);
+      } catch (err) {
+        console.error("Failed to fetch plushies:", err);
+      } finally {
+        setLoading(false);
       }
-    });
-    return () => unsubscribe();
-  }, [router]);
+    }
+    fetchMyPlushies();
+  }, [session, status, router]);
 
-  if (!user) {
-    // Show a loading screen while checking auth
+  if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <p className="text-lg font-semibold">Loading...</p>
@@ -56,15 +47,14 @@ export default function ProfilePage() {
     );
   }
 
-  // Dummy user info from Firebase
-  const displayName = user.displayName || "Anonymous User";
-  const photoURL = user.photoURL || "/images/profile-placeholder.png";
+  // Filter plushies based on active tab:
+  // "published" => isPublished is true; "saved" => isPublished is false.
+  const filteredPlushies = plushies.filter((p) =>
+    activeTab === "saved" ? !p.isPublished : p.isPublished
+  );
 
-  // Toggling between saved & published plushies
-  const isSavedTab = activeTab === "saved";
-  const plushiesToDisplay = isSavedTab
-    ? savedPlushiesPlaceholder
-    : publishedPlushiesPlaceholder;
+  const displayName = session?.user?.name || "Anonymous User";
+  const photoURL = session?.user?.image || "/images/profile-placeholder.png";
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-gray-50 to-gray-100 py-10">
@@ -78,47 +68,51 @@ export default function ProfilePage() {
           />
           <div className="mt-4 md:mt-0">
             <h2 className="text-2xl font-bold text-gray-800">{displayName}</h2>
-            <p className="text-gray-600 mt-2">
-              Welcome to your profile page!
-              {/* Add more user details here if desired */}
-            </p>
+            <p className="text-gray-600 mt-2">Welcome to your profile page!</p>
           </div>
         </div>
 
-        {/* Toggle Buttons for Saved vs Published */}
+        {/* Toggle Buttons: Published appears first, then Saved */}
         <div className="mt-8 flex space-x-4">
-          <button
-            onClick={() => setActiveTab("saved")}
-            className={`px-6 py-3 rounded-lg font-semibold transition-colors ${
-              isSavedTab
-                ? "bg-gray-900 text-white"
-                : "bg-white text-gray-700 border border-gray-300 hover:bg-gray-100"
-            }`}
-          >
-            Saved Plushies
-          </button>
           <button
             onClick={() => setActiveTab("published")}
             className={`px-6 py-3 rounded-lg font-semibold transition-colors ${
-              !isSavedTab
+              activeTab === "published"
                 ? "bg-gray-900 text-white"
                 : "bg-white text-gray-700 border border-gray-300 hover:bg-gray-100"
             }`}
           >
             Published Plushies
           </button>
+          <button
+            onClick={() => setActiveTab("saved")}
+            className={`px-6 py-3 rounded-lg font-semibold transition-colors ${
+              activeTab === "saved"
+                ? "bg-gray-900 text-white"
+                : "bg-white text-gray-700 border border-gray-300 hover:bg-gray-100"
+            }`}
+          >
+            Saved Plushies
+          </button>
         </div>
 
         {/* Plushies Grid */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6 mt-8">
-          {plushiesToDisplay.map((plushie) => (
-            <PlushieCard
-              key={plushie.id}
-              title={plushie.title}
-              description={plushie.description}
-              imageUrl={plushie.imageUrl}
-            />
-          ))}
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-8 mt-8">
+          {filteredPlushies.map((plushie) =>
+            activeTab === "saved" ? (
+              <SavedPlushieCard
+                key={plushie.id}
+                plushie={plushie}
+                setPlushies={setPlushies}
+              />
+            ) : (
+              <PlushieCard
+                key={plushie.id}
+                plushie={plushie}
+                setPlushies={setPlushies}
+              />
+            )
+          )}
         </div>
       </div>
     </div>

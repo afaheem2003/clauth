@@ -1,27 +1,24 @@
 "use client";
 
-import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { auth, signOutUser } from "@/app/lib/firebaseClient";
-import { updateProfile } from "firebase/auth";
+import { useEffect, useState } from "react";
+import { useSession } from "next-auth/react";
 
 export default function CompleteProfile() {
   const router = useRouter();
+  const { data: session, status } = useSession();
   const [username, setUsername] = useState("");
   const [error, setError] = useState("");
-  const [user, setUser] = useState(null);
 
+  // If user isn’t signed in or session is loading, handle accordingly
   useEffect(() => {
-    const unsubscribe = auth.onAuthStateChanged((currentUser) => {
-      if (!currentUser) {
-        router.replace("/login");
-      } else {
-        setUser(currentUser);
-      }
-    });
-
-    return () => unsubscribe();
-  }, [router]);
+    if (status === "loading") return;
+    if (!session?.user) {
+      // Not logged in, redirect to /login
+      router.replace("/login");
+    }
+    // else user is logged in
+  }, [session, status, router]);
 
   async function handleSubmit(e) {
     e.preventDefault();
@@ -29,18 +26,24 @@ export default function CompleteProfile() {
       setError("Username cannot be empty.");
       return;
     }
-
-    try {
-      await updateProfile(user, { displayName: username });
-      router.replace("/");
-    } catch (err) {
-      setError("Failed to update username.");
-    }
+    // Example: store username in DB via a custom API route or NextAuth update
+    console.log("Setting username to:", username);
+    router.replace("/");
   }
 
   async function handleCancel() {
-    await signOutUser();
+    // If you want to sign out from NextAuth:
+    // import { signOut } from "next-auth/react";
+    // await signOut();
     router.replace("/login");
+  }
+
+  if (status === "loading") {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <p>Loading session...</p>
+      </div>
+    );
   }
 
   return (

@@ -3,8 +3,9 @@
 import { useEffect, useState } from "react";
 import Image from "next/image";
 import Modal from "react-modal";
+import { useSession } from "next-auth/react";
 
-// A small pink heart icon for ephemeral "like"
+// A small pink heart icon for the like button
 const LikeIcon = () => (
   <svg
     className="w-5 h-5 text-pink-500"
@@ -16,56 +17,131 @@ const LikeIcon = () => (
 );
 
 export default function PlushieCard({ plushie = {}, setPlushies }) {
-  // Destructure your plushie data
+  const { data: session } = useSession();
+
   const {
-    id,
-    image = "/images/plushie-placeholder.png",
+    id = "no-id",
+    imageUrl = "/images/plushie-placeholder.png",
     name = "Untitled Plushie",
-    description = "No description available.",
-    author = "@Unknown",
-    pledged: initialPledged = 0, // how many pre-orders so far
-    // ... any other fields like comments, votes, etc. if needed
+    promptSanitized = "No description available.",
+    pledged: initialPledged = 0,
+    goal = 50,
+    creator,
+    likes: initialLikes = [],
+    comments: initialComments = [],
   } = plushie;
 
-  // State for ephemeral "like" count
-  const [likes, setLikes] = useState(0);
+  const author = creator?.displayName || creator?.name || "@Unknown";
 
-  // State for how many plushies have been pre-ordered
+  // 1) Initialize 'likes' to the total number of Like records
+  const [likes, setLikes] = useState(initialLikes.length);
+
+  // 2) Check if the current user already liked this plushie
+  const [hasLiked, setHasLiked] = useState(false);
+  useEffect(() => {
+    if (!session?.user?.uid) return;
+    const alreadyLiked = initialLikes.some(
+      (like) => like.userId === session.user.uid
+    );
+    setHasLiked(alreadyLiked);
+  }, [initialLikes, session?.user?.uid]);
+
+  // Other states
   const [pledged, setPledged] = useState(initialPledged);
-
-  // Payment form toggle
-  const [showPaymentForm, setShowPaymentForm] = useState(false);
-
-  // Comments logic
-  const [comments, setComments] = useState([]);
+  const [comments, setComments] = useState(initialComments);
   const [newComment, setNewComment] = useState("");
-
-  // Whether the modal is open
+  const [showPaymentForm, setShowPaymentForm] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
 
-  // Hard-coded user for comments
-  const username = "DemoUser";
-
-  // Setup React Modal for Next.js
+  // Setup React Modal
   useEffect(() => {
     if (typeof window !== "undefined") {
       Modal.setAppElement("body");
     }
   }, []);
 
-  // “Like” is ephemeral
-  const handleLike = () => setLikes((prev) => prev + 1);
+  // 3) Toggle like
+  async function handleLike() {
+    try {
+      const res = await fetch("/api/like", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ plushieId: id }),
+      });
+      if (!res.ok) {
+        console.error("API error toggling like");
+        return;
+      }
+      const data = await res.json();
+      // If data.liked === true => user just liked; else user just unliked
+      if (data.liked === true) {
+        setHasLiked(true);
+        setLikes((prev) => prev + 1);
+      } else {
+        setHasLiked(false);
+        setLikes((prev) => (prev > 0 ? prev - 1 : 0));
+      }
+    } catch (err) {
+      console.error("Error toggling like:", err);
+    }
+  }
 
-  // Payment form flow
-  const handlePreOrder = () => {
-    setShowPaymentForm((prev) => !prev);
-  };
+  // Submit new comment
+  async function handleCommentSubmit(e) {
+    e.preventDefault();
+    const text = newComment.trim();
+    if (!text) return;
+    try {
+      const res = await fetch("/api/comment", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ plushieId: id, text }),
+      });
+      if (!res.ok) {
+        console.error("API error posting comment");
+        return;
+      }
+      setComments((prev) => [
+        ...prev,
+        {
+          id: `local-${Date.now()}`,
+          content: text,
+          author: {
+            id: session?.user?.uid,
+            displayName: session?.user?.name || "You",
+          },
+        },
+      ]);
+      setNewComment("");
+    } catch (err) {
+      console.error("Error posting comment:", err);
+    }
+  }
 
+  // Delete comment
+  async function handleDeleteComment(commentId) {
+    try {
+      const res = await fetch(`/api/comment?commentId=${commentId}`, {
+        method: "DELETE",
+        credentials: "include",
+      });
+      if (!res.ok) {
+        console.error("API error deleting comment");
+        return;
+      }
+      setComments((prev) => prev.filter((c) => c.id !== commentId));
+    } catch (err) {
+      console.error("Error deleting comment:", err);
+    }
+  }
+
+  // Payment flow
+  const handlePreOrder = () => setShowPaymentForm((prev) => !prev);
   const handleConfirmPayment = () => {
     const newPledged = pledged + 1;
     setPledged(newPledged);
-
-    // If updating parent array
     if (setPlushies) {
       setPlushies((prevArr) =>
         prevArr.map((p) => (p.id === id ? { ...p, pledged: newPledged } : p))
@@ -74,48 +150,31 @@ export default function PlushieCard({ plushie = {}, setPlushies }) {
     setShowPaymentForm(false);
   };
 
-  // Comments
-  const handleCommentSubmit = (e) => {
-    e.preventDefault();
-    const text = newComment.trim();
-    if (!text) return;
-    setComments((prev) => [...prev, { user: username, text }]);
-    setNewComment("");
-  };
-
-  // Production goal
-  const GOAL = 50;
-  const progress = (pledged / GOAL) * 100;
-  const goalReached = pledged >= GOAL;
+  // Compute progress
+  const progress = (pledged / goal) * 100;
+  const goalReached = pledged >= goal;
 
   return (
     <>
-      {/* 
-        1) The Card itself: big image with hover overlay
-        Inspired by OpenArt’s style 
-      */}
       <div
         className="relative group cursor-pointer w-full h-auto overflow-hidden rounded-lg"
         onClick={() => setIsModalOpen(true)}
       >
-        {/* Large image in aspect-square */}
         <div className="relative w-full aspect-square">
           <Image
-            src={image}
+            src={imageUrl}
             alt={name}
             fill
             className="object-cover transition-transform duration-300 group-hover:scale-105"
           />
         </div>
-
-        {/* Hover overlay with author & pledge progress */}
         <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-50 transition duration-300 flex flex-col items-center justify-center opacity-0 group-hover:opacity-100">
           <p className="text-white text-lg md:text-xl font-bold mb-1">
             {author}
           </p>
           {!goalReached ? (
             <p className="text-white text-sm md:text-base">
-              {pledged}/{GOAL} bought
+              {pledged}/{goal} bought
             </p>
           ) : (
             <p className="text-green-300 text-sm md:text-base font-semibold">
@@ -125,10 +184,7 @@ export default function PlushieCard({ plushie = {}, setPlushies }) {
         </div>
       </div>
 
-      {/* 
-        2) The Modal: ephemeral likes, comments, pre-order flow, etc.
-        This is the same logic you had, just integrated with the new card style.
-      */}
+      {/* Modal */}
       <Modal
         isOpen={isModalOpen}
         onRequestClose={() => setIsModalOpen(false)}
@@ -162,7 +218,6 @@ export default function PlushieCard({ plushie = {}, setPlushies }) {
           }
         }}
       >
-        {/* Close Button */}
         <button
           onClick={() => setIsModalOpen(false)}
           className="absolute top-3 right-3 text-gray-500 hover:text-gray-700 text-2xl"
@@ -170,26 +225,23 @@ export default function PlushieCard({ plushie = {}, setPlushies }) {
           &times;
         </button>
 
-        {/* Modal Content */}
         <div className="flex flex-col gap-4 mt-6">
-          {/* Big plushie image */}
           <div className="relative w-full aspect-square">
             <Image
-              src={image}
+              src={imageUrl}
               alt={name}
               fill
               className="object-cover rounded-lg"
             />
           </div>
-
-          {/* Title & description */}
           <h2 className="text-3xl font-bold text-gray-800">{name}</h2>
-          <p className="text-gray-600">{description}</p>
+          <p className="text-gray-600">{promptSanitized}</p>
 
-          {/* Ephemeral "like" & pledged info */}
+          {/* Like & Pledge Info */}
           <div className="flex items-center gap-3">
+            {/* Remove "disabled={hasLiked}" so we can un-like */}
             <button
-              onClick={() => setLikes((prev) => prev + 1)}
+              onClick={handleLike}
               className="flex items-center px-3 py-2 bg-pink-100 text-pink-600 rounded hover:bg-pink-200"
             >
               <LikeIcon />
@@ -197,7 +249,7 @@ export default function PlushieCard({ plushie = {}, setPlushies }) {
             </button>
             <div className="text-gray-700 flex items-center">
               <span className="font-semibold mr-1">Bought:</span>
-              {pledged}/{GOAL}
+              {pledged}/{goal}
             </div>
           </div>
 
@@ -213,8 +265,6 @@ export default function PlushieCard({ plushie = {}, setPlushies }) {
               Goal Reached! We’ll produce this plushie!
             </p>
           )}
-
-          {/* Pre-order button in darkest blue */}
           {!goalReached && (
             <button
               onClick={handlePreOrder}
@@ -223,8 +273,6 @@ export default function PlushieCard({ plushie = {}, setPlushies }) {
               Pre-order ($54.99)
             </button>
           )}
-
-          {/* Minimal Payment Form */}
           {showPaymentForm && !goalReached && (
             <div className="p-3 border border-blue-300 rounded mt-2">
               <h3 className="font-semibold text-blue-700 mb-2">
@@ -263,10 +311,28 @@ export default function PlushieCard({ plushie = {}, setPlushies }) {
             {comments.length === 0 ? (
               <p className="text-gray-500 italic">No comments yet.</p>
             ) : (
-              comments.map((c, idx) => (
-                <div key={idx} className="bg-gray-100 p-2 rounded">
-                  <p className="text-gray-800 font-semibold">{c.user}</p>
-                  <p className="text-gray-800">{c.text}</p>
+              comments.map((c) => (
+                <div
+                  key={c.id}
+                  className="bg-gray-100 p-2 rounded flex justify-between"
+                >
+                  <div>
+                    <p className="text-gray-800 font-semibold">
+                      {c.author?.displayName ||
+                        c.author?.name ||
+                        "Unknown User"}
+                    </p>
+                    <p className="text-gray-800">{c.content}</p>
+                  </div>
+                  {session?.user?.uid && c.author?.id === session.user.uid && (
+                    <button
+                      onClick={() => handleDeleteComment(c.id)}
+                      className="text-gray-500 hover:text-red-600 ml-2"
+                      title="Delete Comment"
+                    >
+                      &times;
+                    </button>
+                  )}
                 </div>
               ))
             )}

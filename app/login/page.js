@@ -1,8 +1,8 @@
 "use client";
 
+import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { signIn } from "next-auth/react";
-import { useRouter } from "next/navigation";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -10,10 +10,11 @@ export default function LoginPage() {
 
   async function handleGoogleSignIn() {
     setError("");
-    // Using NextAuth’s signIn for Google – this will redirect the user to Google OAuth
-    const res = await signIn("google", { callbackUrl: "/" });
-    if (res && res.error) {
-      setError(res.error);
+    try {
+      // Use NextAuth's signIn method with the "google" provider.
+      await signIn("google", { callbackUrl: "/" });
+    } catch (err) {
+      setError("Google login failed. Please try again.");
     }
   }
 
@@ -29,7 +30,7 @@ export default function LoginPage() {
         >
           Sign in with Google
         </button>
-        {error && <p className="text-red-600 mb-4">{error}</p>}
+        {error && <p className="text-red-600 mt-4 text-center">{error}</p>}
         <p className="mt-4 text-sm text-gray-600 text-center">
           Don&apos;t have an account?{" "}
           <a

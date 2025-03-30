@@ -1,18 +1,19 @@
 "use client";
 
 import { useState } from "react";
-import { signIn } from "next-auth/react";
 import { useRouter } from "next/navigation";
+import { signIn } from "next-auth/react";
 
 export default function SignupPage() {
   const router = useRouter();
   const [error, setError] = useState("");
 
-  async function handleGoogleSignUp() {
+  async function handleGoogleSignup() {
     setError("");
-    const res = await signIn("google", { callbackUrl: "/" });
-    if (res && res.error) {
-      setError(res.error);
+    try {
+      await signIn("google", { callbackUrl: "/" });
+    } catch (err) {
+      setError("Google sign-up failed. Please try again.");
     }
   }
 
@@ -23,12 +24,12 @@ export default function SignupPage() {
           Sign Up
         </h1>
         <button
-          onClick={handleGoogleSignUp}
+          onClick={handleGoogleSignup}
           className="w-full px-6 py-3 text-lg font-semibold rounded-lg shadow bg-blue-600 text-white hover:bg-blue-500"
         >
           Sign up with Google
         </button>
-        {error && <p className="text-red-600 mb-4">{error}</p>}
+        {error && <p className="text-red-600 mt-4 text-center">{error}</p>}
         <p className="mt-4 text-sm text-gray-600 text-center">
           Already have an account?{" "}
           <a

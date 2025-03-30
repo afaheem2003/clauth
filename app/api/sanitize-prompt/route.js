@@ -1,4 +1,5 @@
 // app/utils/sanitizePrompt.js
+
 const REPLACEMENTS = [
   {
     pattern:
@@ -40,12 +41,14 @@ const REPLACEMENTS = [
 ];
 
 function cleanUpText(text) {
+  // Remove duplicate words
   text = text.replace(/\b(\w+)\s+\1\b/gi, "$1");
+  // Remove extra spaces
   text = text.replace(/\s{2,}/g, " ");
   return text.trim();
 }
 
-export function sanitizePrompt(prompt) {
+export default function sanitizePrompt(prompt) {
   let sanitized = prompt.toLowerCase();
 
   REPLACEMENTS.forEach(({ pattern, replacement }) => {

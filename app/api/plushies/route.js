@@ -1,10 +1,10 @@
 import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
-import { authOptions } from "@/app/lib/authOptions";
+import { authOptions } from "@/app/api/auth/[...nextauth]/route";
 import prisma from "@/app/lib/prisma";
 
 export async function POST(req) {
-  // In Next.js 13 (app router), simply pass authOptions
+  // In Next.js 13 app router, simply pass authOptions
   const session = await getServerSession(authOptions);
   if (!session?.user) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -34,6 +34,7 @@ export async function POST(req) {
   }
 
   try {
+    // Use session.user.uid as the user's ID
     const plushie = await prisma.plushie.create({
       data: {
         name,
@@ -50,7 +51,7 @@ export async function POST(req) {
         isPublished: !!isPublished,
         creator: {
           connect: {
-            firebaseUid: session.user.uid,
+            id: session.user.uid, // the new key
           },
         },
       },

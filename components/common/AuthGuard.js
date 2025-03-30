@@ -1,4 +1,3 @@
-// app/components/common/AuthGuard.jsx
 "use client";
 
 import { useEffect } from "react";
@@ -11,15 +10,18 @@ export default function AuthGuard({ children }) {
   const pathname = usePathname();
 
   useEffect(() => {
-    if (status === "loading") return; // Wait for session to load
+    // Wait for session to load
+    if (status === "loading") return;
+
+    // If not logged in, redirect
     if (!session) {
-      // Not signed in, redirect to login page
       router.replace("/login");
-    } else if (!session.user.displayName && pathname !== "/complete-profile") {
-      // User signed in but hasn't set a display name, redirect to complete-profile
+    }
+    // If missing displayName, redirect to complete-profile
+    else if (!session.user?.name && pathname !== "/complete-profile") {
       router.replace("/complete-profile");
     }
-  }, [session, status, router, pathname]);
+  }, [status, session, pathname, router]);
 
   if (status === "loading") {
     return (

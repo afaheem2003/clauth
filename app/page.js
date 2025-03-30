@@ -1,17 +1,13 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
-import { onAuthStateChanged } from "firebase/auth";
-import { auth } from "@/app/lib/firebaseClient";
+import { useState } from "react";
+import { useSession } from "next-auth/react";
 import PlushieGeneratorModal from "@/components/layout/PlushieGeneratorModal";
 import Footer from "@/components/common/Footer";
 import AuthPromptModal from "@/components/common/AuthPromptModal";
 import PlushieCard from "@/components/plushie/PlushieCard";
 import Link from "next/link";
-import Image from "next/image";
 
-// Dummy plushies for featured section
 const SCROLLING_PLUSHIES = [
   "/images/plushie-placeholder.png",
   "/images/plushie-placeholder.png",
@@ -20,18 +16,13 @@ const SCROLLING_PLUSHIES = [
 ];
 
 export default function HomePage() {
+  const { data: session } = useSession();
+
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [showAuthPrompt, setShowAuthPrompt] = useState(false);
-  const [user, setUser] = useState(null);
-  const router = useRouter();
-
-  useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, setUser);
-    return () => unsubscribe();
-  }, []);
 
   const handleCreateClick = () => {
-    if (user) {
+    if (session?.user) {
       setIsModalOpen(true);
     } else {
       setShowAuthPrompt(true);
@@ -42,7 +33,6 @@ export default function HomePage() {
     <>
       {/* Hero Section */}
       <section className="relative min-h-screen bg-gradient-to-b from-gray-50 to-gray-100 flex flex-col items-center justify-center">
-        {/* Foreground Content */}
         <div className="container mx-auto px-6 py-16 text-center">
           <h1 className="text-6xl md:text-7xl font-extrabold text-gray-800 mb-6 drop-shadow-sm">
             Welcome to Ploosh

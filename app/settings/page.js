@@ -1,27 +1,25 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { auth } from "@/app/lib/firebaseClient";
+import { useSession } from "next-auth/react";
 
 export default function SettingsPage() {
   const router = useRouter();
-  const [user, setUser] = useState(null);
+  const { data: session, status } = useSession();
   const [displayName, setDisplayName] = useState("");
 
   useEffect(() => {
-    const unsubscribe = auth.onAuthStateChanged((currentUser) => {
-      if (!currentUser) {
-        router.push("/login");
-      } else {
-        setUser(currentUser);
-        setDisplayName(currentUser.displayName || "");
-      }
-    });
-    return () => unsubscribe();
-  }, [router]);
+    if (status === "loading") return;
+    if (!session?.user) {
+      router.push("/login");
+    } else {
+      // For demonstration, if we want to show their "name" from NextAuth session
+      setDisplayName(session.user.name || "");
+    }
+  }, [router, session, status]);
 
-  if (!user) {
+  if (status === "loading") {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <p className="text-lg font-semibold">Loading...</p>
@@ -30,6 +28,7 @@ export default function SettingsPage() {
   }
 
   function handleSaveChanges() {
+    // If you want to store changes in your DB, you'd do so via an API call
     alert(`Saving new display name: ${displayName} (not implemented)`);
   }
 
