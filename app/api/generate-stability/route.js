@@ -1,7 +1,25 @@
-// app/api/generate-stability/route.js
-
 import { NextResponse } from "next/server";
 import sanitizePrompt from "@/app/utils/sanitizePrompt";
+import {
+  getStorage,
+  ref,
+  uploadString,
+  getDownloadURL,
+} from "firebase/storage";
+import { initializeApp, getApps, getApp } from "firebase/app";
+import { v4 as uuidv4 } from "uuid";
+
+const firebaseConfig = {
+  apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
+  authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
+  projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
+  storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
+  messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
+  appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
+};
+
+const app = !getApps().length ? initializeApp(firebaseConfig) : getApp();
+const storage = getStorage(app);
 
 export async function POST(req) {
   try {
@@ -69,8 +87,15 @@ export async function POST(req) {
       );
     }
 
-    // Instead of uploading to Firebase here, return the raw image data (base64 string)
-    return NextResponse.json({ imageUrl: data.image });
+    // Upload base64 image to Firebase Storage
+    const filename = `plushies/${uuidv4()}.png`;
+    const imageRef = ref(storage, filename);
+    await uploadString(imageRef, data.image, "base64", {
+      contentType: "image/png",
+    });
+    const firebaseImageUrl = await getDownloadURL(imageRef);
+
+    return NextResponse.json({ imageUrl: firebaseImageUrl });
   } catch (error) {
     console.error("🔥 Unexpected Error:", error);
     return NextResponse.json(

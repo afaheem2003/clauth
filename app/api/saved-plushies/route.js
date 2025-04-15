@@ -1,29 +1,22 @@
-// app/api/saved-plushies/route.js
-
 import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
-import { authOptions } from "@/app/api/auth/[...nextauth]/route";
+import { authOptions } from "@/app/lib/authOptions";
 import prisma from "@/app/lib/prisma";
 
 export async function POST(req) {
   console.log("📥 Hit /api/saved-plushies POST");
 
-  // Fetch the session
+  // Use getServerSession with authOptions
   const session = await getServerSession(authOptions);
-  console.log("🔎 Full session object =>", session);
   if (!session?.user) {
     console.warn("⚠️ Unauthorized request – no session user");
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
-  console.log("🔎 session.user =>", session.user);
 
-  // Parse the request body
   const body = await req.json();
   console.log("🧸 Received body:", body);
 
-  // Extract fields (plushieId is optional for update)
   const {
-    plushieId,
     name,
     imageUrl,
     promptRaw,
@@ -35,10 +28,8 @@ export async function POST(req) {
     outfit,
     accessories,
     pose,
-    isPublished,
   } = body;
 
-  // Validate required fields
   if (!name || !imageUrl || !promptRaw || !texture || !size) {
     console.warn("⚠️ Missing required fields in body");
     return NextResponse.json(
@@ -47,67 +38,42 @@ export async function POST(req) {
     );
   }
 
-  // Use uid from session as the user's identifier
   const userId = session.user.uid;
-  console.log("🙋 User ID:", userId);
+  console.log("🙋 user ID:", userId);
+
   if (!userId) {
     console.error("❌ session.user.uid is undefined");
     return NextResponse.json({ error: "Missing user UID" }, { status: 500 });
   }
 
   try {
-    let plushie;
-
-    if (plushieId) {
-      // Update existing Plushie
-      console.log("Updating existing Plushie with id:", plushieId);
-      plushie = await prisma.plushie.update({
-        where: { id: plushieId },
-        data: {
-          name,
-          imageUrl,
-          promptRaw,
-          promptSanitized: promptSanitized || "",
-          texture,
-          size,
-          emotion: emotion || "",
-          color,
-          outfit,
-          accessories,
-          pose,
-          isPublished: !!isPublished,
+    const draft = await prisma.savedPlushie.create({
+      data: {
+        // These fields must exist in your Prisma schema if you want to store them here.
+        name,
+        imageUrl,
+        promptRaw,
+        promptSanitized: promptSanitized || "",
+        texture,
+        size,
+        emotion: emotion || "",
+        color,
+        outfit,
+        accessories,
+        pose,
+        // Connect the user by ID
+        user: {
+          connect: { id: userId },
         },
-      });
-    } else {
-      // Create new Plushie
-      console.log("Creating new Plushie record");
-      plushie = await prisma.plushie.create({
-        data: {
-          name,
-          imageUrl,
-          promptRaw,
-          promptSanitized: promptSanitized || "",
-          texture,
-          size,
-          emotion: emotion || "",
-          color,
-          outfit,
-          accessories,
-          pose,
-          isPublished: !!isPublished,
-          creator: {
-            connect: { id: userId },
-          },
-        },
-      });
-    }
+      },
+    });
 
-    console.log("✅ Plushie record processed with id:", plushie.id);
-    return NextResponse.json({ plushie });
+    console.log("✅ Draft saved:", draft.id);
+    return NextResponse.json({ savedPlushie: draft });
   } catch (err) {
-    console.error("❌ Failed to process plushie record:", err);
+    console.error("❌ Failed to save draft:", err);
     return NextResponse.json(
-      { error: "Failed to process plushie record" },
+      { error: "Failed to save draft" },
       { status: 500 }
     );
   }
