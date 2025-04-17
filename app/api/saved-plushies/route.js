@@ -1,22 +1,23 @@
+// app/api/saved‑plushies/route.js
+
 import { NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/app/lib/authOptions";
+import { getServerSession } from "next-auth/next";
+import { authOptions } from "@/app/api/auth/[...nextauth]/route";
 import prisma from "@/app/lib/prisma";
 
 export async function POST(req) {
-  console.log("📥 Hit /api/saved-plushies POST");
-
-  // Use getServerSession with authOptions
   const session = await getServerSession(authOptions);
-  if (!session?.user) {
-    console.warn("⚠️ Unauthorized request – no session user");
+  console.log("🔥 session:", session);
+  console.log("🔥 session.user.uid:", session?.user?.uid);
+
+  if (!session?.user?.uid) {
+    console.warn("⚠️ No user.uid in session, unauthorized");
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
   const body = await req.json();
-  console.log("🧸 Received body:", body);
-
   const {
+    id,                  // optional: if present, we’ll update instead of create
     name,
     imageUrl,
     promptRaw,
@@ -28,53 +29,59 @@ export async function POST(req) {
     outfit,
     accessories,
     pose,
+    isPublished = false, // default to draft
   } = body;
 
+  // sanity check
   if (!name || !imageUrl || !promptRaw || !texture || !size) {
-    console.warn("⚠️ Missing required fields in body");
-    return NextResponse.json(
-      { error: "Missing required fields" },
-      { status: 400 }
-    );
-  }
-
-  const userId = session.user.uid;
-  console.log("🙋 user ID:", userId);
-
-  if (!userId) {
-    console.error("❌ session.user.uid is undefined");
-    return NextResponse.json({ error: "Missing user UID" }, { status: 500 });
+    console.warn("⚠️ Missing required fields:", { name, imageUrl, promptRaw, texture, size });
+    return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
   }
 
   try {
-    const draft = await prisma.savedPlushie.create({
-      data: {
-        // These fields must exist in your Prisma schema if you want to store them here.
-        name,
-        imageUrl,
-        promptRaw,
-        promptSanitized: promptSanitized || "",
-        texture,
-        size,
-        emotion: emotion || "",
-        color,
-        outfit,
-        accessories,
-        pose,
-        // Connect the user by ID
-        user: {
-          connect: { id: userId },
+    let plushie;
+    if (id) {
+      plushie = await prisma.plushie.update({
+        where: { id },
+        data: {
+          name,
+          imageUrl,
+          promptRaw,
+          promptSanitized: promptSanitized || "",
+          texture,
+          size,
+          emotion: emotion || "",
+          color,
+          outfit,
+          accessories,
+          pose,
+          isPublished: Boolean(isPublished),
         },
-      },
-    });
+      });
+    } else {
+      plushie = await prisma.plushie.create({
+        data: {
+          name,
+          imageUrl,
+          promptRaw,
+          promptSanitized: promptSanitized || "",
+          texture,
+          size,
+          emotion: emotion || "",
+          color,
+          outfit,
+          accessories,
+          pose,
+          isPublished: Boolean(isPublished),
+          creator: { connect: { id: session.user.uid } },
+        },
+      });
+    }
 
-    console.log("✅ Draft saved:", draft.id);
-    return NextResponse.json({ savedPlushie: draft });
+    console.log("✅ saved Plushie:", plushie.id);
+    return NextResponse.json({ plushie });
   } catch (err) {
-    console.error("❌ Failed to save draft:", err);
-    return NextResponse.json(
-      { error: "Failed to save draft" },
-      { status: 500 }
-    );
+    console.error("❌ Failed to save Plushie:", err);
+    return NextResponse.json({ error: "Failed to save plushie" }, { status: 500 });
   }
 }
