@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import sanitizePrompt from "@/app/utils/sanitizePrompt";
+import sanitizePrompt from "@/utils/sanitizePrompt";
 import {
   getStorage,
   ref,

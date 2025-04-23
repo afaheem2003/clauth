@@ -1,211 +1,131 @@
-"use client";
+// app/design/page.js
+'use client';
 
-import { useState } from "react";
-import Image from "next/image";
-import { useSession } from "next-auth/react";
-import { EMOTIONS, TEXTURES, SIZES } from "@/app/constants/options";
-import sanitizePrompt from "@/app/utils/sanitizePrompt";
-import { storage } from "@/app/lib/firebaseClient";
-import { getDownloadURL, ref, uploadString } from "firebase/storage";
-import Footer from "@/components/common/Footer"; // <-- Import Footer
-
-const useMockApi = process.env.NEXT_PUBLIC_USE_MOCK_API === "true";
-
-// A bigger spinner that replaces button text (white color)
-function BigSpinner() {
-  return (
-    <svg
-      className="animate-spin h-6 w-6 text-white mx-auto"
-      xmlns="http://www.w3.org/2000/svg"
-      fill="none"
-      viewBox="0 0 24 24"
-    >
-      <circle
-        className="opacity-25"
-        cx="12"
-        cy="12"
-        r="10"
-        stroke="currentColor"
-        strokeWidth="4"
-      />
-      <path
-        className="opacity-75"
-        fill="currentColor"
-        d="M4 12a8 8 0 018-8v8H4z"
-      />
-    </svg>
-  );
-}
-
-function Input({ label, value, setValue, required = false }) {
-  return (
-    <div className="w-full">
-      <label className="font-medium block text-xs mb-1 text-gray-800">
-        {label} {required && <span className="text-red-500">*</span>}
-      </label>
-      <input
-        type="text"
-        placeholder={label}
-        value={value}
-        onChange={(e) => setValue(e.target.value)}
-        className="w-full px-2 py-1.5 border rounded-md text-gray-800 placeholder-gray-400 text-sm"
-      />
-    </div>
-  );
-}
-
-function ButtonGroup({
-  label,
-  options,
-  selected,
-  setSelected,
-  required = false,
-}) {
-  return (
-    <div className="w-full">
-      <label className="font-medium block text-xs mb-1 text-gray-800">
-        {label} {required && <span className="text-red-500">*</span>}
-      </label>
-      <div className="flex flex-wrap gap-2">
-        {options.map((option) => (
-          <button
-            key={option}
-            onClick={() => setSelected(option)}
-            className={`px-3 py-1.5 rounded-full border text-sm ${
-              selected === option
-                ? "bg-gray-900 text-white"
-                : "bg-white text-gray-800 border-gray-300"
-            }`}
-          >
-            {option}
-          </button>
-        ))}
-      </div>
-    </div>
-  );
-}
+import { useState } from 'react';
+import { useRouter } from 'next/navigation';
+import { useSession } from 'next-auth/react';
+import { EMOTIONS, TEXTURES, SIZES } from '@/app/constants/options';
+import sanitizePrompt from '@/utils/sanitizePrompt';
+import { storage } from '@/app/lib/firebaseClient';
+import { getDownloadURL, ref, uploadString } from 'firebase/storage';
+import { normalizeDataUrl } from '@/utils/normalizeDataUrl';
+import Footer from '@/components/common/Footer';
+import BigSpinner from '@/components/common/BigSpinner';
+import Input from '@/components/common/Input';
+import ButtonGroup from '@/components/common/ButtonGroup';
 
 export default function CreateDesignPage() {
+  const router = useRouter();
   const { data: session } = useSession();
 
-  // Form inputs
-  const [animal, setAnimal] = useState("");
-  const [texture, setTexture] = useState("");
-  const [color, setColor] = useState("");
-  const [accessories, setAccessories] = useState("");
-  const [emotion, setEmotion] = useState("");
-  const [outfit, setOutfit] = useState("");
-  const [pose, setPose] = useState("");
-  const [size, setSize] = useState("");
+  // form state
+  const [animal, setAnimal] = useState('');
+  const [texture, setTexture] = useState('');
+  const [color, setColor] = useState('');
+  const [accessories, setAccessories] = useState('');
+  const [emotion, setEmotion] = useState('');
+  const [outfit, setOutfit] = useState('');
+  const [pose, setPose] = useState('');
+  const [size, setSize] = useState('');
 
-  // Image & button-loading states
+  // image & feedback
   const [imageUrl, setImageUrl] = useState(null);
-  const [loadingButton, setLoadingButton] = useState(null); // "generate" | "save" | "publish" | null
-  const [errorMessage, setErrorMessage] = useState("");
+  const [loadingButton, setLoadingButton] = useState(null); // 'generate' | 'save' | 'publish' | null
+  const [errorMessage, setErrorMessage] = useState('');
 
-  // Build the prompt and sanitize
+  // build & sanitize prompt
   const prompt = `${size} ${texture} plushie of a ${color} ${animal} with ${accessories}, wearing ${outfit}, showing a ${emotion} expression, posed ${pose}`;
   const sanitizedPrompt = sanitizePrompt(prompt);
 
-  // Helper: Convert Blob -> base64
-  function blobToBase64(blob) {
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onloadend = () => resolve(reader.result);
-      reader.onerror = reject;
-      reader.readAsDataURL(blob);
+  // blob → data‑URL helper
+  function blobToDataUrl(blob) {
+    return new Promise((res, rej) => {
+      const rdr = new FileReader();
+      rdr.onloadend = () => res(rdr.result);
+      rdr.onerror = rej;
+      rdr.readAsDataURL(blob);
     });
   }
 
-  // Upload image to Firebase (placing it in "plushies/<userId>/...")
-  async function uploadImageToFirebase(localImageUrl) {
-    if (!session?.user) {
-      throw new Error("No NextAuth user session found for uploading.");
-    }
-    const userId = session.user.uid || "anon";
-    const fileRef = ref(storage, `plushies/${userId}/${Date.now()}.png`);
+  // upload helper (handles both data‑URI & remote URL)
+  async function uploadImageToFirebase(localUrl) {
+    if (!session?.user) throw new Error('Not authenticated.');
+    const fileRef = ref(
+      storage,
+      `plushies/${session.user.uid}/${Date.now()}.png`
+    );
 
-    // If the URL is already a data URL, upload it directly
-    if (localImageUrl.startsWith("data:image/")) {
-      await uploadString(fileRef, localImageUrl, "data_url");
-      return getDownloadURL(fileRef);
+    let fullDataUrl;
+    if (localUrl.startsWith('data:')) {
+      // already a data‑URI
+      fullDataUrl = normalizeDataUrl(localUrl);
+    } else {
+      // fetch image and convert to data‑URI
+      const resp = await fetch(localUrl);
+      const blob = await resp.blob();
+      fullDataUrl = await blobToDataUrl(blob);
     }
-    // Otherwise, fetch and convert to base64
-    const res = await fetch(localImageUrl);
-    if (!res.ok) {
-      throw new Error(
-        `Failed to fetch image from ${localImageUrl}: ${res.status}`
-      );
-    }
-    const blob = await res.blob();
-    const base64Data = await blobToBase64(blob);
-    await uploadString(fileRef, base64Data, "data_url");
+
+    // upload the entire data‑URI (metadata + payload)
+    await uploadString(fileRef, fullDataUrl, 'data_url');
     return getDownloadURL(fileRef);
   }
 
-  // Generate plushie image from API
+  // generate with Stability AI
   async function generatePlushie() {
-    setLoadingButton("generate");
-    setErrorMessage("");
+    setLoadingButton('generate');
+    setErrorMessage('');
     setImageUrl(null);
 
     try {
-      if (!session?.user) {
-        throw new Error("You must be logged in to generate plushies.");
-      }
-      if (!animal || !texture || !size) {
-        throw new Error("Animal, Texture, and Size are required.");
-      }
-      const response = await fetch("/api/generate-stability", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
+      if (!session?.user) throw new Error('You must be logged in.');
+      if (!animal || !texture || !size)
+        throw new Error('Animal, Texture & Size are required.');
+
+      const res = await fetch('/api/generate-stability', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
         body: JSON.stringify({ prompt }),
       });
-      if (!response.ok) {
-        const errData = await response.json().catch(() => ({}));
-        throw new Error(errData.error || "Error generating plushie");
+      if (!res.ok) throw new Error((await res.json()).error || 'Generation failed');
+
+      const { imageUrl: url } = await res.json();
+
+      // only wrap raw base‑64 strings, leave data‑URIs, local paths and http(s) URLs intact
+      let finalUrl = url;
+      if (
+        !finalUrl.startsWith('data:') &&
+        !finalUrl.startsWith('/') &&
+        !finalUrl.startsWith('http')
+      ) {
+        finalUrl = `data:image/png;base64,${finalUrl}`;
       }
-      const data = await response.json();
-      if (!data.imageUrl) {
-        throw new Error("No image returned from server.");
-      }
-      let finalUrl = data.imageUrl;
-      if (!useMockApi) {
-        if (
-          !finalUrl.startsWith("data:image/") &&
-          !finalUrl.startsWith("/") &&
-          !finalUrl.startsWith("http")
-        ) {
-          finalUrl = `data:image/png;base64,${finalUrl}`;
-        }
-      }
+
       setImageUrl(finalUrl);
     } catch (err) {
-      console.error("❌ generatePlushie error:", err);
-      setErrorMessage(err.message || "Failed to generate plushie.");
+      setErrorMessage(err.message || 'Failed to generate plushie.');
     } finally {
       setLoadingButton(null);
     }
   }
 
-  // Save or publish plushie
+  // save or publish and then redirect
   async function saveOrPublish(type) {
     setLoadingButton(type);
-    setErrorMessage("");
+    setErrorMessage('');
+
     try {
-      if (!session?.user) {
-        throw new Error("Not logged in via NextAuth. Please sign in first.");
-      }
-      if (!imageUrl) {
-        throw new Error("No image generated yet.");
-      }
+      if (!session?.user) throw new Error('Not authenticated.');
+      if (!imageUrl) throw new Error('Generate an image first.');
+
       const uploadedUrl = await uploadImageToFirebase(imageUrl);
+
       const payload = {
         name: animal,
         imageUrl: uploadedUrl,
         promptRaw: prompt,
-        promptSanitized: sanitizedPrompt,
+        promptSanitized : sanitizedPrompt,
         texture,
         size,
         emotion,
@@ -213,45 +133,40 @@ export default function CreateDesignPage() {
         outfit,
         accessories,
         pose,
-        isPublished: type === "publish",
+        isPublished: type === 'publish',
       };
-      const resp = await fetch("/api/saved-plushies", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
+
+      const resp = await fetch('/api/saved-plushies', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
         body: JSON.stringify(payload),
       });
-      if (!resp.ok) {
-        const errorData = await resp.json().catch(() => ({}));
-        throw new Error(errorData.error || "Failed to save plushie");
-      }
-      console.log("✅ Plushie saved successfully");
-      // Optionally, you could reset the form or navigate away here.
-      onClose();
+      if (!resp.ok) throw new Error((await resp.json()).error || 'Save failed');
+
+      router.push('/discover');
     } catch (err) {
-      console.error(`❌ ${type} error:`, err);
-      setErrorMessage(err.message || "Something went wrong");
+      setErrorMessage(err.message || 'Failed to save plushie.');
     } finally {
       setLoadingButton(null);
     }
   }
 
-  // Render the Create Design page with a side-by-side view
+  const isGenerating = loadingButton === 'generate';
+  const isSaving     = loadingButton === 'save';
+  const isPublishing = loadingButton === 'publish';
+  const anyLoading   = !!loadingButton;
+
   return (
     <div className="min-h-screen bg-gradient-to-b from-gray-100 to-gray-200 flex flex-col items-center justify-center py-10 px-4">
       <h1 className="text-5xl font-extrabold text-gray-800 mb-6 text-center">
         Create Your Plushie Design
       </h1>
       <div className="w-full max-w-5xl bg-white rounded-xl shadow-2xl p-8 flex flex-col lg:flex-row gap-8">
-        {/* Left Column: Input Form */}
-        <div className="flex-1 space-y-6">
-          <div className="space-y-3">
-            <Input
-              label="Animal"
-              value={animal}
-              setValue={setAnimal}
-              required
-            />
+        {!imageUrl ? (
+          // **FORM VIEW**
+          <div className="flex-1 space-y-6">
+            <Input label="Animal" value={animal} setValue={setAnimal} required />
             <ButtonGroup
               label="Texture"
               options={TEXTURES}
@@ -260,11 +175,7 @@ export default function CreateDesignPage() {
               required
             />
             <Input label="Color" value={color} setValue={setColor} />
-            <Input
-              label="Accessories"
-              value={accessories}
-              setValue={setAccessories}
-            />
+            <Input label="Accessories" value={accessories} setValue={setAccessories} />
             <ButtonGroup
               label="Emotion"
               options={EMOTIONS}
@@ -280,88 +191,70 @@ export default function CreateDesignPage() {
               setSelected={setSize}
               required
             />
-          </div>
-          <div className="flex gap-4">
-            <button
-              onClick={generatePlushie}
-              disabled={!!loadingButton}
-              className="flex-1 py-3 bg-gray-900 text-white rounded-full hover:bg-gray-700 transition"
-            >
-              {loadingButton === "generate" ? (
-                <BigSpinner />
-              ) : (
-                "Generate Plushie"
-              )}
-            </button>
-            <button
-              onClick={() => {
-                // Reset form but keep the input values for further editing
-                setImageUrl(null);
-                setErrorMessage("");
-              }}
-              disabled={!!loadingButton}
-              className="flex-1 py-3 bg-gray-500 text-white rounded-full hover:bg-gray-600 transition"
-            >
-              Reset Form
-            </button>
-          </div>
-          {errorMessage && (
-            <div className="text-red-600 text-center font-medium text-sm">
-              {errorMessage}
-            </div>
-          )}
-        </div>
 
-        {/* Right Column: Display Generated Image and Prompt */}
-        <div className="flex-1 flex flex-col items-center justify-center border-l border-gray-200 pl-8">
-          {imageUrl ? (
-            <>
-              <div className="relative w-80 h-80">
-                <Image
-                  src={imageUrl}
-                  alt="Generated Plushie"
-                  fill
-                  unoptimized
-                  className="object-cover rounded-xl"
-                />
-              </div>
-              <div className="mt-4 text-center">
-                <h2 className="text-xl font-semibold text-gray-800">
-                  Your Prompt
-                </h2>
-                <p className="text-gray-600 italic text-sm">
-                  {sanitizedPrompt}
-                </p>
-              </div>
-              <div className="flex gap-4 mt-6">
-                <button
-                  onClick={() => saveOrPublish("save")}
-                  disabled={!!loadingButton}
-                  className="py-3 px-6 bg-blue-600 text-white rounded-full hover:bg-blue-700 transition"
-                >
-                  {loadingButton === "save" ? <BigSpinner /> : "Save for Later"}
-                </button>
-                <button
-                  onClick={() => saveOrPublish("publish")}
-                  disabled={!!loadingButton}
-                  className="py-3 px-6 bg-green-600 text-white rounded-full hover:bg-green-700 transition"
-                >
-                  {loadingButton === "publish" ? (
-                    <BigSpinner />
-                  ) : (
-                    "Publish Plushie"
-                  )}
-                </button>
-              </div>
-            </>
-          ) : (
-            <div className="text-gray-500 text-center">
-              <p>Generated image will appear here.</p>
+            <div className="flex gap-4">
+              <button
+                onClick={generatePlushie}
+                disabled={anyLoading}
+                className="flex-1 py-3 bg-gray-900 text-white rounded-full hover:bg-gray-700 transition"
+              >
+                {isGenerating ? <BigSpinner /> : 'Generate Plushie'}
+              </button>
+              <button
+                onClick={() => { setImageUrl(null); setErrorMessage(''); }}
+                disabled={anyLoading}
+                className="flex-1 py-3 bg-gray-500 text-white rounded-full hover:bg-gray-600 transition"
+              >
+                Reset Form
+              </button>
             </div>
-          )}
-        </div>
+
+            {errorMessage && (
+              <div className="text-red-600 text-center font-medium text-sm">
+                {errorMessage}
+              </div>
+            )}
+          </div>
+        ) : (
+          // **RESULT VIEW**
+          <div className="flex-1 flex flex-col items-center justify-center">
+            <div className="w-full h-80 overflow-hidden rounded-xl">
+              <img
+                src={imageUrl}
+                alt="Generated Plushie"
+                className="object-cover w-full h-full"
+              />
+            </div>
+            <div className="flex flex-col gap-3 mt-6 w-full max-w-sm">
+              <button
+                onClick={() => { setImageUrl(null); setErrorMessage(''); }}
+                className="w-full py-2.5 bg-gray-400 text-white rounded-full hover:bg-gray-500 transition"
+              >
+                Try Again
+              </button>
+              <button
+                onClick={() => saveOrPublish('save')}
+                disabled={anyLoading}
+                className="w-full py-2.5 bg-blue-600 text-white rounded-full hover:bg-blue-700 transition"
+              >
+                {isSaving ? <BigSpinner /> : 'Save for Later'}
+              </button>
+              <button
+                onClick={() => saveOrPublish('publish')}
+                disabled={anyLoading}
+                className="w-full py-2.5 bg-green-600 text-white rounded-full hover:bg-green-700 transition"
+              >
+                {isPublishing ? <BigSpinner /> : 'Publish Plushie'}
+              </button>
+              {errorMessage && (
+                <div className="mt-3 text-red-600 text-center font-medium text-sm">
+                  {errorMessage}
+                </div>
+              )}
+            </div>
+          </div>
+        )}
       </div>
-      {/* Footer */}
       <Footer />
     </div>
   );

@@ -4,6 +4,12 @@ import { useEffect, useState } from "react";
 import Image from "next/image";
 import Modal from "react-modal";
 import { useSession } from "next-auth/react";
+import { loadStripe } from "@stripe/stripe-js";
+
+// 1) Initialize Stripe.js with your publishable key
+const stripePromise = loadStripe(
+  process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY
+);
 
 // A small pink heart icon for the like button
 const LikeIcon = () => (
@@ -18,9 +24,8 @@ const LikeIcon = () => (
 
 export default function PlushieCard({ plushie = {}, setPlushies }) {
   const { data: session } = useSession();
-
   const {
-    id = "no-id",
+    id,
     imageUrl = "/images/plushie-placeholder.png",
     name = "Untitled Plushie",
     promptSanitized = "No description available.",
@@ -33,129 +38,119 @@ export default function PlushieCard({ plushie = {}, setPlushies }) {
 
   const author = creator?.displayName || creator?.name || "@Unknown";
 
-  // 1) Initialize 'likes' to the total number of Like records
+  // Likes
   const [likes, setLikes] = useState(initialLikes.length);
-
-  // 2) Check if the current user already liked this plushie
   const [hasLiked, setHasLiked] = useState(false);
   useEffect(() => {
     if (!session?.user?.uid) return;
-    const alreadyLiked = initialLikes.some(
-      (like) => like.userId === session.user.uid
-    );
-    setHasLiked(alreadyLiked);
+    setHasLiked(initialLikes.some((l) => l.userId === session.user.uid));
   }, [initialLikes, session?.user?.uid]);
 
-  // Other states
-  const [pledged, setPledged] = useState(initialPledged);
+  // Comments
   const [comments, setComments] = useState(initialComments);
   const [newComment, setNewComment] = useState("");
-  const [showPaymentForm, setShowPaymentForm] = useState(false);
+
+  // Modal & payment‑form toggle
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [showPaymentForm, setShowPaymentForm] = useState(false);
 
-  // Setup React Modal
-  useEffect(() => {
-    if (typeof window !== "undefined") {
-      Modal.setAppElement("body");
-    }
-  }, []);
+  // Pledge count
+  const [pledged, setPledged] = useState(initialPledged);
 
-  // 3) Toggle like
-  async function handleLike() {
-    try {
-      const res = await fetch("/api/like", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify({ plushieId: id }),
-      });
-      if (!res.ok) {
-        console.error("API error toggling like");
-        return;
-      }
-      const data = await res.json();
-      // If data.liked === true => user just liked; else user just unliked
-      if (data.liked === true) {
-        setHasLiked(true);
-        setLikes((prev) => prev + 1);
-      } else {
-        setHasLiked(false);
-        setLikes((prev) => (prev > 0 ? prev - 1 : 0));
-      }
-    } catch (err) {
-      console.error("Error toggling like:", err);
+  // Quantity always starts at 1
+  const [desiredQty, setDesiredQty] = useState(1);
+
+  // Open pre‑order form
+  const handlePreOrder = () => {
+    setShowPaymentForm((f) => !f);
+    setDesiredQty(1);
+  };
+
+  // Stripe checkout
+  async function handleConfirmPayment() {
+    setShowPaymentForm(false);
+    const stripe = await stripePromise;
+    const res = await fetch("/api/checkout", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
+      body: JSON.stringify({
+        plushieId: id,
+        imageUrl,
+        quantity: desiredQty,
+        returnTo: window.location.pathname,
+      }),
+    });
+    if (!res.ok) {
+      console.error("Failed to create Stripe session");
+      return;
     }
+    const { sessionId } = await res.json();
+    const { error } = await stripe.redirectToCheckout({ sessionId });
+    if (error) console.error(error.message);
   }
 
-  // Submit new comment
+  // Toggle like
+  async function handleLike() {
+    const res = await fetch("/api/like", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
+      body: JSON.stringify({ plushieId: id }),
+    });
+    if (!res.ok) return console.error("Error toggling like");
+    const { liked } = await res.json();
+    setHasLiked(liked);
+    setLikes((n) => (liked ? n + 1 : Math.max(0, n - 1)));
+  }
+
+  // Post comment
   async function handleCommentSubmit(e) {
     e.preventDefault();
     const text = newComment.trim();
     if (!text) return;
-    try {
-      const res = await fetch("/api/comment", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify({ plushieId: id, text }),
-      });
-      if (!res.ok) {
-        console.error("API error posting comment");
-        return;
-      }
-      setComments((prev) => [
-        ...prev,
-        {
-          id: `local-${Date.now()}`,
-          content: text,
-          author: {
-            id: session?.user?.uid,
-            displayName: session?.user?.name || "You",
-          },
+    const res = await fetch("/api/comment", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
+      body: JSON.stringify({ plushieId: id, text }),
+    });
+    if (!res.ok) return console.error("Error posting comment");
+    setComments((c) => [
+      ...c,
+      {
+        id: `tmp-${Date.now()}`,
+        content: text,
+        author: {
+          id: session.user.uid,
+          displayName: session.user.name || "You",
         },
-      ]);
-      setNewComment("");
-    } catch (err) {
-      console.error("Error posting comment:", err);
-    }
+      },
+    ]);
+    setNewComment("");
   }
 
   // Delete comment
-  async function handleDeleteComment(commentId) {
-    try {
-      const res = await fetch(`/api/comment?commentId=${commentId}`, {
-        method: "DELETE",
-        credentials: "include",
-      });
-      if (!res.ok) {
-        console.error("API error deleting comment");
-        return;
-      }
-      setComments((prev) => prev.filter((c) => c.id !== commentId));
-    } catch (err) {
-      console.error("Error deleting comment:", err);
-    }
+  async function handleDeleteComment(cid) {
+    const res = await fetch(`/api/comment?commentId=${cid}`, {
+      method: "DELETE",
+      credentials: "include",
+    });
+    if (!res.ok) return console.error("Error deleting comment");
+    setComments((c) => c.filter((x) => x.id !== cid));
   }
 
-  // Payment flow
-  const handlePreOrder = () => setShowPaymentForm((prev) => !prev);
-  const handleConfirmPayment = () => {
-    const newPledged = pledged + 1;
-    setPledged(newPledged);
-    if (setPlushies) {
-      setPlushies((prevArr) =>
-        prevArr.map((p) => (p.id === id ? { ...p, pledged: newPledged } : p))
-      );
-    }
-    setShowPaymentForm(false);
-  };
+  // UI setup
+  useEffect(() => {
+    if (typeof window !== "undefined") Modal.setAppElement("body");
+  }, []);
 
-  // Compute progress
   const progress = (pledged / goal) * 100;
   const goalReached = pledged >= goal;
 
   return (
     <>
+      {/* Card Preview */}
       <div
         className="relative group cursor-pointer w-full h-auto overflow-hidden rounded-lg"
         onClick={() => setIsModalOpen(true)}
@@ -184,7 +179,7 @@ export default function PlushieCard({ plushie = {}, setPlushies }) {
         </div>
       </div>
 
-      {/* Modal */}
+      {/* Details Modal */}
       <Modal
         isOpen={isModalOpen}
         onRequestClose={() => setIsModalOpen(false)}
@@ -212,10 +207,8 @@ export default function PlushieCard({ plushie = {}, setPlushies }) {
           },
         }}
         onAfterOpen={() => {
-          const modalEl = document.querySelector(".ReactModal__Content");
-          if (modalEl) {
-            modalEl.style.transform = "scale(1)";
-          }
+          const el = document.querySelector(".ReactModal__Content");
+          if (el) el.style.transform = "scale(1)";
         }}
       >
         <button
@@ -234,12 +227,12 @@ export default function PlushieCard({ plushie = {}, setPlushies }) {
               className="object-cover rounded-lg"
             />
           </div>
+
           <h2 className="text-3xl font-bold text-gray-800">{name}</h2>
           <p className="text-gray-600">{promptSanitized}</p>
 
           {/* Like & Pledge Info */}
           <div className="flex items-center gap-3">
-            {/* Remove "disabled={hasLiked}" so we can un-like */}
             <button
               onClick={handleLike}
               className="flex items-center px-3 py-2 bg-pink-100 text-pink-600 rounded hover:bg-pink-200"
@@ -260,53 +253,51 @@ export default function PlushieCard({ plushie = {}, setPlushies }) {
               style={{ width: `${progress}%` }}
             />
           </div>
-          {goalReached && (
-            <p className="text-green-600 font-semibold">
-              Goal Reached! We’ll produce this plushie!
-            </p>
-          )}
-          {!goalReached && (
-            <button
-              onClick={handlePreOrder}
-              className="px-4 py-2 bg-blue-900 text-white rounded hover:bg-blue-800 w-fit"
-            >
-              Pre-order ($54.99)
-            </button>
-          )}
-          {showPaymentForm && !goalReached && (
-            <div className="p-3 border border-blue-300 rounded mt-2">
-              <h3 className="font-semibold text-blue-700 mb-2">
-                Payment Details
-              </h3>
-              <p className="text-sm text-gray-600 mb-2">
-                Enter your card info to buy this plush for $54.99
+
+          {/* Pre‑order section */}
+          <div className="mt-4">
+            {!goalReached && (
+              <>
+                <button
+                  onClick={handlePreOrder}
+                  className="px-4 py-2 bg-blue-900 text-white rounded hover:bg-blue-800"
+                >
+                  Pre‑order (${(54.99 * desiredQty).toFixed(2)})
+                </button>
+                {showPaymentForm && (
+                  <div className="mt-3 p-4 border rounded space-y-2">
+                    <label className="block text-gray-800">
+                      Quantity:
+                      <input
+                        type="number"
+                        min="1"
+                        value={desiredQty}
+                        onChange={(e) =>
+                          setDesiredQty(Math.max(1, +e.target.value))
+                        }
+                        className="ml-2 w-16 p-1 border rounded text-gray-800"
+                      />
+                    </label>
+                    <button
+                      onClick={handleConfirmPayment}
+                      className="mt-2 px-4 py-2 bg-green-900 text-white rounded hover:bg-green-800"
+                    >
+                      Continue to Payment
+                    </button>
+                  </div>
+                )}
+              </>
+            )}
+            {goalReached && (
+              <p className="mt-2 text-green-600 font-semibold">
+                Goal reached! Thank you for your support.
               </p>
-              <div className="flex flex-col gap-2 mb-2">
-                <input
-                  placeholder="Card Number"
-                  className="p-2 border border-gray-300 rounded placeholder-gray-700 text-gray-800"
-                />
-                <input
-                  placeholder="Expiry (MM/YY)"
-                  className="p-2 border border-gray-300 rounded placeholder-gray-700 text-gray-800"
-                />
-                <input
-                  placeholder="CVV"
-                  className="p-2 border border-gray-300 rounded placeholder-gray-700 text-gray-800 w-24"
-                />
-              </div>
-              <button
-                onClick={handleConfirmPayment}
-                className="px-4 py-2 bg-green-900 text-white rounded hover:bg-green-800"
-              >
-                Confirm Purchase
-              </button>
-            </div>
-          )}
+            )}
+          </div>
 
           <hr />
 
-          {/* Comments Section */}
+          {/* Comments */}
           <div className="space-y-3 max-h-40 overflow-y-auto">
             {comments.length === 0 ? (
               <p className="text-gray-500 italic">No comments yet.</p>
@@ -318,17 +309,14 @@ export default function PlushieCard({ plushie = {}, setPlushies }) {
                 >
                   <div>
                     <p className="text-gray-800 font-semibold">
-                      {c.author?.displayName ||
-                        c.author?.name ||
-                        "Unknown User"}
+                      {c.author?.displayName || c.author?.name || "Unknown"}
                     </p>
                     <p className="text-gray-800">{c.content}</p>
                   </div>
-                  {session?.user?.uid && c.author?.id === session.user.uid && (
+                  {session?.user?.uid === c.author?.id && (
                     <button
                       onClick={() => handleDeleteComment(c.id)}
                       className="text-gray-500 hover:text-red-600 ml-2"
-                      title="Delete Comment"
                     >
                       &times;
                     </button>

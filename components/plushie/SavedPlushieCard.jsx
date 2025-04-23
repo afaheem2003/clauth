@@ -6,7 +6,7 @@ import Image from "next/image";
 import Modal from "react-modal";
 import { useSession } from "next-auth/react";
 import { EMOTIONS, TEXTURES, SIZES } from "@/app/constants/options";
-import sanitizePrompt from "@/app/utils/sanitizePrompt";
+import sanitizePrompt from "@/utils/sanitizePrompt";
 import { storage } from "@/app/lib/firebaseClient";
 import { getDownloadURL, ref, uploadString } from "firebase/storage";
 
