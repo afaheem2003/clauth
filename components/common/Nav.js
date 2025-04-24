@@ -1,3 +1,4 @@
+// components/common/Nav.jsx
 "use client";
 
 import Link from "next/link";
@@ -27,46 +28,28 @@ export default function Nav() {
   const { data: session } = useSession();
   const router = useRouter();
 
-  const handleStateChange = (state) => {
-    setIsOpen(state.isOpen);
-  };
+  const closeMenu = () => setIsOpen(false);
 
+  const handleStateChange = ({ isOpen }) => setIsOpen(isOpen);
   const handleLogin = () => {
     router.push("/login");
-    setIsOpen(false);
+    closeMenu();
   };
-
   const handleLogout = async () => {
     await signOut();
-    setIsOpen(false);
+    closeMenu();
   };
 
   return (
     <div className="relative">
-      {/* Top Nav */}
+      {/* Top Bar */}
       <div className="w-full flex items-center justify-between p-4 bg-white border-b border-gray-200 shadow-sm">
-        <Link
-          href="/"
-          className="text-2xl font-bold text-gray-900 hover:text-gray-700"
-        >
+        <Link href="/" className="text-2xl font-bold text-gray-900 hover:text-gray-700">
           Ploosh
         </Link>
-        <button
-          onClick={() => setIsOpen(true)}
-          className="text-gray-700 hover:text-gray-500"
-        >
-          <svg
-            className="w-8 h-8"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-            viewBox="0 0 24 24"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              d="M4 6h16M4 12h16M4 18h16"
-            />
+        <button onClick={() => setIsOpen(true)} className="text-gray-700 hover:text-gray-500">
+          <svg className="w-8 h-8" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h16M4 18h16" />
           </svg>
         </button>
       </div>
@@ -81,69 +64,47 @@ export default function Nav() {
         styles={menuStyles}
       >
         {/* Close Button */}
-        <button
-          className="mb-4 text-white hover:text-gray-300"
-          onClick={() => setIsOpen(false)}
-        >
-          <svg
-            className="w-6 h-6"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-            viewBox="0 0 24 24"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              d="M6 18L18 6M6 6l12 12"
-            />
+        <button className="mb-4 text-white hover:text-gray-300" onClick={closeMenu}>
+          <svg className="w-6 h-6" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
           </svg>
         </button>
 
+        {/* Admin Dashboard at Top */}
+        {session?.user?.role === "ADMIN" && (
+          <Link
+            href="/admin"
+            className="block mt-2 text-xl text-yellow-400 hover:text-yellow-300"
+            onClick={closeMenu}
+          >
+            Admin Dashboard
+          </Link>
+        )}
+
         {/* Main Links */}
-        <Link
-          href="/design"
-          className="block mt-2 text-xl text-white hover:text-gray-300"
-          onClick={() => setIsOpen(false)}
-        >
+        <Link href="/design" className="block mt-2 text-xl text-white hover:text-gray-300" onClick={closeMenu}>
           Create Design
         </Link>
-        <Link
-          href="/discover"
-          className="block mt-2 text-xl text-white hover:text-gray-300"
-          onClick={() => setIsOpen(false)}
-        >
+        <Link href="/discover" className="block mt-2 text-xl text-white hover:text-gray-300" onClick={closeMenu}>
           Discover
         </Link>
-        <Link
-          href="/my-preorders"
-          className="block mt-2 text-xl text-white hover:text-gray-300"
-          onClick={() => setIsOpen(false)}
-        >
+        <Link href="/my-preorders" className="block mt-2 text-xl text-white hover:text-gray-300" onClick={closeMenu}>
           My Pre-orders
         </Link>
 
-        {/* If logged in, show Profile/Settings */}
-        {session?.user ? (
-          <div className="flex flex-col space-y-2 mt-6">
-            <Link
-              href="/profile"
-              className="block text-xl text-white hover:text-gray-300"
-              onClick={() => setIsOpen(false)}
-            >
+        {/* Profile / Settings */}
+        {session?.user && (
+          <div className="mt-6 space-y-2">
+            <Link href="/profile" className="block text-xl text-white hover:text-gray-300" onClick={closeMenu}>
               My Profile
             </Link>
-            <Link
-              href="/settings"
-              className="block text-xl text-white hover:text-gray-300"
-              onClick={() => setIsOpen(false)}
-            >
+            <Link href="/settings" className="block text-xl text-white hover:text-gray-300" onClick={closeMenu}>
               Account Settings
             </Link>
           </div>
-        ) : null}
+        )}
 
-        {/* Auth Options */}
+        {/* Auth Buttons */}
         {session?.user ? (
           <button
             onClick={handleLogout}
@@ -153,16 +114,13 @@ export default function Nav() {
           </button>
         ) : (
           <div className="mt-6 space-y-2">
-            <button
-              onClick={handleLogin}
-              className="block w-full text-left text-white text-xl hover:text-gray-300"
-            >
+            <button onClick={handleLogin} className="block w-full text-left text-white text-xl hover:text-gray-300">
               Log In
             </button>
             <Link
               href="/signup"
-              onClick={() => setIsOpen(false)}
               className="block w-full text-left text-white text-xl hover:text-gray-300"
+              onClick={closeMenu}
             >
               Sign Up
             </Link>

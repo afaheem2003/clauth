@@ -13,28 +13,26 @@ export async function DELETE(request, { params }) {
   const userId = session.user.uid;
   const { id: preorderId } = params;
 
-  // 2) Fetch the preorder so we know how many were pledged & which plushie
+  // 2) Fetch the preorder so we know quantity & plushie
   const existing = await prisma.preorder.findUnique({
     where: { id: preorderId },
-    select: { quantity: true, plushieId: true },
+    select: { quantity: true, plushieId: true, userId: true },
   });
   if (!existing) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
 
-  // make sure they own it
+  // 3) Ownership check
   if (existing.userId !== userId) {
-    // (if you stored userId on the returned select, or instead:)
-    // if you want to enforce ownership at delete-time, you can do so in a deleteMany
-    // but here we’ll assume findUnique only returned their records
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
-  // 3) Delete the preorder
+  // 4) Delete the preorder
   await prisma.preorder.delete({
     where: { id: preorderId },
   });
 
-  // 4) Decrement the Plushie.pledged counter
+  // 5) Decrement the Plushie.pledged counter
   await prisma.plushie.update({
     where: { id: existing.plushieId },
     data: {
@@ -42,5 +40,43 @@ export async function DELETE(request, { params }) {
     },
   });
 
+  return NextResponse.json({ success: true });
+}
+
+export async function PUT(request, { params }) {
+  // Only admins may update preorder or plushie status
+  const session = await getServerSession(authOptions);
+  if (session?.user?.role !== "ADMIN") {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+  const { id: preorderId } = params;
+  const data = await request.json();
+  const ops = [];
+
+  if (data.status) {
+    ops.push(
+      prisma.preorder.update({
+        where: { id: preorderId },
+        data: { status: data.status },
+      })
+    );
+  }
+
+  if (data.plushieStatus) {
+    const rec = await prisma.preorder.findUnique({
+      where: { id: preorderId },
+      select: { plushieId: true },
+    });
+    if (rec) {
+      ops.push(
+        prisma.plushie.update({
+          where: { id: rec.plushieId },
+          data: { status: data.plushieStatus },
+        })
+      );
+    }
+  }
+
+  await prisma.$transaction(ops);
   return NextResponse.json({ success: true });
 }

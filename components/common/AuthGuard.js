@@ -10,15 +10,29 @@ export default function AuthGuard({ children }) {
   const pathname = usePathname();
 
   useEffect(() => {
-    // Wait for session to load
     if (status === "loading") return;
 
-    // If not logged in, redirect
+    // 1) not signed in → /login
     if (!session) {
       router.replace("/login");
+      return;
     }
-    // If missing displayName, redirect to complete-profile
-    else if (!session.user?.name && pathname !== "/complete-profile") {
+
+    // 2) non-admins must not visit /admin
+    if (
+      session.user.role !== "ADMIN" &&
+      pathname.startsWith("/admin")
+    ) {
+      router.replace("/");
+      return;
+    }
+
+    // 3) new users require a displayName
+    if (
+      session.user.role !== "ADMIN" &&
+      !session.user.name &&
+      pathname !== "/complete-profile"
+    ) {
       router.replace("/complete-profile");
     }
   }, [status, session, pathname, router]);
