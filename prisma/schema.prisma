@@ -90,9 +90,11 @@ model Plushie {
   outfit           String
   accessories      String
   pose             String
+
   isPublished      Boolean        @default(false)
+  isFeatured       Boolean        @default(false)      // ← new “featured” flag
   createdAt        DateTime       @default(now())
-  expiresAt        DateTime?      // Optional expiration date
+  expiresAt        DateTime?
 
   creator          User           @relation(fields: [creatorId], references: [id])
   creatorId        String
@@ -100,11 +102,11 @@ model Plushie {
   votes            Vote[]
   preorders        Preorder[]
   comments         Comment[]
-  likes            Like[]         // <-- Added for Like model
+  likes            Like[]
 
-  goal             Int            @default(50)    // Your soft target
-  minimumGoal      Int            @default(25)    // Must hit this to be produced
-  pledged          Int            @default(0)     // Auto-updated when orders happen
+  goal             Int            @default(50)
+  minimumGoal      Int            @default(25)
+  pledged          Int            @default(0)
   status           PlushieStatus  @default(PENDING)
 }
 

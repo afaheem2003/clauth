@@ -1,98 +1,83 @@
-"use client";
+/* ───────────────────────── app/page.jsx ───────────────────────────── */
+import HomeClient     from './HomeClient'
+import { PrismaClient } from '@prisma/client'
 
-import { useState } from "react";
-import { useSession } from "next-auth/react";
-import PlushieGeneratorModal from "@/components/layout/PlushieGeneratorModal";
-import Footer from "@/components/common/Footer";
-import AuthPromptModal from "@/components/common/AuthPromptModal";
-import PlushieCard from "@/components/plushie/PlushieCard";
-import Link from "next/link";
+const prisma  = new PrismaClient()
+export const dynamic = 'force-dynamic'
 
-const SCROLLING_PLUSHIES = [
-  "/images/plushie-placeholder.png",
-  "/images/plushie-placeholder.png",
-  "/images/plushie-placeholder.png",
-  "/images/plushie-placeholder.png",
-];
+/* fallback images that live in /public/images/plushies/… */
+const PLACEHOLDERS = [
+  '/images/plushies/plushie1.png',
+  '/images/plushies/plushie2.png',
+  '/images/plushies/plushie3.png',
+  '/images/plushies/plushie4.png',
+  '/images/plushies/plushie5.png',
+  '/images/plushies/plushie6.png',
+]
 
-export default function HomePage() {
-  const { data: session } = useSession();
+/** convert a list of image paths to “fake” plushie objects */
+const makeDummyPlushies = () =>
+  PLACEHOLDERS.map((src, i) => ({
+    id:          `placeholder-${i}`,
+    name:        'Coming soon…',
+    imageUrl:    src,
+    pledged:     0,
+    goal:        50,
+    isPublished: true,
+  }))
 
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [showAuthPrompt, setShowAuthPrompt] = useState(false);
+export default async function HomePage () {
+  const now        = new Date()
+  const oneHourAgo = new Date(now.getTime() - 60 * 60 * 1_000)
 
-  const handleCreateClick = () => {
-    if (session?.user) {
-      setIsModalOpen(true);
-    } else {
-      setShowAuthPrompt(true);
-    }
-  };
+  /* ── 1) FEATURED ─────────────────────────────────────────────────── */
+  let featured = await prisma.plushie.findMany({
+    where:   { isPublished: true, isFeatured: true },
+    orderBy: { createdAt: 'desc' },
+    take:    8,
+  })
 
+  /* ── 2) ALMOST-THERE ( ≥ 75 %, < 100 % ) ─────────────────────────── */
+  const published = await prisma.plushie.findMany({
+    where:  { isPublished: true },
+    select: { id:true, name:true, imageUrl:true, pledged:true, goal:true },
+  })
+
+  let almostThere = published
+    .filter(p => p.goal && p.pledged / p.goal >= 0.75 && p.pledged < p.goal)
+    .sort((a,b) => (b.pledged / b.goal) - (a.pledged / a.goal))
+    .slice(0, 8)
+
+  /* ── 3) TRENDING (most pre-orders in last hour) ───────────────────── */
+  const trendingGroups = await prisma.preorder.groupBy({
+    by: ['plushieId'],
+    _count: { plushieId: true },
+    where:  { createdAt: { gte: oneHourAgo } },
+    orderBy: { _count: { plushieId: 'desc' } },
+    take: 8,
+  })
+
+  const trendingIds = trendingGroups.map(g => g.plushieId)
+
+  let trending = trendingIds.length
+    ? await prisma.plushie.findMany({
+        where: { id: { in: trendingIds }, isPublished: true },
+      })
+    : []
+
+  /* ── fall-back: ensure each carousel has something to show ────────── */
+  const dummies = makeDummyPlushies()
+
+  if (!featured.length)     featured     = dummies
+  if (!almostThere.length)  almostThere  = dummies
+  if (!trending.length)     trending     = dummies
+
+  /* ── render ───────────────────────────────────────────────────────── */
   return (
-    <>
-      {/* Hero Section */}
-      <section className="relative min-h-screen bg-gradient-to-b from-gray-50 to-gray-100 flex flex-col items-center justify-center">
-        <div className="container mx-auto px-6 py-16 text-center">
-          <h1 className="text-6xl md:text-7xl font-extrabold text-gray-800 mb-6 drop-shadow-sm">
-            Welcome to Ploosh
-          </h1>
-          <p className="text-xl md:text-2xl text-gray-700 max-w-3xl mx-auto mb-8">
-            Unleash your creativity and design custom AI-driven plushies. Join
-            the community, vote on your favorites, and bring unique designs to
-            life!
-          </p>
-          <button
-            onClick={handleCreateClick}
-            className="bg-gray-900 text-white text-xl font-semibold rounded-full px-8 py-4 shadow-lg hover:bg-gray-700 transition-colors"
-          >
-            Create Your Plushie
-          </button>
-        </div>
-      </section>
-
-      {/* Featured Plushies Section */}
-      <section className="py-12 bg-gray-100">
-        <div className="container mx-auto px-6">
-          <h2 className="text-4xl font-bold text-gray-800 mb-6 text-center">
-            Featured Plushies
-          </h2>
-          <div className="flex space-x-6 overflow-x-auto pb-4">
-            {SCROLLING_PLUSHIES.map((image, index) => (
-              <PlushieCard key={index} plushie={{ image }} />
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* Discover Section */}
-      <section className="bg-gray-100 py-16 text-center">
-        <div className="container mx-auto px-6">
-          <h2 className="text-3xl font-semibold text-gray-800 mb-4">
-            Ready to Explore More?
-          </h2>
-          <p className="text-lg text-gray-600 mb-6">
-            Discover AI-generated plushies and vote for your favorites!
-          </p>
-          <Link
-            href="/discover"
-            className="bg-gray-900 text-white text-xl font-semibold rounded-full px-8 py-4 shadow-lg hover:bg-gray-700 transition-colors"
-          >
-            Discover Plushies
-          </Link>
-        </div>
-      </section>
-
-      {/* Footer */}
-      <Footer />
-
-      {/* Modals */}
-      {isModalOpen && (
-        <PlushieGeneratorModal onClose={() => setIsModalOpen(false)} />
-      )}
-      {showAuthPrompt && (
-        <AuthPromptModal onClose={() => setShowAuthPrompt(false)} />
-      )}
-    </>
-  );
+    <HomeClient
+      featured    ={featured}
+      almostThere ={almostThere}
+      trending    ={trending}
+    />
+  )
 }

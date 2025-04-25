@@ -1,132 +1,202 @@
-// components/common/Nav.jsx
 "use client";
 
-import Link from "next/link";
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
+import Link          from "next/link";
 import { slide as Menu } from "react-burger-menu";
 import { useRouter } from "next/navigation";
 import { useSession, signOut } from "next-auth/react";
 
+/* react-burger-menu styles (unchanged) ------------------------------ */
 const menuStyles = {
-  bmMenuWrap: { top: "0" },
-  bmMenu: {
-    background: "#1F2937",
-    padding: "1.5rem 1rem",
-    fontSize: "1rem",
-  },
-  bmOverlay: { background: "rgba(0, 0, 0, 0.3)" },
-  bmItemList: {
-    display: "flex",
-    flexDirection: "column",
-    gap: "1rem",
-  },
-  bmCrossButton: { height: "36px", width: "36px" },
+  bmMenuWrap : { top: 0 },
+  bmOverlay  : { background: "rgba(0,0,0,.35)" },
+  bmMenu     : { background: "#1F2937", padding: "1.5rem 1rem" },
+  bmItemList : { display: "flex", flexDirection: "column", gap: "1rem" },
+  bmCrossButton : { height: "36px", width: "36px" }
 };
 
+/* helper ─ close dropdown on outside-click -------------------------- */
+function useOutside(ref, cb) {
+  useEffect(() => {
+    function handler(e) { if (ref.current && !ref.current.contains(e.target)) cb(); }
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [ref, cb]);
+}
+
 export default function Nav() {
-  const [isOpen, setIsOpen] = useState(false);
-  const { data: session } = useSession();
-  const router = useRouter();
+  const [open, setOpen]     = useState(false);            // mobile slide-out
+  const [drop, setDrop]     = useState(false);            // desktop dropdown
+  const dropRef             = useRef(null);
+  const { data: session }   = useSession();
+  const router              = useRouter();
 
-  const closeMenu = () => setIsOpen(false);
+  /* outside click for dropdown */
+  useOutside(dropRef, () => setDrop(false));
 
-  const handleStateChange = ({ isOpen }) => setIsOpen(isOpen);
-  const handleLogin = () => {
-    router.push("/login");
-    closeMenu();
-  };
-  const handleLogout = async () => {
-    await signOut();
-    closeMenu();
-  };
+  /* helpers ---------------------------------------------------------- */
+  const close  = ()  => setOpen(false);
+  const login  = ()  => { router.push("/login"); close(); };
+  const logout = ()  => signOut().finally(close);
 
+  const links  = [
+    { label: "Create Design", href: "/design" },
+    { label: "Discover",      href: "/discover" }
+  ];
+
+  /* ------------------------------------------------------------------ */
   return (
-    <div className="relative">
-      {/* Top Bar */}
-      <div className="w-full flex items-center justify-between p-4 bg-white border-b border-gray-200 shadow-sm">
-        <Link href="/" className="text-2xl font-bold text-gray-900 hover:text-gray-700">
+    <header className="bg-white border-b sticky top-0 z-50">
+      <div className="container mx-auto px-6 h-14 flex items-center justify-between">
+
+        {/* LOGO --------------------------------------------------------- */}
+        <Link href="/" className="text-2xl font-extrabold text-gray-900">
           Ploosh
         </Link>
-        <button onClick={() => setIsOpen(true)} className="text-gray-700 hover:text-gray-500">
-          <svg className="w-8 h-8" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h16M4 18h16" />
+
+        {/* DESKTOP NAV -------------------------------------------------- */}
+        <nav className="hidden md:flex items-center gap-8">
+
+          {/* primary links */}
+          {links.map(l => (
+            <Link
+              key={l.href}
+              href={l.href}
+              className="text-sm font-medium text-gray-700 hover:text-gray-900"
+            >
+              {l.label}
+            </Link>
+          ))}
+
+          {/* admin shortcut */}
+          {session?.user?.role === "ADMIN" && (
+            <Link
+              href="/admin"
+              className="text-sm font-medium text-yellow-500 hover:text-yellow-400"
+            >
+              Admin
+            </Link>
+          )}
+
+          {/* AUTH / ACCOUNT -------------------------------------------- */}
+          {!session?.user ? (
+            <button
+              onClick={login}
+              className="text-sm font-medium text-gray-700 hover:text-gray-900"
+            >
+              Log&nbsp;in
+            </button>
+          ) : (
+            /* account dropdown */
+            <div className="relative" ref={dropRef}>
+              <button
+                onClick={() => setDrop(prev => !prev)}
+                className="flex items-center gap-1 text-sm font-medium text-gray-700 hover:text-gray-900"
+              >
+                My&nbsp;Account
+                <svg className="w-4 h-4" viewBox="0 0 20 20" fill="currentColor">
+                  <path d="M6 8l4 4 4-4" />
+                </svg>
+              </button>
+
+              {/* panel */}
+              {drop && (
+                <div
+                  className="absolute right-0 mt-2 w-44 rounded-md shadow-lg bg-white ring-1 ring-gray-200 py-2 text-sm"
+                >
+                  <Link
+                    href="/my-preorders"
+                    onClick={() => setDrop(false)}
+                    className="block px-4 py-2 text-gray-700 hover:bg-gray-50"
+                  >
+                    My Pre-orders
+                  </Link>
+                  <Link
+                    href="/settings"
+                    onClick={() => setDrop(false)}
+                    className="block px-4 py-2 text-gray-700 hover:bg-gray-50"
+                  >
+                    Settings
+                  </Link>
+                  <button
+                    onClick={logout}
+                    className="w-full text-left px-4 py-2 text-gray-700 hover:bg-gray-50"
+                  >
+                    Log&nbsp;out
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
+        </nav>
+
+        {/* MOBILE BURGER icon (hidden ≥ md) ---------------------------- */}
+        <button
+          onClick={() => setOpen(true)}
+          className="md:hidden text-gray-700 hover:text-gray-500 focus:outline-none"
+        >
+          <svg className="w-8 h-8" fill="none" stroke="currentColor" strokeWidth="2">
+            <path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h16M4 18h16"/>
           </svg>
         </button>
       </div>
 
-      {/* Sidebar Menu */}
+      {/* MOBILE SLIDE-OUT MENU ---------------------------------------- */}
       <Menu
         right
-        isOpen={isOpen}
-        onStateChange={handleStateChange}
+        isOpen={open}
+        onStateChange={({ isOpen }) => setOpen(isOpen)}
         customBurgerIcon={false}
         customCrossIcon={false}
         styles={menuStyles}
       >
-        {/* Close Button */}
-        <button className="mb-4 text-white hover:text-gray-300" onClick={closeMenu}>
-          <svg className="w-6 h-6" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+        {/* close icon */}
+        <button onClick={close} className="mb-6 text-white hover:text-gray-300">
+          <svg className="w-7 h-7" fill="none" stroke="currentColor" strokeWidth="2">
+            <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12"/>
           </svg>
         </button>
 
-        {/* Admin Dashboard at Top */}
+        {/* admin */}
         {session?.user?.role === "ADMIN" && (
-          <Link
-            href="/admin"
-            className="block mt-2 text-xl text-yellow-400 hover:text-yellow-300"
-            onClick={closeMenu}
-          >
+          <Link href="/admin" onClick={close} className="text-xl text-yellow-400 hover:text-yellow-300">
             Admin Dashboard
           </Link>
         )}
 
-        {/* Main Links */}
-        <Link href="/design" className="block mt-2 text-xl text-white hover:text-gray-300" onClick={closeMenu}>
-          Create Design
-        </Link>
-        <Link href="/discover" className="block mt-2 text-xl text-white hover:text-gray-300" onClick={closeMenu}>
-          Discover
-        </Link>
-        <Link href="/my-preorders" className="block mt-2 text-xl text-white hover:text-gray-300" onClick={closeMenu}>
-          My Pre-orders
-        </Link>
+        {/* main links */}
+        {links.map(l => (
+          <Link key={l.href} href={l.href} onClick={close} className="text-xl text-white hover:text-gray-300">
+            {l.label}
+          </Link>
+        ))}
 
-        {/* Profile / Settings */}
-        {session?.user && (
-          <div className="mt-6 space-y-2">
-            <Link href="/profile" className="block text-xl text-white hover:text-gray-300" onClick={closeMenu}>
-              My Profile
-            </Link>
-            <Link href="/settings" className="block text-xl text-white hover:text-gray-300" onClick={closeMenu}>
-              Account Settings
-            </Link>
-          </div>
-        )}
-
-        {/* Auth Buttons */}
-        {session?.user ? (
-          <button
-            onClick={handleLogout}
-            className="mt-6 block w-full text-left text-white text-xl hover:text-gray-300"
-          >
-            Log Out
-          </button>
-        ) : (
-          <div className="mt-6 space-y-2">
-            <button onClick={handleLogin} className="block w-full text-left text-white text-xl hover:text-gray-300">
-              Log In
-            </button>
-            <Link
-              href="/signup"
-              className="block w-full text-left text-white text-xl hover:text-gray-300"
-              onClick={closeMenu}
-            >
-              Sign Up
-            </Link>
-          </div>
-        )}
+        {/* auth section */}
+        <div className="mt-6 space-y-2">
+          {!session?.user ? (
+            <>
+              <button onClick={login} className="text-xl text-white hover:text-gray-300">
+                Log in
+              </button>
+              <Link href="/signup" onClick={close} className="text-xl text-white hover:text-gray-300">
+                Sign up
+              </Link>
+            </>
+          ) : (
+            <>
+              <Link href="/my-preorders" onClick={close} className="text-xl text-white hover:text-gray-300">
+                My Pre-orders
+              </Link>
+              <Link href="/settings" onClick={close} className="text-xl text-white hover:text-gray-300">
+                Settings
+              </Link>
+              <button onClick={logout} className="text-xl text-white hover:text-gray-300">
+                Log out
+              </button>
+            </>
+          )}
+        </div>
       </Menu>
-    </div>
+    </header>
   );
 }

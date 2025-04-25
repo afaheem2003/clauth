@@ -1,0 +1,117 @@
+'use client';
+
+import { useState }   from 'react';
+import { useSession } from 'next-auth/react';
+import Link           from 'next/link';
+
+import Header                from '@/components/Layout/Header';
+import HeroCarousel          from '@/components/Home/HeroCarousel';
+import Footer                from '@/components/common/Footer';
+import PlushieGeneratorModal from '@/components/layout/PlushieGeneratorModal';
+import AuthPromptModal       from '@/components/common/AuthPromptModal';
+
+/* stacked hero images ------------------------------------------------ */
+const heroPanels = [
+  {
+    img : '/images/homepage/background1.png',
+    heading : 'Looking for a new squeeze?',
+    cta     : 'Discover our latest Plushies'
+  },
+  {
+    img : '/images/homepage/background2.png',
+    heading : 'Lose yourself in Ploosh joy…',
+    cta     : 'Browse community favourites'
+  },
+  {
+    img : '/images/homepage/background3.png',
+    heading : 'Ready to design your own?',
+    cta     : 'Create Your Plushie',
+    highlightCreate : true
+  }
+];
+
+export default function HomeClient({ featured = [], almostThere = [], trending = [] }) {
+  const { data: session } = useSession();
+  const [showGen,  setShowGen]  = useState(false);
+  const [showAuth, setShowAuth] = useState(false);
+
+  const onCreate = () => (session ? setShowGen(true) : setShowAuth(true));
+
+  return (
+    <>
+      {/* hide search bar on home */}
+      {/* <Header showSearch={false} showLogo={false} /> */}
+
+      {/* ---------------- HERO (scroll-snap) ---------------- */}
+      <section className="h-screen overflow-y-scroll snap-y snap-mandatory scroll-smooth">
+        {heroPanels.map((p, i) => (
+          <div
+            key={i}
+            className="snap-start h-screen relative flex items-center justify-center text-white"
+            style={{
+              backgroundImage   : `url('${p.img}')`,
+              backgroundSize    : 'cover',
+              backgroundPosition: 'center'
+            }}
+          >
+            <div className="absolute inset-0 bg-black/30" />
+            <div className="relative z-10 text-center px-4">
+              <h1 className="text-4xl md:text-5xl font-bold mb-4 drop-shadow">
+                {p.heading}
+              </h1>
+
+              {p.highlightCreate ? (
+                <button
+                  onClick={onCreate}
+                  className="inline-block bg-blue-600 hover:bg-blue-700 text-white px-8 py-3 rounded-full transition"
+                >
+                  {p.cta}
+                </button>
+              ) : (
+                <Link
+                  href="/discover"
+                  className="inline-block bg-white/90 hover:bg-white text-gray-900 px-8 py-3 rounded-full backdrop-blur transition"
+                >
+                  {p.cta} &rarr;
+                </Link>
+              )}
+            </div>
+          </div>
+        ))}
+      </section>
+
+      {/* --------- FEATURED / ALMOST THERE / TRENDING ---------- */}
+      <section className="py-12 bg-gray-50">
+        <div className="container mx-auto px-6">
+          <h2 className="text-3xl font-semibold text-gray-900 text-center mb-6">
+            Featured Plushies
+          </h2>
+          <HeroCarousel items={featured} />
+        </div>
+      </section>
+
+      <section className="py-12 bg-gray-50">
+        <div className="container mx-auto px-6">
+          <h2 className="text-3xl font-semibold text-gray-900 text-center mb-6">
+            Almost&nbsp;There&nbsp;&mdash;&nbsp;Help These Plushies Come to Life
+          </h2>
+          <HeroCarousel items={almostThere} />
+        </div>
+      </section>
+
+      <section className="py-12 bg-gray-50">
+        <div className="container mx-auto px-6">
+          <h2 className="text-3xl font-semibold text-gray-900 text-center mb-6">
+            Trending&nbsp;Now
+          </h2>
+          <HeroCarousel items={trending} />
+        </div>
+      </section>
+
+      <Footer />
+
+      {showGen  && <PlushieGeneratorModal onClose={() => setShowGen(false)} />}
+      {showAuth && <AuthPromptModal       onClose={() => setShowAuth(false)} />}
+    </>
+  );
+}

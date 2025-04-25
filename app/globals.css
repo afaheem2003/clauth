@@ -17,3 +17,7 @@ body {
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
 }
+
+#__next-route-announcer,
+#__next-build-watcher,
+#__next-build-error-overlay { display:none !important; }
