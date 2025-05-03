@@ -1,7 +1,6 @@
 import React from 'react';
 import PlushiesAdminClient from './PlushiesAdminClient';
-import { PrismaClient } from '@prisma/client';
-const prisma = new PrismaClient();
+import { prisma } from '@/lib/prisma';
 
 export default async function PlushiesAdminPage() {
   const plushies = await prisma.plushie.findMany({ orderBy: { createdAt: 'desc' } });

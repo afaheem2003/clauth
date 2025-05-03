@@ -1,45 +1,57 @@
-// app/api/auth/[...nextauth]/route.js
-import NextAuth from "next-auth";
-import GoogleProvider from "next-auth/providers/google";
-import { PrismaAdapter } from "@next-auth/prisma-adapter";
-import prisma from "@/app/lib/prisma";
+import NextAuth          from 'next-auth';
+import GoogleProvider    from 'next-auth/providers/google';
+import { PrismaAdapter } from '@next-auth/prisma-adapter';
+import prisma            from '@/lib/prisma';
 
 export const authOptions = {
-  adapter: PrismaAdapter(prisma),
+  adapter : PrismaAdapter(prisma),
   providers: [
     GoogleProvider({
-      clientId: process.env.GOOGLE_CLIENT_ID,
+      clientId    : process.env.GOOGLE_CLIENT_ID,
       clientSecret: process.env.GOOGLE_CLIENT_SECRET,
     }),
-    // …add others if you like
   ],
-  secret: process.env.NEXTAUTH_SECRET,
-  session: { strategy: "jwt" },
+  secret  : process.env.NEXTAUTH_SECRET,
+  session : { strategy: 'jwt' },
+
   callbacks: {
-    async jwt({ token, user, account }) {
-      // On first sign-in, stash id, email & role in the token
-      if (user && account) {
-        token.sub  = user.id;
-        token.email = user.email;
-        token.role  = user.role;    // ← your new enum field
+    /* ──────────────── JWT ───────────────── */
+    async jwt({ token, user, trigger, session }) {
+      /* first sign-in (user + account present) */
+      if (user) {
+        token.sub         = user.id;
+        token.email       = user.email;
+        token.role        = user.role;          // custom role, keep if you use it
+        token.displayName = user.displayName ?? user.name ?? '';
       }
-      // If later requests have no sub, look it up by email
+
+      /* update() from the client: add new displayName into the token */
+      if (trigger === 'update' && session?.displayName) {
+        token.displayName = session.displayName;
+      }
+
+      /* fallback: look up role / id if missing (SSG edge-cases) */
       if (!token.sub && token.email) {
-        const u = await prisma.user.findUnique({
-          where: { email: token.email },
-          select: { id: true, role: true },
+        const dbUser = await prisma.user.findUnique({
+          where : { email: token.email },
+          select: { id: true, role: true, displayName: true },
         });
-        if (u) {
-          token.sub  = u.id;
-          token.role = u.role;
+        if (dbUser) {
+          token.sub         = dbUser.id;
+          token.role        = dbUser.role;
+          token.displayName = dbUser.displayName ?? '';
         }
       }
+
       return token;
     },
+
+    /* ────────────── SESSION ─────────────── */
     async session({ session, token }) {
-      // Expose our DB id & role on the client
-      session.user.uid  = token.sub;
-      session.user.role = token.role || "USER";
+      session.user.uid          = token.sub;
+      session.user.role         = token.role ?? 'USER';
+      session.user.displayName  = token.displayName ?? '';
+      session.user.name         = token.displayName ?? '';   // keep .name in sync
       return session;
     },
   },

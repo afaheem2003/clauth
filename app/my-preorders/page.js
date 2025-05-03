@@ -1,4 +1,3 @@
-// app/preorders/page.jsx
 "use client";
 
 import { useEffect, useState } from "react";
@@ -12,15 +11,22 @@ export default function MyPreOrdersPage() {
   const [loading, setLoading] = useState(true);
   const [selectedOrder, setSelectedOrder] = useState(null);
 
+  const refreshOrders = async () => {
+    setLoading(true);
+    try {
+      const res = await fetch("/api/preorders");
+      if (!res.ok) throw new Error("Failed to load pre‑orders");
+      const data = await res.json();
+      setOrders(data);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   useEffect(() => {
-    fetch("/api/preorders")
-      .then((res) => {
-        if (!res.ok) throw new Error("Failed to load pre‑orders");
-        return res.json();
-      })
-      .then((data) => setOrders(data))
-      .catch(console.error)
-      .finally(() => setLoading(false));
+    refreshOrders();
   }, []);
 
   const scrollToExplanation = () => {
@@ -98,6 +104,10 @@ export default function MyPreOrdersPage() {
         isOpen={Boolean(selectedOrder)}
         onClose={() => setSelectedOrder(null)}
         order={selectedOrder}
+        onCancelSuccess={() => {
+          setSelectedOrder(null);
+          refreshOrders();
+        }}
       />
 
       {/* Pre-Order Explanation */}

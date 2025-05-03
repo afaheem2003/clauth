@@ -1,14 +1,26 @@
-// app/api/webhooks/stripe/route.js
 import { NextResponse } from "next/server";
 import Stripe from "stripe";
-import prisma from "@/app/lib/prisma";
+import prisma from "@/lib/prisma";
+import { sendReceiptWithPDF } from "@/lib/sendReceiptWithPDF";
 
-// ensure Node.js Buffer/.text() is available
 export const config = { runtime: "node" };
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, {
   apiVersion: "2022-11-15",
 });
+
+function mapStripePaymentStatus(stripeStatus) {
+  switch (stripeStatus) {
+    case "paid":
+      return "SUCCEEDED";
+    case "unpaid":
+    case "requires_payment_method":
+    case "no_payment_required":
+      return "FAILED";
+    default:
+      return "REQUIRES_CAPTURE";
+  }
+}
 
 export async function POST(request) {
   const sig = request.headers.get("stripe-signature");
@@ -17,7 +29,14 @@ export async function POST(request) {
     return NextResponse.json({ received: false }, { status: 400 });
   }
 
-  const rawBody = await request.text();
+  let rawBody;
+  try {
+    rawBody = await request.text();
+  } catch (e) {
+    console.error("❌ Failed to read request body:", e);
+    return NextResponse.json({ received: false }, { status: 400 });
+  }
+
   let event;
   try {
     event = stripe.webhooks.constructEvent(
@@ -25,51 +44,80 @@ export async function POST(request) {
       sig,
       process.env.STRIPE_WEBHOOK_SECRET
     );
+    console.log("✅ Webhook event parsed:", event.type);
   } catch (err) {
-    console.error("⚠️ Webhook signature verification failed:", err.message);
+    console.error("❌ Webhook signature verification failed:", err.message);
     return NextResponse.json({ received: false }, { status: 400 });
   }
 
   if (event.type === "checkout.session.completed") {
-    const session    = event.data.object;
-    const meta       = session.metadata || {};
-    const userId     = session.client_reference_id;
-    const plushieId  = meta.plushieId;
-    const qty        = parseInt(meta.quantity || "1", 10);
-    const cents      = session.amount_total || 0;
+    console.log("📦 Handling checkout.session.completed");
+    const session = event.data.object;
+    const meta = session.metadata || {};
+    const userId = session.client_reference_id;
+    const plushieId = meta.plushieId;
+    const qty = parseInt(meta.quantity || "1", 10);
+    const cents = session.amount_total || 0;
+    const email = session.customer_details?.email;
+    const name = session.customer_details?.name || "friend";
+
+    console.log("📌 Session metadata:", { userId, plushieId, qty, cents, email });
+
+    if (!email) {
+      console.warn("⚠️ No email found in session. Skipping receipt email.");
+    }
 
     try {
-      // A) record the payment intent
+      console.log("💳 Recording payment intent...");
       const payment = await prisma.paymentIntent.create({
         data: {
-          provider:     "stripe",
-          intentId:     session.payment_intent,
+          provider: "stripe",
+          intentId: session.payment_intent,
           clientSecret: session.payment_intent_data?.client_secret || null,
-          status:       session.payment_status,
+          status: mapStripePaymentStatus(session.payment_status),
         },
       });
 
-      // B) record the preorder itself
+      console.log("📦 Creating preorder...");
       await prisma.preorder.create({
         data: {
           userId,
           plushieId,
-          price:            cents / 100,
-          quantity:         qty,
-          status:           "CONFIRMED",
-          paymentIntentId:  payment.id,
+          price: cents / 100,
+          quantity: qty,
+          status: "CONFIRMED",
+          paymentIntentId: payment.id,
         },
       });
 
-      // C) bump the plushie.pledged count so progress bar moves
+      console.log("📊 Updating plushie pledge count...");
       await prisma.plushie.update({
         where: { id: plushieId },
         data: { pledged: { increment: qty } },
       });
 
-      console.log("✅ Logged preorder for", userId, plushieId, qty);
+      console.log("🔍 Fetching plushie name...");
+      const plushie = await prisma.plushie.findUnique({
+        where: { id: plushieId },
+        select: { name: true },
+      });
+
+      if (email) {
+        console.log("📨 Sending receipt email to:", email);
+        await sendReceiptWithPDF({
+          to: email,
+          name,
+          email, // 👈 ADD THIS LINE
+          plushie: plushie?.name || "Plushie",
+          qty,
+          total: cents / 100,
+        });        
+        console.log("✅ Receipt email sent to", email);
+      }
+
+      console.log("✅ Logged preorder and emailed receipt for", userId, plushieId, qty);
     } catch (dbErr) {
-      console.error("❌ Failed to log preorder:", dbErr);
+      console.error("❌ Failed to log preorder or send receipt:", dbErr);
     }
   }
 

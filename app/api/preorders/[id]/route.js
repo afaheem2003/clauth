@@ -1,7 +1,7 @@
 // app/api/preorders/[id]/route.js
 import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth/next";
-import prisma from "@/app/lib/prisma";
+import prisma from "@/lib/prisma";
 import { authOptions } from "@/app/api/auth/[...nextauth]/route";
 
 export async function DELETE(request, { params }) {

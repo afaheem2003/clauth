@@ -1,4 +1,3 @@
-// components/common/OrderDetailsModal.js
 "use client";
 
 import { useEffect, useState } from "react";
@@ -7,8 +6,7 @@ import Image from "next/image";
 import ProgressBar from "@/components/common/ProgressBar";
 import { CANCELLATION_QUOTES } from "@/utils/cancellationQuotes";
 
-export default function OrderDetailsModal({ isOpen, onClose, order }) {
-  // accessibility for react-modal
+export default function OrderDetailsModal({ isOpen, onClose, order, onCancelSuccess }) {
   useEffect(() => {
     Modal.setAppElement("body");
   }, []);
@@ -21,7 +19,6 @@ export default function OrderDetailsModal({ isOpen, onClose, order }) {
   const { id, name, image, status, price, pledged, goal, quantity } = order;
   const canCancel = status === "Awaiting Enough Pre‑Orders";
 
-  // first click: pick a quote & enter "confirming" mode
   function initiateCancel() {
     const q =
       CANCELLATION_QUOTES[
@@ -31,13 +28,11 @@ export default function OrderDetailsModal({ isOpen, onClose, order }) {
     setConfirming(true);
   }
 
-  // second click: actually delete
   async function confirmCancel() {
     setCanceling(true);
     try {
       await fetch(`/api/preorders/${id}`, { method: "DELETE" });
-      // you might want to re‑fetch the list or update UI here…
-      onClose();
+      if (onCancelSuccess) onCancelSuccess(); // 👈 trigger parent refresh + close
     } catch (err) {
       console.error("Cancel failed", err);
       setCanceling(false);
@@ -70,7 +65,6 @@ export default function OrderDetailsModal({ isOpen, onClose, order }) {
         },
       }}
     >
-      {/* close */}
       <button
         onClick={onClose}
         className="absolute top-2 right-2 text-gray-500 hover:text-gray-700 text-2xl leading-none"
@@ -79,7 +73,6 @@ export default function OrderDetailsModal({ isOpen, onClose, order }) {
       </button>
 
       <div className="flex flex-col gap-4 mt-4">
-        {/* image */}
         <div className="relative w-full pb-[100%]">
           <Image
             src={image}
@@ -99,14 +92,10 @@ export default function OrderDetailsModal({ isOpen, onClose, order }) {
         </div>
 
         {canceling ? (
-          <p className="mt-4 text-center text-gray-500">
-            Cancelling…
-          </p>
+          <p className="mt-4 text-center text-gray-500">Cancelling…</p>
         ) : confirming ? (
           <>
-            <p className="mt-4 italic text-center text-pink-600">
-              “{quote}”
-            </p>
+            <p className="mt-4 italic text-center text-pink-600">“{quote}”</p>
             <div className="mt-4 flex gap-2">
               <button
                 onClick={confirmCancel}

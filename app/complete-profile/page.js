@@ -1,82 +1,93 @@
-"use client";
+'use client';
 
-import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
-import { useSession } from "next-auth/react";
+import { useState, useEffect } from 'react';
+import { useRouter }           from 'next/navigation';
+import { useSession }          from 'next-auth/react';
+
+const RE_USERNAME = /^[a-zA-Z0-9_]{3,20}$/;   // same as API
 
 export default function CompleteProfile() {
-  const router = useRouter();
-  const { data: session, status } = useSession();
-  const [username, setUsername] = useState("");
-  const [error, setError] = useState("");
+  const { data:session, status } = useSession();
+  const router  = useRouter();
 
-  // If user isn’t signed in or session is loading, handle accordingly
+  const [raw , setRaw]  = useState('');
+  const [err , setErr]  = useState('');
+  const [busy, setBusy] = useState(false);
+
+  /* redirect if logged-out */
   useEffect(() => {
-    if (status === "loading") return;
-    if (!session?.user) {
-      // Not logged in, redirect to /login
-      router.replace("/login");
-    }
-    // else user is logged in
-  }, [session, status, router]);
+    if (status === 'loading') return;
+    if (!session?.user) router.replace('/login');
+  }, [status, session, router]);
 
-  async function handleSubmit(e) {
+  async function save(e) {
     e.preventDefault();
-    if (!username.trim()) {
-      setError("Username cannot be empty.");
+    const handle = raw.trim().toLowerCase();
+
+    if (!RE_USERNAME.test(handle)) {
+      setErr('3-20 chars, letters/numbers/_ only.');
       return;
     }
-    // Example: store username in DB via a custom API route or NextAuth update
-    console.log("Setting username to:", username);
-    router.replace("/");
-  }
 
-  async function handleCancel() {
-    // If you want to sign out from NextAuth:
-    // import { signOut } from "next-auth/react";
-    // await signOut();
-    router.replace("/login");
-  }
+    setBusy(true); setErr('');
+    try {
+      /* quick existence check */
+      const res = await fetch(`/api/username?u=${encodeURIComponent(handle)}`);
+      const { exists } = await res.json();
+      if (exists) throw new Error('Username already taken.');
 
-  if (status === "loading") {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <p>Loading session...</p>
-      </div>
-    );
+      /* persist */
+      const up = await fetch('/api/username', {
+        method:'POST',
+        headers:{ 'Content-Type':'application/json' },
+        body  : JSON.stringify({ username: handle })
+      });
+      if (!up.ok) throw new Error((await up.json()).error);
+
+      router.replace('/');
+    } catch (e) { setErr(e.message); }
+    finally     { setBusy(false); }
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-gray-50 to-gray-100 flex items-center justify-center px-4">
-      <div className="bg-white w-full max-w-md p-6 rounded-lg shadow-xl">
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-b from-gray-50 to-gray-100 px-4">
+      <div className="w-full max-w-md bg-white rounded-lg shadow-xl p-6">
         <h1 className="text-3xl font-bold text-gray-800 mb-6 text-center">
-          Complete Your Profile
+          Complete&nbsp;Your&nbsp;Profile
         </h1>
-        <p className="text-gray-700 mb-4">
-          Please choose a username to continue.
-        </p>
-        {error && <p className="text-red-600 mb-4">{error}</p>}
-        <form onSubmit={handleSubmit}>
-          <input
-            type="text"
-            value={username}
-            onChange={(e) => setUsername(e.target.value)}
-            placeholder="Enter a username..."
-            className="w-full p-3 border border-gray-300 rounded-lg text-lg focus:outline-none focus:ring-2 focus:ring-gray-900 placeholder-gray-600"
-          />
+
+        <form onSubmit={save} className="space-y-4">
+          <label className="block text-gray-700 font-medium">
+            Choose a unique username
+          </label>
+
+          <div className="flex items-center rounded-lg border border-gray-300 overflow-hidden">
+            <span className="px-3 text-gray-500 select-none">@</span>
+            <input
+              value={raw}
+              onChange={e => setRaw(e.target.value)}
+              placeholder="your_handle"
+              className="flex-1 py-3 pr-3 text-lg placeholder-gray-600 focus:outline-none"
+            />
+          </div>
+
+          {err && <p className="text-red-600 text-sm">{err}</p>}
+
           <button
-            type="submit"
-            className="w-full mt-6 px-6 py-3 text-lg font-semibold rounded-lg shadow bg-gray-900 text-white hover:bg-gray-700 transition"
+            disabled={busy}
+            className="w-full py-3 mt-2 rounded-lg bg-gray-900 text-white font-semibold hover:bg-gray-700 transition"
           >
-            Save Username
+            {busy ? 'Saving…' : 'Save Username'}
+          </button>
+
+          <button
+            type="button"
+            onClick={() => router.replace('/login')}
+            className="w-full py-3 rounded-lg bg-red-700 text-white font-semibold hover:bg-red-800 transition"
+          >
+            Cancel&nbsp;/&nbsp;Log&nbsp;Out
           </button>
         </form>
-        <button
-          onClick={handleCancel}
-          className="w-full mt-4 px-6 py-3 text-lg font-semibold rounded-lg shadow bg-red-700 text-white hover:bg-red-800 transition"
-        >
-          Cancel (Log Out)
-        </button>
       </div>
     </div>
   );

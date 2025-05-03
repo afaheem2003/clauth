@@ -6,8 +6,7 @@ export const fetchCache = 'force-no-store'
 
 import React from 'react'
 import UsersAdminClient from './UsersAdminClient'
-import { PrismaClient } from '@prisma/client'
-const prisma = new PrismaClient()
+import { prisma } from '@/lib/prisma';
 
 export default async function UsersAdminPage({ searchParams: searchParamsPromise }) {
   // await the searchParams promise itself

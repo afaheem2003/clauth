@@ -1,10 +1,8 @@
 // app/admin/page.js
 import React from 'react'
-import { PrismaClient } from '@prisma/client'
+import { prisma } from '@/lib/prisma';
 import StatusBarChart from './StatusBarChart'
 import TrendLineChart from './TrendLineChart'
-
-const prisma = new PrismaClient()
 
 export default async function AdminDashboard() {
   // 1) basic totals

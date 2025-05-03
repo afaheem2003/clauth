@@ -1,8 +1,7 @@
 /* ───────────────────────── app/page.jsx ───────────────────────────── */
 import HomeClient     from './HomeClient'
-import { PrismaClient } from '@prisma/client'
+import { prisma } from '@/lib/prisma';
 
-const prisma  = new PrismaClient()
 export const dynamic = 'force-dynamic'
 
 /* fallback images that live in /public/images/plushies/… */

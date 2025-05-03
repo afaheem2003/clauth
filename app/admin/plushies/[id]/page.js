@@ -1,7 +1,6 @@
 import React from 'react';
 import PlushieEditClient from './PlushieEditClient';
-import { PrismaClient } from '@prisma/client';
-const prisma = new PrismaClient();
+import { prisma } from '@/lib/prisma';
 
 export default async function PlushieEditPage({ params }) {
   const { id } = await params;

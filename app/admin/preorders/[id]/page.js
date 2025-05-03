@@ -1,7 +1,6 @@
 import React from 'react';
 import PreorderEditClient from './PreorderEditClient';
-import { PrismaClient } from '@prisma/client';
-const prisma = new PrismaClient();
+import { prisma } from '@/lib/prisma';
 
 export default async function PreorderDetailPage({ params }) {
   const { id } = await params;

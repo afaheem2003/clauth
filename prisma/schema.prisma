@@ -1,5 +1,4 @@
 // prisma/schema.prisma
-
 generator client {
   provider = "prisma-client-js"
 }
@@ -9,9 +8,9 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-// -----------------------------
-// NextAuth required models
-// -----------------------------
+/* ────────────────────────────────────────────────────────────
+   NextAuth core models
+────────────────────────────────────────────────────────────── */
 model User {
   id            String         @id @default(cuid())
   name          String?
@@ -23,7 +22,7 @@ model User {
   photoUrl      String?
   createdAt     DateTime       @default(now())
 
-  role          Role           @default(USER)       // ← NEW
+  role          Role           @default(USER)
 
   plushies      Plushie[]
   votes         Vote[]
@@ -74,12 +73,13 @@ model VerificationToken {
   @@unique([identifier, token])
 }
 
-// -----------------------------
-// Your application models
-// -----------------------------
+/* ────────────────────────────────────────────────────────────
+   Application models
+────────────────────────────────────────────────────────────── */
 model Plushie {
   id               String         @id @default(cuid())
   name             String
+  animal           String
   imageUrl         String
   promptRaw        String
   promptSanitized  String
@@ -90,20 +90,16 @@ model Plushie {
   outfit           String
   accessories      String
   pose             String
-
   isPublished      Boolean        @default(false)
-  isFeatured       Boolean        @default(false)      // ← new “featured” flag
+  isFeatured       Boolean        @default(false)
   createdAt        DateTime       @default(now())
   expiresAt        DateTime?
-
   creator          User           @relation(fields: [creatorId], references: [id])
   creatorId        String
-
   votes            Vote[]
   preorders        Preorder[]
   comments         Comment[]
   likes            Like[]
-
   goal             Int            @default(50)
   minimumGoal      Int            @default(25)
   pledged          Int            @default(0)
@@ -200,16 +196,19 @@ model BillingInfo {
 }
 
 model PaymentIntent {
-  id           String   @id @default(cuid())
-  provider     String   // e.g., "stripe"
-  intentId     String   // provider's payment intent ID
-  clientSecret String?  // optional
-  status       String
-  createdAt    DateTime @default(now())
+  id           String               @id @default(cuid())
+  provider     String
+  intentId     String               @unique
+  clientSecret String?
+  status       PaymentIntentStatus  @default(REQUIRES_CAPTURE)
+  createdAt    DateTime             @default(now())
 
   preorder     Preorder?
 }
 
+/* ────────────────────────────────────────────────────────────
+   ENUMS
+────────────────────────────────────────────────────────────── */
 enum PlushieStatus {
   PENDING
   IN_PRODUCTION
@@ -220,8 +219,15 @@ enum PlushieStatus {
 enum PreorderStatus {
   PENDING
   CONFIRMED
+  COLLECTED
   CANCELED
   REFUNDED
+}
+
+enum PaymentIntentStatus {
+  REQUIRES_CAPTURE
+  SUCCEEDED
+  FAILED
 }
 
 enum Role {

@@ -1,7 +1,6 @@
 import React from 'react';
 import PreordersAdminClient from './PreordersAdminClient';
-import { PrismaClient } from '@prisma/client';
-const prisma = new PrismaClient();
+import { prisma } from '@/lib/prisma';
 
 export default async function PreordersAdminPage() {
   const orders = await prisma.preorder.findMany({
