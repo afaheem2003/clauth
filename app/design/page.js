@@ -15,13 +15,12 @@ import BigSpinner   from '@/components/common/BigSpinner';
 import Input        from '@/components/common/Input';
 import ButtonGroup  from '@/components/common/ButtonGroup';
 
-/* ------------------------------------------------------------------ */
 export default function CreateDesignPage() {
   const router            = useRouter();
   const { data: session } = useSession();
 
-  /* -------- form -------- */
   const [plushieName, setPlushieName] = useState('');
+  const [description, setDescription] = useState('');
   const [animal,      setAnimal]      = useState('');
   const [texture,     setTexture]     = useState('');
   const [color,       setColor]       = useState('');
@@ -31,16 +30,13 @@ export default function CreateDesignPage() {
   const [pose,        setPose]        = useState('');
   const [size,        setSize]        = useState('');
 
-  /* -------- feedback / image ----- */
   const [imageUrl,      setImageUrl]    = useState(null);
-  const [loadingButton, setLoadingButton] = useState(null); // 'generate' | 'save' | 'publish'
+  const [loadingButton, setLoadingButton] = useState(null);
   const [errorMessage , setErrorMessage]  = useState('');
 
-  /* -------- prompt -------- */
   const prompt          = `${size} ${texture} plushie of a ${color} ${animal} with ${accessories}, wearing ${outfit}, showing a ${emotion} expression, posed ${pose}`;
   const sanitizedPrompt = sanitizePrompt(prompt);
 
-  /* -------- helpers ------- */
   const blobToDataUrl = blob => new Promise((res, rej) => {
     const r = new FileReader();
     r.onloadend = () => res(r.result);
@@ -60,14 +56,13 @@ export default function CreateDesignPage() {
     return getDownloadURL(fileRef);
   }
 
-  /* -------- generate ------ */
   async function generatePlushie() {
     setLoadingButton('generate');
     setErrorMessage('');
     setImageUrl(null);
 
     try {
-      if (!session?.user)              throw new Error('You must be logged in.');
+      if (!session?.user) throw new Error('You must be logged in.');
       if (!animal || !texture || !size) throw new Error('Animal, Texture & Size are required.');
 
       const res = await fetch('/api/generate-stability', {
@@ -89,7 +84,6 @@ export default function CreateDesignPage() {
     }
   }
 
-  /* -------- save / publish ------- */
   async function saveOrPublish(type) {
     setLoadingButton(type);
     setErrorMessage('');
@@ -103,6 +97,7 @@ export default function CreateDesignPage() {
 
       const payload = {
         name            : plushieName.trim(),
+        description     : description.trim(),
         animal,
         imageUrl        : uploadedUrl,
         promptRaw       : prompt,
@@ -131,37 +126,26 @@ export default function CreateDesignPage() {
   const isPublishing = loadingButton === 'publish';
   const anyLoading   = !!loadingButton;
 
-  /* -------- UI ----------- */
   return (
     <div className="min-h-screen flex flex-col">
-      {/* banner */}
       <div
-  className="
-    relative w-full
-    h-48 sm:h-56 md:h-80          /* shorter on phones, same on lg */
-    bg-center bg-cover
-    flex items-center justify-center
-  "
-  style={{ backgroundImage: "url('/images/create/banner.png')" }}
->
-  <div className="absolute inset-0 bg-black/30" />
-  <h1
-    className="
-      relative z-10
-      text-3xl sm:text-4xl md:text-5xl  /* scales smoothly */
-      font-extrabold text-white
-      text-center px-4                  /* prevent edge-crop */
-    "
-  >
-    Create&nbsp;Your&nbsp;Plushie&nbsp;Design
-  </h1>
-</div>
+        className="
+          relative w-full
+          h-48 sm:h-56 md:h-80
+          bg-center bg-cover
+          flex items-center justify-center
+        "
+        style={{ backgroundImage: "url('/images/create/banner.png')" }}
+      >
+        <div className="absolute inset-0 bg-black/30" />
+        <h1 className="relative z-10 text-3xl sm:text-4xl md:text-5xl font-extrabold text-white text-center px-4">
+          Create&nbsp;Your&nbsp;Plushie&nbsp;Design
+        </h1>
+      </div>
 
-      {/* content */}
       <div className="flex-grow bg-gradient-to-b from-gray-100 to-gray-200 flex flex-col items-center py-10 px-4">
         <div className="w-full max-w-5xl bg-white rounded-xl shadow-2xl p-8 flex flex-col lg:flex-row gap-8">
           {!imageUrl ? (
-            /* ----- FORM BEFORE GENERATION ----- */
             <div className="flex-1 space-y-6">
               <Input        label="Animal" value={animal} setValue={setAnimal} required />
               <ButtonGroup  label="Texture" options={TEXTURES} selected={texture} setSelected={setTexture} required />
@@ -192,19 +176,22 @@ export default function CreateDesignPage() {
               {errorMessage && <p className="text-center text-red-600">{errorMessage}</p>}
             </div>
           ) : (
-            /* ----- RESULT + NAME / ACTIONS ----- */
             <div className="flex-1 flex flex-col items-center">
               <div className="w-80 h-80 overflow-hidden rounded-xl mx-auto">
                 <img src={imageUrl} alt="Generated plushie" className="object-cover w-full h-full" />
               </div>
 
-              {/* plushie name below image (required) */}
-              <div className="w-full max-w-sm mt-6">
+              <div className="w-full max-w-sm mt-6 space-y-4">
                 <Input
                   label="Plushie Name"
                   value={plushieName}
                   setValue={setPlushieName}
                   required
+                />
+                <Input
+                  label="Description"
+                  value={description}
+                  setValue={setDescription}
                 />
               </div>
 

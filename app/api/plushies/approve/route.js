@@ -1,9 +1,9 @@
 // app/api/plushies/approve/route.js
-import { NextResponse }      from 'next/server';
-import { getServerSession }  from 'next-auth';
-import { authOptions }       from '@/app/api/auth/[...nextauth]/route';
-import { prisma }            from '@/lib/prisma';
-import Stripe                from 'stripe';
+import { NextResponse } from 'next/server';
+import { getServerSession } from 'next-auth';
+import { authOptions } from '@/app/api/auth/[...nextauth]/route';
+import { prisma } from '@/lib/prisma';
+import Stripe from 'stripe';
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
 
@@ -31,7 +31,7 @@ export async function POST(req) {
     include: {
       preorders: {
         where: { status: { in: ['PENDING', 'CONFIRMED'] } },
-        include: { payment: true }              // grab PaymentIntent row
+        include: { payment: true }
       }
     }
   });
@@ -53,30 +53,40 @@ export async function POST(req) {
     }
 
     try {
-      // 1) capture on Stripe
-      await stripe.paymentIntents.capture(intentRow.intentId);
+      // 1) Fetch current status of payment intent from Stripe
+      const pi = await stripe.paymentIntents.retrieve(intentRow.intentId);
 
-      // 2) update PaymentIntent + Preorder inside a single transaction
-      await prisma.$transaction([
-        prisma.paymentIntent.update({
-          where: { id: intentRow.id },
-          data : { status: 'SUCCEEDED' }
-        }),
-        prisma.preorder.update({
-          where: { id: po.id },
-          data : { status: 'COLLECTED' }
-        })
-      ]);
+      if (pi.status === 'requires_capture') {
+        // 2) Capture the payment
+        await stripe.paymentIntents.capture(intentRow.intentId);
 
-      captureResults.push({ preorderId: po.id, ok: true });
+        // 3) Update database after capture
+        await prisma.$transaction([
+          prisma.paymentIntent.update({
+            where: { id: intentRow.id },
+            data: { status: 'SUCCEEDED' },
+          }),
+          prisma.preorder.update({
+            where: { id: po.id },
+            data: { status: 'COLLECTED' },
+          }),
+        ]);
+
+        captureResults.push({ preorderId: po.id, ok: true });
+      } else {
+        captureResults.push({
+          preorderId: po.id,
+          ok: false,
+          reason: `PaymentIntent is already ${pi.status}`,
+        });
+      }
     } catch (err) {
-      console.error(`Capture failed for preorder ${po.id}`, err);
+      console.error(`❌ Capture failed for preorder ${po.id}`, err);
 
-      // mark paymentIntent as FAILED so we can retry / investigate
       if (intentRow?.id) {
         await prisma.paymentIntent.update({
           where: { id: intentRow.id },
-          data : { status: 'FAILED' }
+          data: { status: 'FAILED' },
         });
       }
 
@@ -89,13 +99,13 @@ export async function POST(req) {
   if (anySucceeded) {
     await prisma.plushie.update({
       where: { id },
-      data : { status: 'IN_PRODUCTION' }
+      data: { status: 'IN_PRODUCTION' }
     });
   }
 
   return NextResponse.json({
-    success : anySucceeded,
+    success: anySucceeded,
     captured: captureResults.filter(r => r.ok).length,
-    failed  : captureResults.filter(r => !r.ok)
+    failed: captureResults.filter(r => !r.ok)
   });
 }

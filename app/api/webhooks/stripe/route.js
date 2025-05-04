@@ -1,3 +1,4 @@
+// ✅ Updated Stripe webhook handler with address collection + email toggle
 import { NextResponse } from "next/server";
 import Stripe from "stripe";
 import prisma from "@/lib/prisma";
@@ -60,12 +61,9 @@ export async function POST(request) {
     const cents = session.amount_total || 0;
     const email = session.customer_details?.email;
     const name = session.customer_details?.name || "friend";
+    const address = session.customer_details?.address;
 
     console.log("📌 Session metadata:", { userId, plushieId, qty, cents, email });
-
-    if (!email) {
-      console.warn("⚠️ No email found in session. Skipping receipt email.");
-    }
 
     try {
       console.log("💳 Recording payment intent...");
@@ -75,6 +73,13 @@ export async function POST(request) {
           intentId: session.payment_intent,
           clientSecret: session.payment_intent_data?.client_secret || null,
           status: mapStripePaymentStatus(session.payment_status),
+          fullName: name,
+          address1: address?.line1 || "",
+          address2: address?.line2 || null,
+          city: address?.city || "",
+          state: address?.state || "",
+          zip: address?.postal_code || "",
+          country: address?.country || "",
         },
       });
 
@@ -102,20 +107,22 @@ export async function POST(request) {
         select: { name: true },
       });
 
-      if (email) {
+      if (email && process.env.EMAIL_ENABLED === "true") {
         console.log("📨 Sending receipt email to:", email);
         await sendReceiptWithPDF({
           to: email,
           name,
-          email, // 👈 ADD THIS LINE
+          email,
           plushie: plushie?.name || "Plushie",
           qty,
           total: cents / 100,
-        });        
+        });
         console.log("✅ Receipt email sent to", email);
+      } else {
+        console.log("✉️ Email sending skipped (disabled or no email)");
       }
 
-      console.log("✅ Logged preorder and emailed receipt for", userId, plushieId, qty);
+      console.log("✅ Logged preorder and processed checkout for", userId, plushieId, qty);
     } catch (dbErr) {
       console.error("❌ Failed to log preorder or send receipt:", dbErr);
     }

@@ -1,10 +1,10 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   images: {
-    // 1) Keep your existing domain for placehold.co
-    domains: ["placehold.co"],
+    // 1) Existing domain
+    domains: ["placehold.co", "lh3.googleusercontent.com"],
 
-    // 2) Add a remotePatterns entry for Firebase
+    // 2) Firebase remote pattern
     remotePatterns: [
       {
         protocol: "https",

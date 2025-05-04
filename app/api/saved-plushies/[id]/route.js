@@ -1,35 +1,46 @@
-import { NextResponse }      from 'next/server';
-import { getServerSession }  from 'next-auth/next';
-import { authOptions }       from '@/app/api/auth/[...nextauth]/route';
-import { prisma }            from '@/lib/prisma';      // ← named export
+import { NextResponse } from 'next/server';
+import { getServerSession } from 'next-auth/next';
+import { authOptions } from '@/app/api/auth/[...nextauth]/route';
+import { prisma } from '@/lib/prisma';
+import Filter from 'bad-words';
 
-export async function PUT(request, { params }) {
-  const { id } = params;                             // params are synchronous
+export async function PUT(request, context) {
+  const { id } = context.params;
+
   const session = await getServerSession(authOptions);
   if (!session?.user?.uid)
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
   const {
     name,
-    animal,                                          // ← NEW (required)
+    animal = '',
     imageUrl,
     promptRaw,
     promptSanitized = '',
     texture,
     size,
-    emotion       = '',
-    color         = '',
-    outfit        = '',
-    accessories   = '',
-    pose          = '',
-    isPublished   = false,
+    emotion = '',
+    color = '',
+    outfit = '',
+    accessories = '',
+    pose = '',
+    isPublished = false,
   } = await request.json();
 
-  if (!name || !animal || !imageUrl || !promptRaw || !texture || !size) {
+  // ✅ Validate required fields
+  if (!name || !imageUrl || !promptRaw || !texture || !size) {
     return NextResponse.json(
       { error: 'Missing required fields' },
-      { status: 400 },
+      { status: 400 }
     );
+  }
+
+  // ✅ Profanity filtering
+  const filter = new Filter();
+  const fieldsToCheck = [name, animal, color, accessories, outfit, pose];
+  const hasProfanity = fieldsToCheck.some((field) => filter.isProfane(field));
+  if (hasProfanity) {
+    return NextResponse.json({ error: 'Inappropriate language detected' }, { status: 400 });
   }
 
   const existing = await prisma.plushie.findUnique({ where: { id } });
@@ -39,20 +50,37 @@ export async function PUT(request, { params }) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
 
   try {
+    const expiresAt =
+      isPublished && !existing.expiresAt
+        ? new Date(Date.now() + 30 * 24 * 60 * 60 * 1000) // 30 days from now
+        : existing.expiresAt;
+
     const updated = await prisma.plushie.update({
       where: { id },
-      data : {
-        name, animal, imageUrl, promptRaw, promptSanitized,
-        texture, size, emotion, color, outfit, accessories, pose,
+      data: {
+        name,
+        animal,
+        imageUrl,
+        promptRaw,
+        promptSanitized,
+        texture,
+        size,
+        emotion,
+        color,
+        outfit,
+        accessories,
+        pose,
         isPublished: Boolean(isPublished),
+        expiresAt,
       },
     });
+
     return NextResponse.json({ plushie: updated });
   } catch (err) {
     console.error('❌ Failed to update plushie:', err);
     return NextResponse.json(
       { error: 'Failed to update plushie' },
-      { status: 500 },
+      { status: 500 }
     );
   }
 }

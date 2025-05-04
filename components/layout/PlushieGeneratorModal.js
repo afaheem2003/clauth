@@ -1,48 +1,43 @@
 'use client';
 
 import React, { useState, useRef } from 'react';
-import Image               from 'next/image';
-import { useSession }      from 'next-auth/react';
+import Image from 'next/image';
+import { useSession } from 'next-auth/react';
 import { EMOTIONS, TEXTURES, SIZES } from '@/app/constants/options';
-import sanitizePrompt      from '@/utils/sanitizePrompt';
-import { storage }         from '@/app/lib/firebaseClient';
+import sanitizePrompt from '@/utils/sanitizePrompt';
+import { storage } from '@/app/lib/firebaseClient';
 import { getDownloadURL, ref, uploadString } from 'firebase/storage';
 
-import Input        from '@/components/common/Input';
-import ButtonGroup  from '@/components/common/ButtonGroup';
-import BigSpinner   from '@/components/common/BigSpinner';
-
-/* ------------------------------------------------------------------ */
+import Input from '@/components/common/Input';
+import ButtonGroup from '@/components/common/ButtonGroup';
+import BigSpinner from '@/components/common/BigSpinner';
 
 export default function PlushieGeneratorModal({ onClose }) {
   const { data: session } = useSession();
-  const modalRef          = useRef(null);
+  const modalRef = useRef(null);
 
-  /* -------- form state -------- */
   const [plushieName, setPlushieName] = useState('');
-  const [animal,      setAnimal]      = useState('');
-  const [texture,     setTexture]     = useState('');
-  const [color,       setColor]       = useState('');
+  const [description, setDescription] = useState('');
+  const [animal, setAnimal] = useState('');
+  const [texture, setTexture] = useState('');
+  const [color, setColor] = useState('');
   const [accessories, setAccessories] = useState('');
-  const [emotion,     setEmotion]     = useState('');
-  const [outfit,      setOutfit]      = useState('');
-  const [pose,        setPose]        = useState('');
-  const [size,        setSize]        = useState('');
+  const [emotion, setEmotion] = useState('');
+  const [outfit, setOutfit] = useState('');
+  const [pose, setPose] = useState('');
+  const [size, setSize] = useState('');
 
-  /* -------- feedback / img ----- */
-  const [imageUrl,      setImageUrl]    = useState(null);
-  const [loadingButton, setLoadingButton] = useState(null);   // 'generate' | 'save' | 'publish'
-  const [errorMessage , setErrorMessage]  = useState('');
+  const [imageUrl, setImageUrl] = useState(null);
+  const [loadingButton, setLoadingButton] = useState(null);
+  const [errorMessage, setErrorMessage] = useState('');
 
-  /* -------- prompt ------------- */
-  const prompt           = `${size} ${texture} plushie of a ${color} ${animal} with ${accessories}, wearing ${outfit}, showing a ${emotion} expression, posed ${pose}`;
-  const sanitizedPrompt  = sanitizePrompt(prompt);
+  const prompt = `${size} ${texture} plushie of a ${color} ${animal} with ${accessories}, wearing ${outfit}, showing a ${emotion} expression, posed ${pose}`;
+  const sanitizedPrompt = sanitizePrompt(prompt);
 
-  /* -------- utils -------------- */
   const blobToBase64 = blob => new Promise((res, rej) => {
     const r = new FileReader();
     r.onloadend = () => res(r.result);
-    r.onerror   = rej;
+    r.onerror = rej;
     r.readAsDataURL(blob);
   });
 
@@ -58,7 +53,6 @@ export default function PlushieGeneratorModal({ onClose }) {
     return getDownloadURL(fileRef);
   }
 
-  /* -------- actions ------------ */
   const handleBackdropClick = e => {
     if (e.target === modalRef.current) onClose();
   };
@@ -69,13 +63,13 @@ export default function PlushieGeneratorModal({ onClose }) {
     setImageUrl(null);
 
     try {
-      if (!session?.user)                    throw new Error('You must be logged in.');
-      if (!animal || !texture || !size)      throw new Error('Animal, Texture & Size are required.');
+      if (!session?.user) throw new Error('You must be logged in.');
+      if (!animal || !texture || !size) throw new Error('Animal, Texture & Size are required.');
 
       const res = await fetch('/api/generate-stability', {
-        method : 'POST',
-        headers: { 'Content-Type':'application/json' },
-        body   : JSON.stringify({ prompt })
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ prompt })
       });
       if (!res.ok) throw new Error((await res.json()).error || 'Generation failed');
 
@@ -96,29 +90,30 @@ export default function PlushieGeneratorModal({ onClose }) {
     setErrorMessage('');
 
     try {
-      if (!session?.user)          throw new Error('You must be logged in.');
-      if (!imageUrl)               throw new Error('Generate an image first.');
-      if (!plushieName.trim())     throw new Error('Please give your plushie a name.');
+      if (!session?.user) throw new Error('You must be logged in.');
+      if (!imageUrl) throw new Error('Generate an image first.');
+      if (!plushieName.trim()) throw new Error('Please give your plushie a name.');
 
       const uploadedUrl = await uploadImageToFirebase(imageUrl);
 
       const payload = {
-        name            : plushieName.trim(),
+        name: plushieName.trim(),
+        description: description.trim(),
         animal,
-        imageUrl        : uploadedUrl,
-        promptRaw       : prompt,
-        promptSanitized : sanitizedPrompt,
+        imageUrl: uploadedUrl,
+        promptRaw: prompt,
+        promptSanitized :sanitizePrompt,
         texture, size, emotion, color, outfit, accessories, pose,
-        isPublished     : type === 'publish',
+        isPublished: type === 'publish',
       };
 
       const resp = await fetch('/api/saved-plushies', {
-        method : 'POST',
-        headers: { 'Content-Type':'application/json' },
-        body   : JSON.stringify(payload)
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
       });
-      if (!resp.ok) throw new Error((await resp.json()).error || 'Save failed');
 
+      if (!resp.ok) throw new Error((await resp.json()).error || 'Save failed');
       onClose();
     } catch (e) {
       setErrorMessage(e.message || 'Failed to save.');
@@ -127,12 +122,11 @@ export default function PlushieGeneratorModal({ onClose }) {
     }
   }
 
-  const anyLoading   = !!loadingButton;
+  const anyLoading = !!loadingButton;
   const isGenerating = loadingButton === 'generate';
-  const isSaving     = loadingButton === 'save';
+  const isSaving = loadingButton === 'save';
   const isPublishing = loadingButton === 'publish';
 
-  /* -------- UI ----------------- */
   return (
     <div
       ref={modalRef}
@@ -151,15 +145,14 @@ export default function PlushieGeneratorModal({ onClose }) {
 
         {!imageUrl ? (
           <>
-            {/* --- FORM BEFORE GENERATION --- */}
-            <Input        label="Animal" value={animal} setValue={setAnimal} required />
-            <ButtonGroup  label="Texture" options={TEXTURES} selected={texture} setSelected={setTexture} required />
-            <Input        label="Color"  value={color}  setValue={setColor} />
-            <Input        label="Accessories" value={accessories} setValue={setAccessories} />
-            <ButtonGroup  label="Emotion" options={EMOTIONS} selected={emotion} setSelected={setEmotion} />
-            <Input        label="Outfit" value={outfit} setValue={setOutfit} />
-            <Input        label="Pose"   value={pose}   setValue={setPose} />
-            <ButtonGroup  label="Size"   options={SIZES} selected={size} setSelected={setSize} required />
+            <Input label="Animal" value={animal} setValue={setAnimal} required />
+            <ButtonGroup label="Texture" options={TEXTURES} selected={texture} setSelected={setTexture} required />
+            <Input label="Color" value={color} setValue={setColor} />
+            <Input label="Accessories" value={accessories} setValue={setAccessories} />
+            <ButtonGroup label="Emotion" options={EMOTIONS} selected={emotion} setSelected={setEmotion} />
+            <Input label="Outfit" value={outfit} setValue={setOutfit} />
+            <Input label="Pose" value={pose} setValue={setPose} />
+            <ButtonGroup label="Size" options={SIZES} selected={size} setSelected={setSize} required />
 
             <button
               onClick={generatePlushie}
@@ -172,7 +165,6 @@ export default function PlushieGeneratorModal({ onClose }) {
             {errorMessage && <p className="mt-4 text-center text-red-600">{errorMessage}</p>}
           </>
         ) : (
-          /* --- RESULT + NAME / ACTIONS --- */
           <div className="flex flex-col items-center gap-4">
             <Image
               src={imageUrl}
@@ -182,14 +174,8 @@ export default function PlushieGeneratorModal({ onClose }) {
               unoptimized
               className="rounded-xl"
             />
-
-            {/* PLUSHIE NAME INPUT (required) */}
-            <Input
-              label="Plushie Name"
-              value={plushieName}
-              setValue={setPlushieName}
-              required
-            />
+            <Input label="Name" value={plushieName} setValue={setPlushieName} required />
+            <Input label="Description" value={description} setValue={setDescription} />
 
             <button
               onClick={() => { setImageUrl(null); setErrorMessage(''); }}

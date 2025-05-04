@@ -1,4 +1,3 @@
-// components/plushie/SavedPlushieCard.jsx
 "use client";
 
 import { useState, useEffect, useRef } from "react";
@@ -10,7 +9,6 @@ import sanitizePrompt from "@/utils/sanitizePrompt";
 import { storage } from "@/app/lib/firebaseClient";
 import { getDownloadURL, ref, uploadString } from "firebase/storage";
 
-// A bigger, more visible spinner (white color)
 function BigSpinner() {
   return (
     <svg
@@ -82,7 +80,6 @@ export default function SavedPlushieCard({ plushie, setPlushies }) {
   const { data: session } = useSession();
   const modalRef = useRef(null);
 
-  //— map DB fields into local state
   const [animal, setAnimal] = useState(plushie.name);
   const [texture, setTexture] = useState(plushie.texture);
   const [color, setColor] = useState(plushie.color);
@@ -93,47 +90,17 @@ export default function SavedPlushieCard({ plushie, setPlushies }) {
   const [size, setSize] = useState(plushie.size);
   const [imageUrl, setImageUrl] = useState(plushie.imageUrl);
 
-  const [loadingButton, setLoadingButton] = useState(null); // "regenerate" | "update" | "publish"
+  const [loadingButton, setLoadingButton] = useState(null);
   const [errorMessage, setErrorMessage] = useState("");
   const [isModalOpen, setIsModalOpen] = useState(false);
 
   const prompt = `${size} ${texture} plushie of a ${color} ${animal} with ${accessories}, wearing ${outfit}, showing a ${emotion} expression, posed ${pose}`;
   const sanitizedPrompt = sanitizePrompt(prompt);
 
-  // set modal root
   useEffect(() => {
     if (typeof window !== "undefined") Modal.setAppElement("body");
   }, []);
 
-  // helper for blobs → data URLs
-  function blobToBase64(blob) {
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onloadend = () => resolve(reader.result);
-      reader.onerror = reject;
-      reader.readAsDataURL(blob);
-    });
-  }
-
-  // optional re-upload to Firebase if you want to store a new image
-  async function uploadImageToFirebase(localUrl) {
-    if (!session?.user) throw new Error("Please sign in.");
-    const userId = session.user.uid;
-    const fileRef = ref(storage, `plushies/${userId}/${Date.now()}.png`);
-
-    if (localUrl.startsWith("data:image/")) {
-      await uploadString(fileRef, localUrl, "data_url");
-      return getDownloadURL(fileRef);
-    }
-    const res = await fetch(localUrl);
-    if (!res.ok) throw new Error("Failed to fetch image.");
-    const blob = await res.blob();
-    const dataUrl = await blobToBase64(blob);
-    await uploadString(fileRef, dataUrl, "data_url");
-    return getDownloadURL(fileRef);
-  }
-
-  // regenerate via your AI endpoint
   async function regeneratePlushie() {
     setLoadingButton("regenerate");
     setErrorMessage("");
@@ -159,16 +126,15 @@ export default function SavedPlushieCard({ plushie, setPlushies }) {
     }
   }
 
-  // UPDATE existing draft (or flip to published)
   async function updatePlushie(publish = false) {
     setLoadingButton(publish ? "publish" : "update");
     setErrorMessage("");
     try {
       if (!session?.user) throw new Error("Please sign in.");
       if (!imageUrl) throw new Error("No image to save.");
-
-      // If you want to re-upload the image to Firebase:
-      // const uploaded = await uploadImageToFirebase(imageUrl);
+      if (!animal.trim() || !texture || !size) {
+        throw new Error("Missing required fields");
+      }
 
       const payload = {
         name: animal,
@@ -196,12 +162,9 @@ export default function SavedPlushieCard({ plushie, setPlushies }) {
         const err = await res.json().catch(() => ({}));
         throw new Error(err.error || "Update failed");
       }
-      const { plushie: updated } = await res.json();
 
-      // replace in parent list
-      setPlushies((prev) =>
-        prev.map((p) => (p.id === updated.id ? updated : p))
-      );
+      const { plushie: updated } = await res.json();
+      setPlushies((prev) => prev.map((p) => (p.id === updated.id ? updated : p)));
       setIsModalOpen(false);
     } catch (err) {
       console.error(err);
@@ -213,7 +176,6 @@ export default function SavedPlushieCard({ plushie, setPlushies }) {
 
   return (
     <>
-      {/* Card */}
       <div
         className="relative group cursor-pointer w-full rounded-lg overflow-hidden"
         onClick={() => setIsModalOpen(true)}
@@ -230,7 +192,6 @@ export default function SavedPlushieCard({ plushie, setPlushies }) {
         </div>
       </div>
 
-      {/* Modal */}
       <Modal
         isOpen={isModalOpen}
         onRequestClose={() => setIsModalOpen(false)}
@@ -264,7 +225,6 @@ export default function SavedPlushieCard({ plushie, setPlushies }) {
         <h2 className="text-2xl font-bold mb-6 text-center">Edit Your Plushie</h2>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {/* Left: regenerate */}
           <div>
             <Image
               src={imageUrl}
@@ -283,37 +243,18 @@ export default function SavedPlushieCard({ plushie, setPlushies }) {
             </button>
           </div>
 
-          {/* Right: form */}
           <div className="space-y-4">
             <Input label="Animal" value={animal} setValue={setAnimal} required />
-            <ButtonGroup
-              label="Texture"
-              options={TEXTURES}
-              selected={texture}
-              setSelected={setTexture}
-              required
-            />
+            <ButtonGroup label="Texture" options={TEXTURES} selected={texture} setSelected={setTexture} required />
             <Input label="Color" value={color} setValue={setColor} />
             <Input label="Accessories" value={accessories} setValue={setAccessories} />
-            <ButtonGroup
-              label="Emotion"
-              options={EMOTIONS}
-              selected={emotion}
-              setSelected={setEmotion}
-            />
+            <ButtonGroup label="Emotion" options={EMOTIONS} selected={emotion} setSelected={setEmotion} />
             <Input label="Outfit" value={outfit} setValue={setOutfit} />
             <Input label="Pose" value={pose} setValue={setPose} />
-            <ButtonGroup
-              label="Size"
-              options={SIZES}
-              selected={size}
-              setSelected={setSize}
-              required
-            />
+            <ButtonGroup label="Size" options={SIZES} selected={size} setSelected={setSize} required />
           </div>
         </div>
 
-        {/* Actions */}
         <div className="mt-6 flex justify-end space-x-4">
           <button
             onClick={() => setIsModalOpen(false)}
