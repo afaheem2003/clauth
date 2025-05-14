@@ -8,7 +8,7 @@
     "start": "next start",
     "lint": "next lint",
     "seed": "node prisma/seed.js",
-    "vercel-build": "prisma generate && next build",
+    "vercel-build": "prisma generate && next build"
   },
   "dependencies": {
     "@heroicons/react": "^2.2.0",
