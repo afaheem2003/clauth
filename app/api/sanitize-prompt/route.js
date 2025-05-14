@@ -1,6 +1,6 @@
 // app/api/sanitize-prompt/route.js
 import { NextResponse }   from 'next/server';
-import sanitizePrompt     from '@/lib/sanitizePrompt';
+import sanitizePrompt     from '@/utils/sanitizePrompt';
 
 export async function POST(req) {
   const { prompt } = await req.json();
