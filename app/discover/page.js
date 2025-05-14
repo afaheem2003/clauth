@@ -100,7 +100,7 @@ export default function DiscoverPage() {
         {/* sidebar + grid */}
         <section className="container mx-auto px-6 pb-20 flex flex-col lg:flex-row gap-10">
           {/* sidebar */}
-          <aside className="lg:w-64 space-y-6 sticky top-24">
+          <aside className="lg:w-64 space-y-6 lg:sticky lg:top-24">
             <div>
               <h3 className="font-semibold text-gray-700 mb-1">Sort by</h3>
               <select

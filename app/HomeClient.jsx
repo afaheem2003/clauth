@@ -1,47 +1,72 @@
 'use client';
 
-import { useState }   from 'react';
+import { useState, useEffect } from 'react';
 import { useSession } from 'next-auth/react';
-import Link           from 'next/link';
+import Link from 'next/link';
 
-import Header                from '@/components/Layout/Header';
-import HeroCarousel          from '@/components/Home/HeroCarousel';
-import Footer                from '@/components/common/Footer';
+import Header from '@/components/layout/Header';
+import HeroCarousel from '@/components/Home/HeroCarousel';
+import Footer from '@/components/common/Footer';
 import PlushieGeneratorModal from '@/components/layout/PlushieGeneratorModal';
-import AuthPromptModal       from '@/components/common/AuthPromptModal';
+import AuthPromptModal from '@/components/common/AuthPromptModal';
 
-/* stacked hero images ------------------------------------------------ */
-const heroPanels = [
+const heroPanelsDesktop = [
   {
-    img : '/images/homepage/background1.png',
-    heading : 'Looking for a new squeeze?',
-    cta     : 'Discover our latest Plushies'
+    img: '/images/homepage/background1.png',
+    heading: 'Ready to fall in plush?',
+    cta: 'Browse the latest AI-generated plushies',
   },
   {
-    img : '/images/homepage/background2.png',
-    heading : 'Lose yourself in Ploosh joy…',
-    cta     : 'Browse community favourites'
+    img: '/images/homepage/background2.png',
+    heading: 'Lose yourself in Ploosh joy…',
+    cta: 'Explore top-voted community creations',
   },
   {
-    img : '/images/homepage/background3.png',
-    heading : 'Ready to design your own?',
-    cta     : 'Create Your Plushie',
-    highlightCreate : true
-  }
+    img: '/images/homepage/background3.png',
+    heading: 'Ready to design your own?',
+    cta: 'Create Your Plushie',
+    highlightCreate: true,
+  },
+];
+
+const heroPanelsMobile = [
+  {
+    img: '/images/homepage/background_mobile1.png',
+    heading: 'Looking for a new squeeze?',
+    cta: 'Discover our latest Plushies',
+  },
+  {
+    img: '/images/homepage/background_mobile2.png',
+    heading: 'Lose yourself in Ploosh joy…',
+    cta: 'Browse community favourites',
+  },
+  {
+    img: '/images/homepage/background_mobile3.png',
+    heading: 'Ready to design your own?',
+    cta: 'Create Your Plushie',
+    highlightCreate: true,
+  },
 ];
 
 export default function HomeClient({ featured = [], almostThere = [], trending = [] }) {
   const { data: session } = useSession();
-  const [showGen,  setShowGen]  = useState(false);
+  const [showGen, setShowGen] = useState(false);
   const [showAuth, setShowAuth] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
 
   const onCreate = () => (session ? setShowGen(true) : setShowAuth(true));
 
+  useEffect(() => {
+    const checkMobile = () => setIsMobile(window.innerWidth < 768);
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
+
+  const heroPanels = isMobile ? heroPanelsMobile : heroPanelsDesktop;
+
   return (
     <>
-      {/* hide search bar on home */}
-      {/* <Header showSearch={false} showLogo={false} /> */}
-
       {/* ---------------- HERO (scroll-snap) ---------------- */}
       <section className="h-screen overflow-y-scroll snap-y snap-mandatory scroll-smooth">
         {heroPanels.map((p, i) => (
@@ -49,17 +74,14 @@ export default function HomeClient({ featured = [], almostThere = [], trending =
             key={i}
             className="snap-start h-screen relative flex items-center justify-center text-white"
             style={{
-              backgroundImage   : `url('${p.img}')`,
-              backgroundSize    : 'cover',
-              backgroundPosition: 'center'
+              backgroundImage: `url('${p.img}')`,
+              backgroundSize: 'cover',
+              backgroundPosition: 'center',
             }}
           >
             <div className="absolute inset-0 bg-black/30" />
             <div className="relative z-10 text-center px-4">
-              <h1 className="text-4xl md:text-5xl font-bold mb-4 drop-shadow">
-                {p.heading}
-              </h1>
-
+              <h1 className="text-4xl md:text-5xl font-bold mb-4 drop-shadow">{p.heading}</h1>
               {p.highlightCreate ? (
                 <button
                   onClick={onCreate}
@@ -81,37 +103,43 @@ export default function HomeClient({ featured = [], almostThere = [], trending =
       </section>
 
       {/* --------- FEATURED / ALMOST THERE / TRENDING ---------- */}
-      <section className="py-12 bg-gray-50">
-        <div className="container mx-auto px-6">
-          <h2 className="text-3xl font-semibold text-gray-900 text-center mb-6">
-            Featured Plushies
-          </h2>
-          <HeroCarousel items={featured} />
-        </div>
-      </section>
+      {featured.length > 0 && (
+        <section className="py-12 bg-gray-50">
+          <div className="container mx-auto px-6">
+            <h2 className="text-3xl font-semibold text-gray-900 text-center mb-6">
+              Featured Plushies
+            </h2>
+            <HeroCarousel items={featured} />
+          </div>
+        </section>
+      )}
 
-      <section className="py-12 bg-gray-50">
-        <div className="container mx-auto px-6">
-          <h2 className="text-3xl font-semibold text-gray-900 text-center mb-6">
-            Almost&nbsp;There&nbsp;&mdash;&nbsp;Help These Plushies Come to Life
-          </h2>
-          <HeroCarousel items={almostThere} />
-        </div>
-      </section>
+      {almostThere.length > 0 && (
+        <section className="py-12 bg-gray-50">
+          <div className="container mx-auto px-6">
+            <h2 className="text-3xl font-semibold text-gray-900 text-center mb-6">
+              Almost&nbsp;There&nbsp;&mdash;&nbsp;Help These Plushies Come to Life
+            </h2>
+            <HeroCarousel items={almostThere} />
+          </div>
+        </section>
+      )}
 
-      <section className="py-12 bg-gray-50">
-        <div className="container mx-auto px-6">
-          <h2 className="text-3xl font-semibold text-gray-900 text-center mb-6">
-            Trending&nbsp;Now
-          </h2>
-          <HeroCarousel items={trending} />
-        </div>
-      </section>
+      {trending.length > 0 && (
+        <section className="py-12 bg-gray-50">
+          <div className="container mx-auto px-6">
+            <h2 className="text-3xl font-semibold text-gray-900 text-center mb-6">
+              Trending&nbsp;Now
+            </h2>
+            <HeroCarousel items={trending} />
+          </div>
+        </section>
+      )}
 
       <Footer />
 
-      {showGen  && <PlushieGeneratorModal onClose={() => setShowGen(false)} />}
-      {showAuth && <AuthPromptModal       onClose={() => setShowAuth(false)} />}
+      {showGen && <PlushieGeneratorModal onClose={() => setShowGen(false)} />}
+      {showAuth && <AuthPromptModal onClose={() => setShowAuth(false)} />}
     </>
   );
 }

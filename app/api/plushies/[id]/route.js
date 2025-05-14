@@ -1,62 +1,81 @@
-import { NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth';
-import { authOptions } from '@/app/api/auth/[...nextauth]/route';
-import prisma from '@/lib/prisma';
+// app/api/plushies/[id]/route.js
 
-// DELETE /api/preorders/[id]
-export async function DELETE(req, context) {
-  const session = await getServerSession(authOptions);
-  if (!session?.user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+import { NextResponse } from 'next/server'
+import { getServerSession } from 'next-auth'
+import { authOptions } from '@/app/api/auth/[...nextauth]/route'
+import prisma from '@/lib/prisma'
+import { storage } from '@/lib/firebase-admin'
 
-  const preorderId = context.params.id; // ✅ CORRECT WAY TO ACCESS params
+// DELETE /api/plushies/[id]
+export async function DELETE(request, context) {
+  const { params } = await context
+  const session    = await getServerSession(authOptions)
+  if (!session?.user) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  }
 
-  try {
-    const existing = await prisma.preorder.findUnique({
-      where: { id: preorderId },
-    });
+  // this is the plushie ID
+  const plushieId = params.id
 
-    if (!existing || existing.userId !== session.user.uid) {
-      return NextResponse.json({ error: 'Not found or unauthorized' }, { status: 404 });
+  // load the plushie record so we know its image URL
+  const existing = await prisma.plushie.findUnique({
+    where: { id: plushieId }
+  })
+
+  if (!existing || existing.creatorId !== session.user.uid) {
+    return NextResponse.json({ error: 'Not found or unauthorized' }, { status: 404 })
+  }
+
+  // delete image from Firebase Storage if it's a Firebase URL
+  const imageUrl = existing.imageUrl || ''
+  if (imageUrl.includes('firebasestorage.googleapis.com')) {
+    try {
+      const bucket   = storage.bucket()
+      const filePath = decodeURIComponent(imageUrl.split('/o/')[1]?.split('?')[0] || '')
+      if (filePath) await bucket.file(filePath).delete()
+    } catch (e) {
+      console.warn('⚠️ Firebase delete failed:', e)
     }
+  }
 
-    await prisma.preorder.delete({ where: { id: preorderId } });
+  // now delete the plushie
+  await prisma.plushie.delete({ where: { id: plushieId } })
 
-    await prisma.plushie.update({
-      where: { id: existing.plushieId },
-      data: { pledged: { decrement: existing.quantity } },
-    });
+  return NextResponse.json({ success: true })
+}
 
-    return NextResponse.json({ success: true });
+// GET /api/plushies/[id]
+export async function GET(request, context) {
+  const { params } = await context
+  try {
+    const plushie = await prisma.plushie.findUnique({ where: { id: params.id } })
+    if (!plushie) {
+      return NextResponse.json({ error: 'Not found' }, { status: 404 })
+    }
+    return NextResponse.json({ plushie })
   } catch (err) {
-    console.error("❌ Error deleting preorder:", err);
-    return NextResponse.json({ error: 'Delete failed' }, { status: 500 });
+    console.error('❌ Fetch failed:', err)
+    return NextResponse.json({ error: 'Not found' }, { status: 404 })
   }
 }
 
-// GET /api/preorders/[id]
-export async function GET(req, context) {
-  const plushieId = context.params.id;
-  try {
-    const plushie = await prisma.plushie.findUnique({ where: { id: plushieId } });
-    if (!plushie) return NextResponse.json({ error: 'Not found' }, { status: 404 });
-    return NextResponse.json({ plushie });
-  } catch {
-    return NextResponse.json({ error: 'Not found' }, { status: 404 });
+// PUT /api/plushies/[id]
+export async function PUT(request, context) {
+  const { params } = await context
+  const session = await getServerSession(authOptions)
+  if (!session?.user) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
-}
 
-// PUT /api/preorders/[id]
-export async function PUT(req, context) {
-  const session = await getServerSession(authOptions);
-  if (!session?.user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-
-  const plushieId = context.params.id;
-  const data = await req.json();
-
+  const data = await request.json()
   try {
-    const updated = await prisma.plushie.update({ where: { id: plushieId }, data });
-    return NextResponse.json({ plushie: updated });
-  } catch {
-    return NextResponse.json({ error: 'Update failed' }, { status: 500 });
+    const updated = await prisma.plushie.update({
+      where: { id: params.id },
+      data,
+    })
+    return NextResponse.json({ plushie: updated })
+  } catch (err) {
+    console.error('❌ Update failed:', err)
+    return NextResponse.json({ error: 'Update failed' }, { status: 500 })
   }
 }

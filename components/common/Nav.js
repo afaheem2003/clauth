@@ -1,3 +1,4 @@
+// app/components/Nav.jsx or Nav.tsx (if using TS)
 "use client";
 
 import { useState, useRef, useEffect } from "react";
@@ -6,12 +7,16 @@ import { slide as Menu } from "react-burger-menu";
 import { useRouter } from "next/navigation";
 import { useSession, signOut } from "next-auth/react";
 
-/* react-burger-menu styles (unchanged) ------------------------------ */
+/* react-burger-menu styles ----------------------------------------- */
 const menuStyles = {
   bmMenuWrap: { top: 0 },
   bmOverlay: { background: "rgba(0,0,0,.35)" },
   bmMenu: { background: "#1F2937", padding: "1.5rem 1rem" },
-  bmItemList: { display: "flex", flexDirection: "column", gap: "1rem" },
+  bmItemList: {
+    display: "flex",
+    flexDirection: "column",
+    gap: "1rem",
+  },
   bmCrossButton: { height: "36px", width: "36px" },
 };
 
@@ -50,7 +55,6 @@ export default function Nav() {
   return (
     <header className="bg-white border-b sticky top-0 z-50">
       <div className="container mx-auto px-6 h-14 flex items-center justify-between">
-        {/* LOGO */}
         <Link href="/" className="text-2xl font-extrabold text-gray-900">
           Ploosh
         </Link>
@@ -162,11 +166,7 @@ export default function Nav() {
             stroke="currentColor"
             strokeWidth="2"
           >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              d="M6 18L18 6M6 6l12 12"
-            />
+            <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
           </svg>
         </button>
 
@@ -174,7 +174,7 @@ export default function Nav() {
           <Link
             href="/admin"
             onClick={close}
-            className="text-xl text-yellow-400 hover:text-yellow-300"
+            className="bm-item text-xl text-yellow-400 hover:text-yellow-300"
           >
             Admin Dashboard
           </Link>
@@ -185,25 +185,25 @@ export default function Nav() {
             key={l.href}
             href={l.href}
             onClick={close}
-            className="text-xl text-white hover:text-gray-300"
+            className="bm-item text-xl text-white hover:text-gray-300"
           >
             {l.label}
           </Link>
         ))}
 
-        <div className="mt-6 space-y-2">
+        <div className="mt-6 flex flex-col gap-4">
           {!session?.user ? (
             <>
               <button
                 onClick={login}
-                className="text-xl text-white hover:text-gray-300"
+                className="bm-item text-left text-xl text-white hover:text-gray-300"
               >
                 Log in
               </button>
               <Link
                 href="/signup"
                 onClick={close}
-                className="text-xl text-white hover:text-gray-300"
+                className="bm-item text-xl text-white hover:text-gray-300"
               >
                 Sign up
               </Link>
@@ -213,27 +213,27 @@ export default function Nav() {
               <Link
                 href="/my-preorders"
                 onClick={close}
-                className="text-xl text-white hover:text-gray-300"
+                className="bm-item text-xl text-white hover:text-gray-300"
               >
                 My Pre-orders
               </Link>
               <Link
                 href="/profile"
                 onClick={close}
-                className="text-xl text-white hover:text-gray-300"
+                className="bm-item text-xl text-white hover:text-gray-300"
               >
                 My Profile
               </Link>
               <Link
                 href="/settings"
                 onClick={close}
-                className="text-xl text-white hover:text-gray-300"
+                className="bm-item text-xl text-white hover:text-gray-300"
               >
                 Settings
               </Link>
               <button
                 onClick={logout}
-                className="text-xl text-white hover:text-gray-300"
+                className="bm-item text-left text-xl text-white hover:text-gray-300"
               >
                 Log out
               </button>

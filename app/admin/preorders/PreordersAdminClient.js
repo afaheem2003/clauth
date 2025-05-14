@@ -1,3 +1,4 @@
+
 'use client';
 
 import React, { useState } from 'react';
@@ -61,7 +62,7 @@ export default function PreordersAdminClient({ initialOrders }) {
                 <li key={o.id} className="flex justify-between items-center px-4 py-2">
                   <div>
                     <p className="text-gray-800">
-                      <strong>{o.user.email}</strong> &rarr; {o.quantity}x <span className="text-sm text-gray-600">Status: {o.status}</span>
+                      <strong>{o.user?.email || o.guestEmail || "Unknown"}</strong> &rarr; {o.quantity}x <span className="text-sm text-gray-600">Status: {o.status}</span>
                     </p>
                   </div>
                   <div className="flex space-x-4">

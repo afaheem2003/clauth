@@ -1,12 +1,17 @@
 'use client';
 import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { CANCELLATION_QUOTES } from '@/utils/cancellationQuotes';
+
 
 export default function PlushieEditClient({ initialPlushie }) {
   const [formData, setFormData] = useState({
     ...initialPlushie,
     expiresAt: initialPlushie.expiresAt ? initialPlushie.expiresAt.split('T')[0] : ''
   });
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [deleteQuote, setDeleteQuote] = useState('');
+
   const router = useRouter();
 
   const handleChange = (e) => {
@@ -15,6 +20,16 @@ export default function PlushieEditClient({ initialPlushie }) {
       ...prev,
       [name]: type === 'checkbox' ? checked : value
     }));
+  };
+  const handleInitiateDelete = () => {
+    const q = CANCELLATION_QUOTES[Math.floor(Math.random() * CANCELLATION_QUOTES.length)];
+    setDeleteQuote(q);
+    setShowDeleteConfirm(true);
+  };
+  
+  const handleDelete = async () => {
+    await fetch(`/api/plushies/${formData.id}`, { method: 'DELETE' });
+    router.push('/admin/plushies');
   };
 
   const handleSubmit = async (e) => {
@@ -31,11 +46,6 @@ export default function PlushieEditClient({ initialPlushie }) {
     if (res.ok) router.push('/admin/plushies');
   };
 
-  const handleDelete = async () => {
-    if (!confirm('Delete this plushie?')) return;
-    await fetch(`/api/plushies/${formData.id}`, { method: 'DELETE' });
-    router.push('/admin/plushies');
-  };
 
   return (
     <div className="p-8 bg-gray-50">

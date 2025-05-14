@@ -7,21 +7,25 @@ import { useRouter, usePathname } from "next/navigation";
 /**
  * Global route-protection helper
  *
- *  •  The Home page ( “/” ) is now **public** — anyone can view it.
- *  •  All other pages continue to behave exactly as before.
+ *  • The Home page ( “/” ), Discover ( “/discover” ), and Plushie pages ( “/plushies/[id]” ) are public.
+ *  • All other routes require sign-in and appropriate roles.
  */
 export default function AuthGuard({ children }) {
   const { data: session, status } = useSession();
-  const router                    = useRouter();
-  const pathname                  = usePathname();
+  const router = useRouter();
+  const pathname = usePathname();
 
   useEffect(() => {
-    if (status === "loading") return;            // still figuring out auth
+    if (status === "loading") return; // still figuring out auth
 
-    /* ───────── 1) PUBLIC HOME ───────── */
-    if (!session && pathname === "/") {
-      // visitor is allowed to stay on the landing page
-      return;
+    /* ───────── 1) PUBLIC ROUTES ───────── */
+    const isPublic =
+      pathname === "/" ||
+      pathname.startsWith("/discover") ||
+      pathname.startsWith("/plushies");
+
+    if (!session && isPublic) {
+      return; // allow visitors to access public routes
     }
 
     /* ───────── 2) NOT SIGNED-IN → /login ───────── */

@@ -8,28 +8,13 @@ import { EMOTIONS, TEXTURES, SIZES } from "@/app/constants/options";
 import sanitizePrompt from "@/utils/sanitizePrompt";
 import { storage } from "@/app/lib/firebaseClient";
 import { getDownloadURL, ref, uploadString } from "firebase/storage";
+import { CANCELLATION_QUOTES } from "@/utils/cancellationQuotes";
 
 function BigSpinner() {
   return (
-    <svg
-      className="animate-spin h-6 w-6 text-white mx-auto"
-      xmlns="http://www.w3.org/2000/svg"
-      fill="none"
-      viewBox="0 0 24 24"
-    >
-      <circle
-        className="opacity-25"
-        cx="12"
-        cy="12"
-        r="10"
-        stroke="currentColor"
-        strokeWidth="4"
-      />
-      <path
-        className="opacity-75"
-        fill="currentColor"
-        d="M4 12a8 8 0 018-8v8H4z"
-      />
+    <svg className="animate-spin h-6 w-6 text-white mx-auto" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
     </svg>
   );
 }
@@ -63,9 +48,7 @@ function ButtonGroup({ label, options, selected, setSelected, required = false }
             key={opt}
             onClick={() => setSelected(opt)}
             className={`px-3 py-1.5 rounded-full border text-sm ${
-              selected === opt
-                ? "bg-gray-900 text-white"
-                : "bg-white text-gray-800 border-gray-300"
+              selected === opt ? "bg-gray-900 text-white" : "bg-white text-gray-800 border-gray-300"
             }`}
           >
             {opt}
@@ -78,8 +61,6 @@ function ButtonGroup({ label, options, selected, setSelected, required = false }
 
 export default function SavedPlushieCard({ plushie, setPlushies }) {
   const { data: session } = useSession();
-  const modalRef = useRef(null);
-
   const [animal, setAnimal] = useState(plushie.name);
   const [texture, setTexture] = useState(plushie.texture);
   const [color, setColor] = useState(plushie.color);
@@ -93,6 +74,8 @@ export default function SavedPlushieCard({ plushie, setPlushies }) {
   const [loadingButton, setLoadingButton] = useState(null);
   const [errorMessage, setErrorMessage] = useState("");
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [deleteQuote, setDeleteQuote] = useState("");
 
   const prompt = `${size} ${texture} plushie of a ${color} ${animal} with ${accessories}, wearing ${outfit}, showing a ${emotion} expression, posed ${pose}`;
   const sanitizedPrompt = sanitizePrompt(prompt);
@@ -119,7 +102,6 @@ export default function SavedPlushieCard({ plushie, setPlushies }) {
       }
       setImageUrl(final);
     } catch (err) {
-      console.error(err);
       setErrorMessage(err.message);
     } finally {
       setLoadingButton(null);
@@ -130,17 +112,11 @@ export default function SavedPlushieCard({ plushie, setPlushies }) {
     setLoadingButton(publish ? "publish" : "update");
     setErrorMessage("");
     try {
-      if (!session?.user) throw new Error("Please sign in.");
-      if (!imageUrl) throw new Error("No image to save.");
-      if (!animal.trim() || !texture || !size) {
-        throw new Error("Missing required fields");
-      }
-
       const payload = {
         name: animal,
         imageUrl,
         promptRaw: prompt,
-        promptSanitized: sanitizedPrompt,
+        promptSanitized,
         texture,
         size,
         emotion,
@@ -158,35 +134,39 @@ export default function SavedPlushieCard({ plushie, setPlushies }) {
         body: JSON.stringify(payload),
       });
 
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({}));
-        throw new Error(err.error || "Update failed");
-      }
+      if (!res.ok) throw new Error("Update failed");
 
       const { plushie: updated } = await res.json();
       setPlushies((prev) => prev.map((p) => (p.id === updated.id ? updated : p)));
       setIsModalOpen(false);
     } catch (err) {
-      console.error(err);
       setErrorMessage(err.message);
     } finally {
       setLoadingButton(null);
     }
   }
 
+  async function deletePlushie() {
+    try {
+      const res = await fetch(`/api/saved-plushies/${plushie.id}`, { method: "DELETE", credentials: "include" });
+      if (!res.ok) throw new Error("Delete failed");
+      setPlushies((prev) => prev.filter((p) => p.id !== plushie.id));
+      setIsModalOpen(false);
+    } catch (err) {
+      setErrorMessage(err.message);
+    }
+  }
+
+  const initiateDelete = () => {
+    const q = CANCELLATION_QUOTES[Math.floor(Math.random() * CANCELLATION_QUOTES.length)];
+    setDeleteQuote(q);
+    setShowDeleteConfirm(true);
+  };
+
   return (
     <>
-      <div
-        className="relative group cursor-pointer w-full rounded-lg overflow-hidden"
-        onClick={() => setIsModalOpen(true)}
-      >
-        <Image
-          src={imageUrl}
-          alt={animal}
-          width={320}
-          height={320}
-          className="object-cover rounded-lg"
-        />
+      <div className="relative group cursor-pointer w-full rounded-lg overflow-hidden" onClick={() => setIsModalOpen(true)}>
+        <Image src={imageUrl} alt={animal} width={320} height={320} className="object-cover rounded-lg" />
         <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-50 transition-opacity flex items-center justify-center opacity-0 group-hover:opacity-100">
           <p className="text-white font-semibold">Edit Draft</p>
         </div>
@@ -216,29 +196,15 @@ export default function SavedPlushieCard({ plushie, setPlushies }) {
           },
         }}
       >
-        <button
-          onClick={() => setIsModalOpen(false)}
-          className="absolute top-3 right-3 text-gray-500 hover:text-gray-700 text-2xl"
-        >
+        <button onClick={() => setIsModalOpen(false)} className="absolute top-3 right-3 text-gray-500 hover:text-gray-700 text-2xl">
           &times;
         </button>
         <h2 className="text-2xl font-bold mb-6 text-center">Edit Your Plushie</h2>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <div>
-            <Image
-              src={imageUrl}
-              alt={animal}
-              width={320}
-              height={320}
-              className="rounded-lg"
-              unoptimized
-            />
-            <button
-              onClick={regeneratePlushie}
-              disabled={loadingButton === "regenerate"}
-              className="mt-4 w-full py-2 bg-purple-600 text-white rounded hover:bg-purple-700 transition"
-            >
+            <Image src={imageUrl} alt={animal} width={320} height={320} className="rounded-lg" unoptimized />
+            <button onClick={regeneratePlushie} disabled={loadingButton === "regenerate"} className="mt-4 w-full py-2 bg-purple-600 text-white rounded hover:bg-purple-700 transition">
               {loadingButton === "regenerate" ? <BigSpinner /> : "Regenerate"}
             </button>
           </div>
@@ -255,32 +221,34 @@ export default function SavedPlushieCard({ plushie, setPlushies }) {
           </div>
         </div>
 
-        <div className="mt-6 flex justify-end space-x-4">
-          <button
-            onClick={() => setIsModalOpen(false)}
-            className="px-4 py-2 bg-gray-400 text-white rounded hover:bg-gray-500"
-          >
-            Cancel
-          </button>
-          <button
-            onClick={() => updatePlushie(false)}
-            disabled={!!loadingButton}
-            className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
-          >
-            {loadingButton === "update" ? <BigSpinner /> : "Save Changes"}
-          </button>
-          <button
-            onClick={() => updatePlushie(true)}
-            disabled={!!loadingButton}
-            className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700"
-          >
-            {loadingButton === "publish" ? <BigSpinner /> : "Publish Plushie"}
-          </button>
+        <div className="mt-6 flex flex-col items-end space-y-2">
+          {showDeleteConfirm ? (
+            <>
+              <p className="italic text-pink-600 text-sm text-center w-full">“{deleteQuote}”</p>
+              <div className="flex justify-end gap-2 w-full">
+                <button onClick={deletePlushie} className="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700">
+                  Yes, delete
+                </button>
+                <button onClick={() => setShowDeleteConfirm(false)} className="px-4 py-2 bg-gray-200 text-gray-800 rounded hover:bg-gray-300">
+                  Cancel
+                </button>
+              </div>
+            </>
+          ) : (
+            <div className="flex justify-end gap-2 w-full">
+              <button onClick={initiateDelete} className="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700">
+                Delete
+              </button>
+              <button onClick={() => updatePlushie(false)} disabled={!!loadingButton} className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700">
+                {loadingButton === "update" ? <BigSpinner /> : "Save Changes"}
+              </button>
+              <button onClick={() => updatePlushie(true)} disabled={!!loadingButton} className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700">
+                {loadingButton === "publish" ? <BigSpinner /> : "Publish Plushie"}
+              </button>
+            </div>
+          )}
+          {errorMessage && <p className="text-red-600 text-center mt-3">{errorMessage}</p>}
         </div>
-
-        {errorMessage && (
-          <p className="mt-4 text-red-600 text-center">{errorMessage}</p>
-        )}
       </Modal>
     </>
   );

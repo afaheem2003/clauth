@@ -1,3 +1,4 @@
+
 'use client';
 import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
@@ -24,7 +25,7 @@ export default function PreorderEditClient({ order }) {
       <h1 className="text-2xl font-bold mb-4 text-gray-800">Pre-order Detail</h1>
       <div className="bg-white p-6 rounded shadow grid grid-cols-2 gap-6">
         <div>
-          <p><strong>User:</strong> {order.user.email}</p>
+          <p><strong>User:</strong> {order.user?.email || order.guestEmail || "Unknown"}</p>
           <p><strong>Quantity:</strong> {order.quantity}</p>
           <p><strong>Price:</strong> ${order.price.toFixed(2)}</p>
           <label className="block mt-4">

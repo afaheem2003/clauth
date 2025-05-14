@@ -18,7 +18,7 @@ model User {
   emailVerified DateTime?
   image         String?
 
-  displayName   String?
+  displayName   String?        @unique
   photoUrl      String?
   createdAt     DateTime       @default(now())
 
@@ -120,14 +120,16 @@ model Vote {
 
 model Preorder {
   id              String         @id @default(cuid())
-  user            User           @relation(fields: [userId], references: [id])
-  userId          String
+  user        User?          @relation(fields: [userId], references: [id])
+  userId      String?        // nullable to allow guest checkout
   plushie         Plushie        @relation(fields: [plushieId], references: [id])
   plushieId       String
   createdAt       DateTime       @default(now())
   price           Float
   quantity        Int            @default(1)
   status          PreorderStatus @default(PENDING)
+
+  guestEmail String? // optional email field for guest users
 
   shippingInfo    ShippingInfo?  @relation("PreorderShipping", fields: [shippingInfoId], references: [id])
   shippingInfoId  String?        @unique
@@ -140,13 +142,20 @@ model Preorder {
 }
 
 model Comment {
-  id         String   @id @default(cuid())
-  content    String
-  createdAt  DateTime @default(now())
-  author     User     @relation(fields: [authorId], references: [id])
-  authorId   String
-  plushie    Plushie  @relation(fields: [plushieId], references: [id])
-  plushieId  String
+  id        String    @id @default(cuid())
+  content   String
+  createdAt DateTime  @default(now())
+  author    User      @relation(fields: [authorId], references: [id])
+  authorId  String
+  plushie   Plushie   @relation(fields: [plushieId], references: [id])
+  plushieId String
+
+  // Self-referencing relationship for replies
+  parent     Comment?   @relation("CommentReplies", fields: [parentId], references: [id])
+  parentId   String?
+  replies    Comment[]  @relation("CommentReplies")
+
+  @@index([parentId])
 }
 
 model Like {

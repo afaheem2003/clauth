@@ -18,6 +18,12 @@ body {
   font-family: Arial, Helvetica, sans-serif;
 }
 
+.bm-item {
+  display: block !important;
+  width: 100% !important;
+}
+
+
 #__next-route-announcer,
 #__next-build-watcher,
 #__next-build-error-overlay { display:none !important; }
