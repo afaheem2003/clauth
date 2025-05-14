@@ -6,6 +6,8 @@ import { signOut }   from "next-auth/react";
 import AuthGuard     from "@/components/common/AuthGuard";
 import AdminGuard    from "@/components/common/AdminGuard";
 
+export const dynamic = 'force-dynamic';
+
 export default function AdminLayout({ children }) {
   const router = useRouter();
 
