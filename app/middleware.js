@@ -20,13 +20,6 @@ export async function middleware(req: NextRequest) {
 
 export const config = {
   matcher: [
-    /*
-     * Match all routes except:
-     * - API routes
-     * - static files
-     * - Next.js internals
-     * - favicon and other assets
-     */
-    '/((?!api|_next|favicon.ico|.*\\..*).*)',
+    '/((?!api|_next|favicon.ico).*)',
   ],
 };
