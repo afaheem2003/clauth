@@ -1,7 +1,7 @@
 import { NextResponse }     from 'next/server';
 import { getServerSession } from 'next-auth/next';
 import prisma               from '@/lib/prisma';           // ↖ your prisma helper
-import { authOptions }      from '@/app/api/auth/[...nextauth]/route';
+import { authOptions } from "@/lib/authOptions";
 
 const RE_USERNAME = /^[a-zA-Z0-9_]{3,20}$/;
 
