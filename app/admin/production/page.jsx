@@ -1,6 +1,9 @@
 import ReadyForProdClient from './Client';
 import { prisma } from '@/lib/prisma';
 
+export const dynamic = 'force-dynamic';
+
+
 
 /** List every plushie that has met (or exceeded) its minimum goal
  *  but is still in the PENDING stage.
