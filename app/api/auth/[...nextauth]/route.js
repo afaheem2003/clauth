@@ -58,3 +58,5 @@ const handler = NextAuth(authOptions);
 
 // only export the HTTP methods Next.js expects
 export { handler as GET, handler as POST };
+
+export { authOptions };
