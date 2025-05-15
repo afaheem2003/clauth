@@ -3,6 +3,8 @@ import { prisma } from '@/lib/prisma';
 import StatusBarChart from './StatusBarChart';
 import TrendLineChart from './TrendLineChart';
 
+export const dynamic = 'force-dynamic';
+
 export default async function AdminDashboard() {
   // 1) Totals
   const [plushieCount, userCount, preorderCount] = await Promise.all([

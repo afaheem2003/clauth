@@ -1,6 +1,8 @@
 import InProductionClient from './Client';
 import { prisma } from '@/lib/prisma';
 
+export const dynamic = 'force-dynamic';
+
 
 export default async function InProductionPage() {
   const plushies = await prisma.plushie.findMany({
