@@ -6,6 +6,7 @@ generator client {
 datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
+  relationMode = "prisma"
 }
 
 /* ────────────────────────────────────────────────────────────
@@ -151,12 +152,13 @@ model Comment {
   plushieId String
 
   // Self-referencing relationship for replies
-  parent     Comment?   @relation("CommentReplies", fields: [parentId], references: [id])
+  parent     Comment?   @relation("CommentReplies", fields: [parentId], references: [id], onDelete: Restrict, onUpdate: Restrict)
   parentId   String?
   replies    Comment[]  @relation("CommentReplies")
 
   @@index([parentId])
 }
+
 
 model Like {
   id         String   @id @default(cuid())
