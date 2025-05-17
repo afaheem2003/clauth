@@ -1,5 +1,3 @@
-// app/api/my-plushies/route.js
-
 import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/authOptions";
@@ -14,8 +12,9 @@ export async function GET() {
     const plushies = await prisma.plushie.findMany({
       where: {
         creator: {
-          email: session.user.email, // or use id if you prefer
+          email: session.user.email, // or use id if preferred
         },
+        isDeleted: false, // ✅ Exclude deleted plushies
       },
       include: {
         creator: true,

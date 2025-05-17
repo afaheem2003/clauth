@@ -83,40 +83,34 @@ export async function PUT(request, context) {
   }
 }
 
+// DELETE /api/plushies/[id]
 export async function DELETE(request, context) {
-  const { id } = context.params;
+  const { params } = context;
   const session = await getServerSession(authOptions);
-
-  if (!session?.user?.uid) {
+  if (!session?.user) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
-  const plushie = await prisma.plushie.findUnique({ where: { id } });
+  const plushieId = params.id;
 
-  if (!plushie || plushie.creatorId !== session.user.uid) {
+  const existing = await prisma.plushie.findUnique({
+    where: { id: plushieId },
+  });
+
+  const isOwner = existing?.creatorId === session.user.uid;
+  const isAdmin = session.user.role === 'ADMIN'; // optional: if you support admin deletes
+
+  if (!existing || (!isOwner && !isAdmin)) {
     return NextResponse.json({ error: 'Not found or unauthorized' }, { status: 404 });
   }
 
-  const imageUrl = plushie.imageUrl || '';
+  // ❌ no physical deletion of record or image
+  // ✅ soft delete by flagging isDeleted = true
+  await prisma.plushie.update({
+    where: { id: plushieId },
+    data: { isDeleted: true },
+  });
 
-  if (imageUrl.includes('supabase.co/storage/v1/object/public')) {
-    try {
-      const bucket = process.env.SUPABASE_BUCKET;
-      const path = imageUrl.split(`/object/public/${bucket}/`)[1];
-      if (bucket && path) {
-        const { error } = await supabase.storage.from(bucket).remove([path]);
-        if (error) throw error;
-      }
-    } catch (e) {
-      console.warn('⚠️ Supabase delete failed:', e);
-    }
-  }
-
-  try {
-    await prisma.plushie.delete({ where: { id } });
-    return NextResponse.json({ success: true });
-  } catch (err) {
-    console.error('❌ Failed to delete plushie:', err);
-    return NextResponse.json({ error: 'Failed to delete plushie' }, { status: 500 });
-  }
+  return NextResponse.json({ success: true });
 }
+
