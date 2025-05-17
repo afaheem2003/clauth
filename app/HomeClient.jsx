@@ -14,7 +14,7 @@ const heroPanelsDesktop = [
   {
     img: '/images/homepage/background1.png',
     heading: 'Ready to fall in plush?',
-    cta: 'Browse the latest AI-generated plushies',
+    cta: 'Browse the latest creator-generated plushies',
   },
   {
     img: '/images/homepage/background2.png',

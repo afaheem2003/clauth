@@ -1,14 +1,14 @@
 // app/api/plushies/[id]/route.js
 
-import { NextResponse } from 'next/server'
-import { getServerSession } from 'next-auth'
-import { authOptions } from '@/lib/authOptions'
-import prisma from '@/lib/prisma'
-import supabase from '@/lib/supabase-admin'
+import { NextResponse }        from 'next/server'
+import { getServerSession }    from 'next-auth'
+import { authOptions }         from '@/lib/authOptions'
+import prisma                  from '@/lib/prisma'
+import supabase                from '@/lib/supabase-admin'
 
 // DELETE /api/plushies/[id]
 export async function DELETE(request, context) {
-  const { params } = context
+  const params = await context.params
   const session    = await getServerSession(authOptions)
   if (!session?.user) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
@@ -46,9 +46,25 @@ export async function DELETE(request, context) {
 
 // GET /api/plushies/[id]
 export async function GET(request, context) {
-  const { params } = context
+  const params = await context.params
+
   try {
-    const plushie = await prisma.plushie.findUnique({ where: { id: params.id } })
+    const plushie = await prisma.plushie.findUnique({
+      where: { id: params.id },
+      include: {
+        creator: true,
+        likes: true,
+        comments: {
+          include: {
+            author: true,
+            replies: {
+              include: { author: true }
+            }
+          }
+        }
+      }
+    })
+
     if (!plushie) {
       return NextResponse.json({ error: 'Not found' }, { status: 404 })
     }
@@ -61,8 +77,8 @@ export async function GET(request, context) {
 
 // PUT /api/plushies/[id]
 export async function PUT(request, context) {
-  const { params } = context
-  const session = await getServerSession(authOptions)
+  const params = await context.params
+  const session    = await getServerSession(authOptions)
   if (!session?.user) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }

@@ -73,10 +73,10 @@ export default function DiscoverPage() {
           <div className="absolute inset-0 bg-black/30" />
           <div className="relative container mx-auto px-6 text-center">
             <h1 className="text-4xl font-extrabold text-white mb-2">
-              Discover and Shop AI Plushies
+              Discover Creator Generated Plushies
             </h1>
             <p className="text-lg text-white/90">
-              Browse top community picks, newest drops, and personalized suggestions
+              Browse top community favorites and newest drops
             </p>
           </div>
         </section>
