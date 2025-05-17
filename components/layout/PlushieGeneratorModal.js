@@ -1,12 +1,11 @@
 'use client';
 
-import React, { useState, useRef } from 'react';
+import { useState, useRef } from 'react';
 import Image from 'next/image';
 import { useSession } from 'next-auth/react';
+
 import { EMOTIONS, TEXTURES, SIZES } from '@/app/constants/options';
 import sanitizePrompt from '@/utils/sanitizePrompt';
-import { storage } from '@/app/lib/firebaseClient';
-import { getDownloadURL, ref, uploadString } from 'firebase/storage';
 
 import Input from '@/components/common/Input';
 import ButtonGroup from '@/components/common/ButtonGroup';
@@ -34,29 +33,11 @@ export default function PlushieGeneratorModal({ onClose }) {
   const prompt = `${size} ${texture} plushie of a ${color} ${animal} with ${accessories}, wearing ${outfit}, showing a ${emotion} expression, posed ${pose}`;
   const sanitizedPrompt = sanitizePrompt(prompt);
 
-  const blobToBase64 = blob => new Promise((res, rej) => {
-    const r = new FileReader();
-    r.onloadend = () => res(r.result);
-    r.onerror = rej;
-    r.readAsDataURL(blob);
-  });
-
-  async function uploadImageToFirebase(localUrl) {
-    if (!session?.user) throw new Error('Not authenticated.');
-    const fileRef = ref(storage, `plushies/${session.user.uid}/${Date.now()}.png`);
-
-    const dataUrl = localUrl.startsWith('data:')
-      ? localUrl
-      : await blobToBase64(await (await fetch(localUrl)).blob());
-
-    await uploadString(fileRef, dataUrl, 'data_url');
-    return getDownloadURL(fileRef);
-  }
-
   const handleBackdropClick = e => {
     if (e.target === modalRef.current) onClose();
   };
 
+  // 1) Generate the image via your API
   async function generatePlushie() {
     setLoadingButton('generate');
     setErrorMessage('');
@@ -64,27 +45,30 @@ export default function PlushieGeneratorModal({ onClose }) {
 
     try {
       if (!session?.user) throw new Error('You must be logged in.');
-      if (!animal || !texture || !size) throw new Error('Animal, Texture & Size are required.');
+      if (!animal || !texture || !size)
+        throw new Error('Animal, Texture & Size are required.');
 
       const res = await fetch('/api/generate-stability', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ prompt })
+        body: JSON.stringify({ prompt, userId: session.user.uid }),
       });
       if (!res.ok) throw new Error((await res.json()).error || 'Generation failed');
 
       let { imageUrl: url } = await res.json();
-      if (!url.startsWith('data:') && !url.startsWith('/') && !url.startsWith('http'))
+      // prefix raw base64 if needed
+      if (!url.startsWith('data:') && !url.startsWith('http')) {
         url = `data:image/png;base64,${url}`;
-
+      }
       setImageUrl(url);
     } catch (e) {
-      setErrorMessage(e.message || 'Failed to generate.');
+      setErrorMessage(e.message);
     } finally {
       setLoadingButton(null);
     }
   }
 
+  // 2) Save or publish: skip any Supabase upload
   async function saveOrPublish(type) {
     setLoadingButton(type);
     setErrorMessage('');
@@ -94,37 +78,42 @@ export default function PlushieGeneratorModal({ onClose }) {
       if (!imageUrl) throw new Error('Generate an image first.');
       if (!plushieName.trim()) throw new Error('Please give your plushie a name.');
 
-      const uploadedUrl = await uploadImageToFirebase(imageUrl);
-
       const payload = {
         name: plushieName.trim(),
         description: description.trim(),
         animal,
-        imageUrl: uploadedUrl,
+        imageUrl,           // use the generated URL directly
         promptRaw: prompt,
-        promptSanitized :sanitizePrompt,
-        texture, size, emotion, color, outfit, accessories, pose,
+        promptSanitized : sanitizedPrompt,
+        texture,
+        size,
+        emotion,
+        color,
+        outfit,
+        accessories,
+        pose,
         isPublished: type === 'publish',
+        creatorId: session.user.uid,
       };
 
       const resp = await fetch('/api/saved-plushies', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
+        body: JSON.stringify(payload),
       });
-
       if (!resp.ok) throw new Error((await resp.json()).error || 'Save failed');
+
       onClose();
     } catch (e) {
-      setErrorMessage(e.message || 'Failed to save.');
+      setErrorMessage(e.message);
     } finally {
       setLoadingButton(null);
     }
   }
 
-  const anyLoading = !!loadingButton;
+  const anyLoading   = !!loadingButton;
   const isGenerating = loadingButton === 'generate';
-  const isSaving = loadingButton === 'save';
+  const isSaving     = loadingButton === 'save';
   const isPublishing = loadingButton === 'publish';
 
   return (
@@ -145,14 +134,31 @@ export default function PlushieGeneratorModal({ onClose }) {
 
         {!imageUrl ? (
           <>
-            <Input label="Animal" value={animal} setValue={setAnimal} required />
-            <ButtonGroup label="Texture" options={TEXTURES} selected={texture} setSelected={setTexture} required />
-            <Input label="Color" value={color} setValue={setColor} />
-            <Input label="Accessories" value={accessories} setValue={setAccessories} />
-            <ButtonGroup label="Emotion" options={EMOTIONS} selected={emotion} setSelected={setEmotion} />
-            <Input label="Outfit" value={outfit} setValue={setOutfit} />
-            <Input label="Pose" value={pose} setValue={setPose} />
-            <ButtonGroup label="Size" options={SIZES} selected={size} setSelected={setSize} required />
+            <Input   label="Animal"      value={animal}      setValue={setAnimal}      required />
+            <ButtonGroup 
+                     label="Texture" 
+                     options={TEXTURES} 
+                     selected={texture} 
+                     setSelected={setTexture} 
+                     required 
+            />
+            <Input   label="Color"       value={color}       setValue={setColor} />
+            <Input   label="Accessories" value={accessories} setValue={setAccessories} />
+            <ButtonGroup 
+                     label="Emotion" 
+                     options={EMOTIONS} 
+                     selected={emotion} 
+                     setSelected={setEmotion} 
+            />
+            <Input   label="Outfit"      value={outfit}      setValue={setOutfit} />
+            <Input   label="Pose"        value={pose}        setValue={setPose} />
+            <ButtonGroup 
+                     label="Size" 
+                     options={SIZES} 
+                     selected={size} 
+                     setSelected={setSize} 
+                     required 
+            />
 
             <button
               onClick={generatePlushie}
@@ -174,8 +180,9 @@ export default function PlushieGeneratorModal({ onClose }) {
               unoptimized
               className="rounded-xl"
             />
-            <Input label="Name" value={plushieName} setValue={setPlushieName} required />
-            <Input label="Description" value={description} setValue={setDescription} />
+
+            <Input   label="Name"        value={plushieName} setValue={setPlushieName} required />
+            <Input   label="Description" value={description} setValue={setDescription} />
 
             <button
               onClick={() => { setImageUrl(null); setErrorMessage(''); }}

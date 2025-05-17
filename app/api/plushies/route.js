@@ -35,27 +35,28 @@ export async function POST(req) {
 
   try {
     // Use session.user.uid as the user's ID
-    const plushie = await prisma.plushie.create({
-      data: {
-        name,
-        imageUrl,
-        promptRaw,
-        promptSanitized: promptSanitized || "",
-        texture,
-        size,
-        emotion: emotion || "",
-        color,
-        outfit,
-        accessories,
-        pose,
-        isPublished: !!isPublished,
-        creator: {
-          connect: {
-            id: session.user.uid, // the new key
-          },
-        },
+const plushie = await prisma.plushie.create({
+  data: {
+    name,
+    imageUrl,
+    promptRaw,
+    promptSanitized: promptSanitized || "",
+    texture,
+    size,
+    emotion: emotion || "",
+    color,
+    outfit,
+    accessories,
+    pose,
+    isPublished: !!isPublished,
+    isDeleted: false, // ✅ ensure it's explicitly set
+    creator: {
+      connect: {
+        id: session.user.uid,
       },
-    });
+    },
+  },
+});
 
     console.log("✅ Plushie published:", plushie.id);
     return NextResponse.json({ plushie });

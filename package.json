@@ -16,6 +16,7 @@
     "@prisma/client": "^6.5.0",
     "@react-pdf/renderer": "^4.3.0",
     "@stripe/stripe-js": "^7.1.0",
+    "@supabase/supabase-js": "^2.49.4",
     "bad-words": "^4.0.0",
     "firebase": "^11.5.0",
     "firebase-admin": "^13.3.0",

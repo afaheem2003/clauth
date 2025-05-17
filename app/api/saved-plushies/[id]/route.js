@@ -1,8 +1,11 @@
+// /app/api/plushies/[id]/route.js
+
 import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth/next';
-import { authOptions } from "@/lib/authOptions";
+import { authOptions } from '@/lib/authOptions';
 import { prisma } from '@/lib/prisma';
 import { Filter } from 'bad-words';
+import { supabase } from '@/lib/supabase-admin';
 
 export async function PUT(request, context) {
   const { id } = context.params;
@@ -27,7 +30,6 @@ export async function PUT(request, context) {
     isPublished = false,
   } = await request.json();
 
-  // ✅ Validate required fields
   if (!name || !imageUrl || !promptRaw || !texture || !size) {
     return NextResponse.json(
       { error: 'Missing required fields' },
@@ -35,7 +37,6 @@ export async function PUT(request, context) {
     );
   }
 
-  // ✅ Profanity filtering
   const filter = new Filter();
   const fieldsToCheck = [name, animal, color, accessories, outfit, pose];
   const hasProfanity = fieldsToCheck.some((field) => filter.isProfane(field));
@@ -52,7 +53,7 @@ export async function PUT(request, context) {
   try {
     const expiresAt =
       isPublished && !existing.expiresAt
-        ? new Date(Date.now() + 30 * 24 * 60 * 60 * 1000) // 30 days from now
+        ? new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
         : existing.expiresAt;
 
     const updated = await prisma.plushie.update({
@@ -78,12 +79,10 @@ export async function PUT(request, context) {
     return NextResponse.json({ plushie: updated });
   } catch (err) {
     console.error('❌ Failed to update plushie:', err);
-    return NextResponse.json(
-      { error: 'Failed to update plushie' },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: 'Failed to update plushie' }, { status: 500 });
   }
 }
+
 export async function DELETE(request, context) {
   const { id } = context.params;
   const session = await getServerSession(authOptions);
@@ -98,19 +97,21 @@ export async function DELETE(request, context) {
     return NextResponse.json({ error: 'Not found or unauthorized' }, { status: 404 });
   }
 
-  // ✅ Delete from Firebase Storage
   const imageUrl = plushie.imageUrl || '';
-  if (imageUrl.includes('firebasestorage.googleapis.com')) {
+
+  if (imageUrl.includes('supabase.co/storage/v1/object/public')) {
     try {
-      const bucket = storage.bucket();
-      const filePath = decodeURIComponent(imageUrl.split('/o/')[1]?.split('?')[0] || '');
-      if (filePath) await bucket.file(filePath).delete();
+      const bucket = process.env.SUPABASE_BUCKET;
+      const path = imageUrl.split(`/object/public/${bucket}/`)[1];
+      if (bucket && path) {
+        const { error } = await supabase.storage.from(bucket).remove([path]);
+        if (error) throw error;
+      }
     } catch (e) {
-      console.warn('⚠️ Firebase delete failed:', e);
+      console.warn('⚠️ Supabase delete failed:', e);
     }
   }
 
-  // ✅ Delete from DB
   try {
     await prisma.plushie.delete({ where: { id } });
     return NextResponse.json({ success: true });
@@ -119,4 +120,3 @@ export async function DELETE(request, context) {
     return NextResponse.json({ error: 'Failed to delete plushie' }, { status: 500 });
   }
 }
-

@@ -2,22 +2,20 @@
 
 import { NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
-import { authOptions } from "@/lib/authOptions";
+import { authOptions } from '@/lib/authOptions'
 import prisma from '@/lib/prisma'
-import { storage } from '@/lib/firebase-admin'
+import supabase from '@/lib/supabase-admin'
 
 // DELETE /api/plushies/[id]
 export async function DELETE(request, context) {
-  const { params } = await context
+  const { params } = context
   const session    = await getServerSession(authOptions)
   if (!session?.user) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
-  // this is the plushie ID
   const plushieId = params.id
 
-  // load the plushie record so we know its image URL
   const existing = await prisma.plushie.findUnique({
     where: { id: plushieId }
   })
@@ -26,27 +24,29 @@ export async function DELETE(request, context) {
     return NextResponse.json({ error: 'Not found or unauthorized' }, { status: 404 })
   }
 
-  // delete image from Firebase Storage if it's a Firebase URL
+  // ✅ Supabase Storage image deletion
   const imageUrl = existing.imageUrl || ''
-  if (imageUrl.includes('firebasestorage.googleapis.com')) {
+  if (imageUrl.includes('supabase.co/storage/v1/object/public')) {
     try {
-      const bucket   = storage.bucket()
-      const filePath = decodeURIComponent(imageUrl.split('/o/')[1]?.split('?')[0] || '')
-      if (filePath) await bucket.file(filePath).delete()
+      const urlParts = imageUrl.split('/object/public/')[1]
+      if (urlParts) {
+        const filePath = decodeURIComponent(urlParts)
+        await supabase.storage
+          .from(process.env.SUPABASE_BUCKET)
+          .remove([filePath])
+      }
     } catch (e) {
-      console.warn('⚠️ Firebase delete failed:', e)
+      console.warn('⚠️ Supabase delete failed:', e)
     }
   }
 
-  // now delete the plushie
   await prisma.plushie.delete({ where: { id: plushieId } })
-
   return NextResponse.json({ success: true })
 }
 
 // GET /api/plushies/[id]
 export async function GET(request, context) {
-  const { params } = await context
+  const { params } = context
   try {
     const plushie = await prisma.plushie.findUnique({ where: { id: params.id } })
     if (!plushie) {
@@ -61,7 +61,7 @@ export async function GET(request, context) {
 
 // PUT /api/plushies/[id]
 export async function PUT(request, context) {
-  const { params } = await context
+  const { params } = context
   const session = await getServerSession(authOptions)
   if (!session?.user) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })

@@ -1,19 +1,19 @@
 import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth/next';
-import { authOptions } from "@/lib/authOptions";
+import { authOptions } from '@/lib/authOptions';
 import { prisma } from '@/lib/prisma';
 import { Filter } from 'bad-words';
 
-
 export async function POST(req) {
   const session = await getServerSession(authOptions);
-  if (!session?.user?.uid)
+  if (!session?.user?.uid) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
 
   let body;
   try {
     body = await req.json();
-  } catch (err) {
+  } catch {
     return NextResponse.json({ error: 'Invalid JSON input' }, { status: 400 });
   }
 
@@ -41,8 +41,7 @@ export async function POST(req) {
 
   const filter = new Filter();
   const fieldsToCheck = [name, description, animal, color, accessories, outfit, pose];
-  const hasProfanity = fieldsToCheck.some((field) => field && filter.isProfane(field));
-  if (hasProfanity) {
+  if (fieldsToCheck.some((field) => field && filter.isProfane(field))) {
     return NextResponse.json({ error: 'Inappropriate language detected' }, { status: 400 });
   }
 
@@ -51,6 +50,7 @@ export async function POST(req) {
     : null;
 
   try {
+    console.log("session.user.uid:", session.user.uid);
     const plushie = id
       ? await prisma.plushie.update({
           where: { id },
@@ -89,7 +89,9 @@ export async function POST(req) {
             pose,
             isPublished: Boolean(isPublished),
             expiresAt,
-            creator: { connect: { id: session.user.uid } },
+            creator: {
+              connect: { id: session.user.uid }, // ✅ ensure this matches your DB User ID format
+            },
           },
         });
 
@@ -104,13 +106,14 @@ export async function PUT(request, context) {
   const { id } = context.params;
 
   const session = await getServerSession(authOptions);
-  if (!session?.user?.uid)
+  if (!session?.user?.uid) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
 
   let body;
   try {
     body = await request.json();
-  } catch (err) {
+  } catch {
     return NextResponse.json({ error: 'Invalid JSON input' }, { status: 400 });
   }
 
@@ -136,23 +139,20 @@ export async function PUT(request, context) {
 
   const filter = new Filter();
   const fieldsToCheck = [name, animal, color, accessories, outfit, pose];
-  const hasProfanity = fieldsToCheck.some((field) => field && filter.isProfane(field));
-  if (hasProfanity) {
+  if (fieldsToCheck.some((field) => field && filter.isProfane(field))) {
     return NextResponse.json({ error: 'Inappropriate language detected' }, { status: 400 });
   }
 
   const existing = await prisma.plushie.findUnique({ where: { id } });
-  if (!existing)
+  if (!existing) {
     return NextResponse.json({ error: 'Not found' }, { status: 404 });
-  if (existing.creatorId !== session.user.uid)
+  }
+
+  if (existing.creatorId !== session.user.uid) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
+  }
 
   try {
-    const expiresAt =
-      isPublished && !existing.expiresAt
-        ? new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
-        : existing.expiresAt;
-
     const updated = await prisma.plushie.update({
       where: { id },
       data: {
@@ -169,7 +169,10 @@ export async function PUT(request, context) {
         accessories,
         pose,
         isPublished: Boolean(isPublished),
-        expiresAt,
+        expiresAt:
+          isPublished && !existing.expiresAt
+            ? new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
+            : existing.expiresAt,
       },
     });
 

@@ -196,6 +196,7 @@ const handleConfirmPayment = async () => {
             src={imageUrl}
             alt={name}
             fill
+            unoptimized
             className="object-cover transition-transform duration-300 group-hover:scale-105"
           />
         </div>
@@ -290,6 +291,7 @@ const handleConfirmPayment = async () => {
               alt={name}
               width={400}
               height={400}
+              unoptimized
               className="object-contain rounded-lg"
             />
           </div>

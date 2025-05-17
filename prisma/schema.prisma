@@ -94,6 +94,7 @@ model Plushie {
   pose             String
   isPublished      Boolean        @default(false)
   isFeatured       Boolean        @default(false)
+  isDeleted        Boolean        @default(false) // ✅ Soft delete flag
   createdAt        DateTime       @default(now())
   expiresAt        DateTime?
   creator          User           @relation(fields: [creatorId], references: [id])

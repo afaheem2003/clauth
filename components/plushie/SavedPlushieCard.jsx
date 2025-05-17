@@ -1,13 +1,12 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 import Image from "next/image";
 import Modal from "react-modal";
 import { useSession } from "next-auth/react";
 import { EMOTIONS, TEXTURES, SIZES } from "@/app/constants/options";
 import sanitizePrompt from "@/utils/sanitizePrompt";
-import { storage } from "@/app/lib/firebaseClient";
-import { getDownloadURL, ref, uploadString } from "firebase/storage";
+import { supabase } from "@/lib/supabaseClient";
 import { CANCELLATION_QUOTES } from "@/utils/cancellationQuotes";
 
 function BigSpinner() {
@@ -84,23 +83,41 @@ export default function SavedPlushieCard({ plushie, setPlushies }) {
     if (typeof window !== "undefined") Modal.setAppElement("body");
   }, []);
 
+  async function uploadImageToSupabase(dataUrl) {
+    if (!session?.user) throw new Error("Not authenticated");
+    const fileName = `${Date.now()}.png`;
+    const path = `plushies/${session.user.uid}/${fileName}`;
+    const base64 = dataUrl.split(",")[1];
+
+    const { error } = await supabase.storage.from("plushie-images").upload(path, base64, {
+      contentType: "image/png",
+      upsert: true,
+    });
+    if (error) throw new Error("Image upload failed");
+
+    const { data } = supabase.storage.from("plushie-images").getPublicUrl(path);
+    return data.publicUrl;
+  }
+
   async function regeneratePlushie() {
     setLoadingButton("regenerate");
     setErrorMessage("");
     try {
-      const res = await fetch("/api/generate-stability", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify({ prompt }),
-      });
+const res = await fetch('/api/generate-stability', {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({ prompt, userId: session.user.uid })
+});
       if (!res.ok) throw new Error("Generation failed");
+
       const { imageUrl: genUrl } = await res.json();
-      let final = genUrl;
-      if (!final.startsWith("data:image/") && !final.startsWith("http")) {
-        final = `data:image/png;base64,${final}`;
+      let finalUrl = genUrl;
+      if (!finalUrl.startsWith("data:image/") && !finalUrl.startsWith("http")) {
+        finalUrl = `data:image/png;base64,${finalUrl}`;
       }
-      setImageUrl(final);
+
+      const publicUrl = await uploadImageToSupabase(finalUrl);
+      setImageUrl(publicUrl);
     } catch (err) {
       setErrorMessage(err.message);
     } finally {
@@ -147,26 +164,34 @@ export default function SavedPlushieCard({ plushie, setPlushies }) {
   }
 
   async function deletePlushie() {
-    try {
-      const res = await fetch(`/api/saved-plushies/${plushie.id}`, { method: "DELETE", credentials: "include" });
-      if (!res.ok) throw new Error("Delete failed");
-      setPlushies((prev) => prev.filter((p) => p.id !== plushie.id));
-      setIsModalOpen(false);
-    } catch (err) {
-      setErrorMessage(err.message);
-    }
+  try {
+    const res = await fetch(`/api/saved-plushies/${plushie.id}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
+      body: JSON.stringify({ isDeleted: true }), // 👈 soft delete
+    });
+    if (!res.ok) throw new Error("Delete failed");
+    setPlushies((prev) => prev.filter((p) => p.id !== plushie.id));
+    setIsModalOpen(false);
+  } catch (err) {
+    setErrorMessage(err.message);
   }
+}
+const initiateDelete = () => {
+  const q =
+    CANCELLATION_QUOTES[
+      Math.floor(Math.random() * CANCELLATION_QUOTES.length)
+    ];
+  setDeleteQuote(q);
+  setShowDeleteConfirm(true);
+};
 
-  const initiateDelete = () => {
-    const q = CANCELLATION_QUOTES[Math.floor(Math.random() * CANCELLATION_QUOTES.length)];
-    setDeleteQuote(q);
-    setShowDeleteConfirm(true);
-  };
 
   return (
     <>
       <div className="relative group cursor-pointer w-full rounded-lg overflow-hidden" onClick={() => setIsModalOpen(true)}>
-        <Image src={imageUrl} alt={animal} width={320} height={320} className="object-cover rounded-lg" />
+        <Image src={imageUrl} alt={animal} width={320} height={320} unoptimized className="object-cover rounded-lg" />
         <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-50 transition-opacity flex items-center justify-center opacity-0 group-hover:opacity-100">
           <p className="text-white font-semibold">Edit Draft</p>
         </div>
@@ -203,7 +228,7 @@ export default function SavedPlushieCard({ plushie, setPlushies }) {
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <div>
-            <Image src={imageUrl} alt={animal} width={320} height={320} className="rounded-lg" unoptimized />
+            <Image src={imageUrl} alt={animal} width={320} height={320} unoptimized className="rounded-lg" />
             <button onClick={regeneratePlushie} disabled={loadingButton === "regenerate"} className="mt-4 w-full py-2 bg-purple-600 text-white rounded hover:bg-purple-700 transition">
               {loadingButton === "regenerate" ? <BigSpinner /> : "Regenerate"}
             </button>

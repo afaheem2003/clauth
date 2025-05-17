@@ -3,128 +3,119 @@
 import { useState }   from 'react';
 import { useRouter }  from 'next/navigation';
 import { useSession } from 'next-auth/react';
+import { createClient } from '@supabase/supabase-js';
 
 import { EMOTIONS, TEXTURES, SIZES } from '@/app/constants/options';
-import sanitizePrompt             from '@/utils/sanitizePrompt';
-import { storage }                from '@/app/lib/firebaseClient';
-import { getDownloadURL, ref, uploadString } from 'firebase/storage';
-import { normalizeDataUrl }       from '@/utils/normalizeDataUrl';
+import sanitizePrompt from '@/utils/sanitizePrompt';
+import { normalizeDataUrl } from '@/utils/normalizeDataUrl';
 
 import Footer       from '@/components/common/Footer';
 import BigSpinner   from '@/components/common/BigSpinner';
 import Input        from '@/components/common/Input';
 import ButtonGroup  from '@/components/common/ButtonGroup';
 
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL,
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+);
+
 export default function CreateDesignPage() {
-  const router            = useRouter();
+  const router = useRouter();
   const { data: session } = useSession();
 
   const [plushieName, setPlushieName] = useState('');
   const [description, setDescription] = useState('');
-  const [animal,      setAnimal]      = useState('');
-  const [texture,     setTexture]     = useState('');
-  const [color,       setColor]       = useState('');
+  const [animal, setAnimal] = useState('');
+  const [texture, setTexture] = useState('');
+  const [color, setColor] = useState('');
   const [accessories, setAccessories] = useState('');
-  const [emotion,     setEmotion]     = useState('');
-  const [outfit,      setOutfit]      = useState('');
-  const [pose,        setPose]        = useState('');
-  const [size,        setSize]        = useState('');
+  const [emotion, setEmotion] = useState('');
+  const [outfit, setOutfit] = useState('');
+  const [pose, setPose] = useState('');
+  const [size, setSize] = useState('');
 
-  const [imageUrl,      setImageUrl]    = useState(null);
+  const [imageUrl, setImageUrl] = useState(null);
   const [loadingButton, setLoadingButton] = useState(null);
-  const [errorMessage , setErrorMessage]  = useState('');
+  const [errorMessage, setErrorMessage] = useState('');
 
-  const prompt          = `${size} ${texture} plushie of a ${color} ${animal} with ${accessories}, wearing ${outfit}, showing a ${emotion} expression, posed ${pose}`;
+  const prompt = `${size} ${texture} plushie of a ${color} ${animal} with ${accessories}, wearing ${outfit}, showing a ${emotion} expression, posed ${pose}`;
   const sanitizedPrompt = sanitizePrompt(prompt);
 
   const blobToDataUrl = blob => new Promise((res, rej) => {
     const r = new FileReader();
     r.onloadend = () => res(r.result);
-    r.onerror   = rej;
+    r.onerror = rej;
     r.readAsDataURL(blob);
   });
 
-  async function uploadImageToFirebase(localUrl) {
+
+
+async function generatePlushie() {
+  setLoadingButton('generate');
+  setErrorMessage('');
+  setImageUrl(null);
+
+  try {
+    if (!session?.user) throw new Error('You must be logged in.');
+    if (!animal || !texture || !size) throw new Error('Animal, Texture & Size are required.');
+
+    const res = await fetch('/api/generate-stability', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ prompt, userId: session.user.uid })
+    });
+
+    if (!res.ok) throw new Error((await res.json()).error || 'Generation failed');
+    const { imageUrl: url } = await res.json();
+    setImageUrl(url);
+  } catch (e) {
+    setErrorMessage(e.message || 'Failed to generate image.');
+  } finally {
+    setLoadingButton(null);
+  }
+}
+
+async function saveOrPublish(type) {
+  setLoadingButton(type);
+  setErrorMessage('');
+
+  try {
     if (!session?.user) throw new Error('Not authenticated.');
-    const fileRef = ref(storage, `plushies/${session.user.uid}/${Date.now()}.png`);
+    if (!imageUrl) throw new Error('Generate an image first.');
+    if (!plushieName.trim()) throw new Error('Please give your plushie a name.');
 
-    const dataUrl = localUrl.startsWith('data:')
-      ? normalizeDataUrl(localUrl)
-      : await blobToDataUrl(await (await fetch(localUrl)).blob());
+const payload = {
+  name: plushieName.trim(),
+  description: description.trim(),
+  animal,
+  imageUrl, // ✅ this is already coming from /api/generate-stability
+  promptRaw: prompt,
+  promptSanitized : sanitizePrompt,
+  texture, size, emotion, color, outfit, accessories, pose,
+  isPublished: type === 'publish',
+  creatorId: session.user.uid, // ✅ ADD THIS
+};
 
-    await uploadString(fileRef, dataUrl, 'data_url');
-    return getDownloadURL(fileRef);
+    const resp = await fetch('/api/saved-plushies', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+
+    if (!resp.ok) throw new Error((await resp.json()).error || 'Save failed');
+    router.push('/discover');
+  } catch (e) {
+    setErrorMessage(e.message || 'Failed to save plushie.');
+  } finally {
+    setLoadingButton(null);
   }
+}
 
-  async function generatePlushie() {
-    setLoadingButton('generate');
-    setErrorMessage('');
-    setImageUrl(null);
-
-    try {
-      if (!session?.user) throw new Error('You must be logged in.');
-      if (!animal || !texture || !size) throw new Error('Animal, Texture & Size are required.');
-
-      const res = await fetch('/api/generate-stability', {
-        method : 'POST',
-        headers: { 'Content-Type':'application/json' },
-        body   : JSON.stringify({ prompt })
-      });
-      if (!res.ok) throw new Error((await res.json()).error || 'Generation failed');
-
-      let { imageUrl: url } = await res.json();
-      if (!url.startsWith('data:') && !url.startsWith('/') && !url.startsWith('http'))
-        url = `data:image/png;base64,${url}`;
-
-      setImageUrl(url);
-    } catch (e) {
-      setErrorMessage(e.message || 'Failed to generate image.');
-    } finally {
-      setLoadingButton(null);
-    }
-  }
-
-  async function saveOrPublish(type) {
-    setLoadingButton(type);
-    setErrorMessage('');
-
-    try {
-      if (!session?.user)          throw new Error('Not authenticated.');
-      if (!imageUrl)               throw new Error('Generate an image first.');
-      if (!plushieName.trim())     throw new Error('Please give your plushie a name.');
-
-      const uploadedUrl = await uploadImageToFirebase(imageUrl);
-
-      const payload = {
-        name            : plushieName.trim(),
-        description     : description.trim(),
-        animal,
-        imageUrl        : uploadedUrl,
-        promptRaw       : prompt,
-        promptSanitized : sanitizedPrompt,
-        texture, size, emotion, color, outfit, accessories, pose,
-        isPublished     : type === 'publish',
-      };
-
-      const resp = await fetch('/api/saved-plushies', {
-        method : 'POST',
-        headers: { 'Content-Type':'application/json' },
-        body   : JSON.stringify(payload)
-      });
-      if (!resp.ok) throw new Error((await resp.json()).error || 'Save failed');
-
-      router.push('/discover');
-    } catch (e) {
-      setErrorMessage(e.message || 'Failed to save plushie.');
-    } finally {
-      setLoadingButton(null);
-    }
-  }
 
   const isGenerating = loadingButton === 'generate';
-  const isSaving     = loadingButton === 'save';
+  const isSaving = loadingButton === 'save';
   const isPublishing = loadingButton === 'publish';
-  const anyLoading   = !!loadingButton;
+  const anyLoading = !!loadingButton;
 
   return (
     <div className="min-h-screen flex flex-col">

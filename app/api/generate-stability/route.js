@@ -1,26 +1,25 @@
 import { NextResponse } from "next/server";
 import sanitizePrompt from "@/utils/sanitizePrompt";
-import { getStorage, ref, uploadString, getDownloadURL } from "firebase/storage";
-import { initializeApp, getApps, getApp } from "firebase/app";
 import { v4 as uuidv4 } from "uuid";
+import { createClient } from "@supabase/supabase-js";
 
-// 🔐 Firebase config
-const firebaseConfig = {
-  apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
-  authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
-  projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
-  storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
-  messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
-  appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
-};
+// ✅ Ensure this route runs server-side
+export const runtime = "nodejs";
 
-// ✅ Initialize Firebase app & storage
-const app = !getApps().length ? initializeApp(firebaseConfig) : getApp();
-const storage = getStorage(app);
+// ✅ Create a private Supabase server-side client
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL,
+  process.env.SUPABASE_SERVICE_ROLE_KEY
+);
 
 export async function POST(req) {
   try {
-    const { prompt } = await req.json();
+    const { prompt, userId } = await req.json();
+
+    if (!userId) {
+      return NextResponse.json({ error: "Missing user ID" }, { status: 401 });
+    }
+
     const sanitizedPrompt = sanitizePrompt(prompt);
     const useMockApi = process.env.NEXT_PUBLIC_USE_MOCK_API === "true";
 
@@ -31,19 +30,15 @@ export async function POST(req) {
         "/images/plushie-3.png",
       ];
       const randomImage = mockImages[Math.floor(Math.random() * mockImages.length)];
-      return NextResponse.json({ imageUrl: mockImage });
+      return NextResponse.json({ imageUrl: randomImage });
     }
 
     const STABILITY_API_KEY = process.env.STABILITY_API_KEY;
     if (!STABILITY_API_KEY) {
-      console.error("❌ Missing Stability API key");
-      return NextResponse.json(
-        { error: "Missing Stability API key" },
-        { status: 500 }
-      );
+      return NextResponse.json({ error: "Missing Stability API key" }, { status: 500 });
     }
 
-    // ✅ Use native FormData (NOT from 'form-data' package)
+    // 🧠 Generate image from Stability AI
     const formData = new FormData();
     formData.append("prompt", sanitizedPrompt);
     formData.append("model", "stable-diffusion-xl");
@@ -65,10 +60,7 @@ export async function POST(req) {
     if (!response.ok) {
       const errorText = await response.text();
       console.error("❌ Stability API Error:", errorText);
-      return NextResponse.json(
-        { error: "Error from Stability API" },
-        { status: response.status }
-      );
+      return NextResponse.json({ error: "Error from Stability API" }, { status: response.status });
     }
 
     const data = await response.json();
@@ -76,16 +68,27 @@ export async function POST(req) {
       return NextResponse.json({ error: "No image returned from Stability" }, { status: 500 });
     }
 
-    // ✅ Upload image to Firebase Storage
-    const filename = `plushies/all-plushies/${uuidv4()}.png`;
-    const imageRef = ref(storage, filename);
+    // 📦 Upload the image to Supabase storage
+    const filename = `${userId}/${uuidv4()}.png`;
+    const imageBuffer = Buffer.from(data.image, "base64");
 
-    await uploadString(imageRef, data.image, "base64", {
-      contentType: "image/png",
-    });
+    const { error: uploadError } = await supabase.storage
+      .from("plushies")
+      .upload(filename, imageBuffer, {
+        contentType: "image/png",
+        upsert: false,
+      });
 
-    const firebaseImageUrl = await getDownloadURL(imageRef);
-    return NextResponse.json({ imageUrl: firebaseImageUrl });
+    if (uploadError) {
+      console.error("❌ Supabase upload error:", uploadError);
+      return NextResponse.json({ error: "Image upload failed" }, { status: 500 });
+    }
+
+    const {
+      data: { publicUrl },
+    } = supabase.storage.from("plushies").getPublicUrl(filename);
+
+    return NextResponse.json({ imageUrl: publicUrl });
 
   } catch (error) {
     console.error("🔥 Unexpected Error:", error);
