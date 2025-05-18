@@ -12,6 +12,7 @@ export async function middleware(req: NextRequest) {
   const isBypassed = [
     '/login',
     '/signup',
+    '/api/auth/callback',
     '/api',
     '/_next',
     '/maintenance',
@@ -34,7 +35,8 @@ export const config = {
      * - _next/image (image optimization files)
      * - favicon.ico (favicon file)
      * - public folder
+     * - api/auth/callback (auth callbacks)
      */
-    '/((?!_next/static|_next/image|favicon.ico|public/|api/).*)',
+    '/((?!_next/static|_next/image|favicon.ico|public/|api/auth/callback).*)',
   ],
 }
