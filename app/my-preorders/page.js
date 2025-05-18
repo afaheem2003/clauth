@@ -95,7 +95,7 @@ export default function MyPreOrdersPage() {
             </div>
           ) : (
             <p className="text-gray-600 text-center text-lg">
-              You haven't pre-ordered any plushies yet.{' '}
+              You haven&apos;t pre-ordered any plushies yet.{' '}
               <Link href="/discover" className="text-blue-600 hover:underline">
                 Browse plushies
               </Link>

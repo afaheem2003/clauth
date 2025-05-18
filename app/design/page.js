@@ -233,8 +233,8 @@ export default function CreateDesignPage() {
         return (
           <div className="space-y-8">
             <div className="text-center mb-8">
-              <h2 className="text-2xl font-medium text-gray-800 mb-2">Let's create your perfect plushie friend</h2>
-              <p className="text-gray-600">Start by telling us what kind of animal you'd like to bring to life</p>
+              <h2 className="text-2xl font-medium text-gray-800 mb-2">Let&apos;s create your perfect plushie friend</h2>
+              <p className="text-gray-600">Start by telling us what kind of animal you&apos;d like to bring to life</p>
             </div>
             <Input
               label="What adorable animal would you like to create?"
