@@ -15,6 +15,8 @@ export async function middleware(req: NextRequest) {
     '/api',
     '/_next',
     '/maintenance',
+    '/favicon.ico',
+    '/images',
   ].some((prefix) => path.startsWith(prefix))
 
   if (isMaintenance && !isAdmin && !isBypassed) {
@@ -26,6 +28,13 @@ export async function middleware(req: NextRequest) {
 
 export const config = {
   matcher: [
-    '/((?!api|_next|favicon.ico).*)',
+    /*
+     * Match all request paths except for the ones starting with:
+     * - _next/static (static files)
+     * - _next/image (image optimization files)
+     * - favicon.ico (favicon file)
+     * - public folder
+     */
+    '/((?!_next/static|_next/image|favicon.ico|public/|api/).*)',
   ],
 }

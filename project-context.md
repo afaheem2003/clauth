@@ -50,10 +50,11 @@ This is a Next.js 14 (App Router) web app called Ploosh - a crowdfunding platfor
 
 ### 3. Social Features
 
-- User profiles
+- User profiles with customizable bios
 - Comments with nested replies
 - Like system
 - Social sharing with rich metadata
+- Editable user profiles with real-time updates
 
 ### 4. E-commerce
 
@@ -77,6 +78,24 @@ This is a Next.js 14 (App Router) web app called Ploosh - a crowdfunding platfor
 - Twitter cards
 - Route-level head.js implementation
 
+### 7. User Experience
+
+- Consistent text contrast and readability across all components
+- Intuitive bio editing with pencil icon interface
+- Clear placeholder text in form inputs
+- Responsive design with mobile-first approach
+- Loading states and error handling for all user actions
+- Clean navigation with streamlined UI elements
+
 ## Implementation Details
 
 The application uses server-side rendering (SSR) for metadata and initial page loads, while features like image generation and comment interactions are client-rendered for optimal performance. Data is persisted in PostgreSQL via Prisma, with proper relationships between users, plushies, comments, and orders.
+
+### Recent Updates
+
+- Added user bio functionality with default empty string in database
+- Created dedicated API endpoint for bio updates
+- Improved text readability across the application
+- Enhanced form placeholder visibility
+- Streamlined profile page navigation
+- Added real-time session updates for profile changes

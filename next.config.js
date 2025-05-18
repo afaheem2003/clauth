@@ -25,6 +25,11 @@ const nextConfig = {
       allowedOrigins: ["localhost:3000"],
     },
   },
+  // Add TypeScript and middleware configuration
+  typescript: {
+    ignoreBuildErrors: false,
+  },
+  pageExtensions: ['ts', 'tsx', 'js', 'jsx'],
 }
 
 module.exports = nextConfig
