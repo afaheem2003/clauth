@@ -130,7 +130,7 @@ export default function PlushieGeneratorModal({ onClose }) {
           &times;
         </button>
 
-        <h2 className="text-2xl font-bold text-center mb-5">Design Your Plushie</h2>
+        <h2 className="text-2xl font-bold text-center mb-5 text-gray-900">Design Your Plushie</h2>
 
         {!imageUrl ? (
           <>

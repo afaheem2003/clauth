@@ -9,7 +9,7 @@ export default function Input({ label, value, setValue, required = false }) {
           placeholder={label}
           value={value}
           onChange={e => setValue(e.target.value)}
-          className="w-full px-2 py-1.5 border rounded-md text-gray-800 placeholder-gray-400 text-sm"
+          className="w-full px-2 py-1.5 border rounded-md text-gray-800 placeholder-gray-300 text-sm"
         />
       </div>
     );
