@@ -36,6 +36,8 @@ export default function CreatorsClient({ initialCreators }) {
                       src={creator.image}
                       alt={creator.displayName}
                       fill
+                      unoptimized
+                      sizes="(max-width: 768px) 64px, 64px"
                       className="rounded-full object-cover"
                     />
                   </div>
@@ -80,6 +82,8 @@ export default function CreatorsClient({ initialCreators }) {
                               src={plushie.imageUrl}
                               alt={plushie.name}
                               fill
+                              unoptimized
+                              sizes="(max-width: 768px) 48px, 48px"
                               className="rounded-lg object-cover"
                             />
                           </div>

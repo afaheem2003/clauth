@@ -15,7 +15,9 @@ export default async function CreatorsPage() {
     where: {
       plushies: {
         some: {
-          isPublished: true
+          isPublished: true,
+          isDeleted: false,
+          status: 'PENDING'  // Only show plushies that can still be purchased
         }
       }
     },
@@ -28,7 +30,9 @@ export default async function CreatorsPage() {
         select: {
           plushies: {
             where: {
-              isPublished: true
+              isPublished: true,
+              isDeleted: false,
+              status: 'PENDING'  // Match the same conditions
             }
           }
         }
@@ -38,7 +42,7 @@ export default async function CreatorsPage() {
           AND: [
             { isPublished: true },
             { isDeleted: false },
-            { status: 'PENDING' }
+            { status: 'PENDING' }  // Only show plushies that can still be purchased
           ]
         },
         select: {
@@ -47,22 +51,20 @@ export default async function CreatorsPage() {
           imageUrl: true,
           likes: true,
           goal: true,
-          pledged: true
+          pledged: true,
+          status: true
         },
-        orderBy: [
-          { likes: { _count: 'desc' } },
-          { createdAt: 'desc' }
-        ],
+        orderBy: {
+          createdAt: 'desc'
+        },
         take: 3
       }
     },
-    orderBy: [
-      {
-        plushies: {
-          _count: 'desc'
-        }
+    orderBy: {
+      plushies: {
+        _count: 'desc'
       }
-    ],
+    },
     take: 20
   });
 
