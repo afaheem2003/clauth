@@ -6,7 +6,7 @@ import Modal from "react-modal";
 import { useSession } from "next-auth/react";
 import { EMOTIONS, TEXTURES, SIZES } from "@/app/constants/options";
 import sanitizePrompt from "@/utils/sanitizePrompt";
-import { supabase } from "@/lib/supabaseClient";
+import supabase from "@/lib/supabaseClient";
 import { CANCELLATION_QUOTES } from "@/utils/cancellationQuotes";
 
 function BigSpinner() {
@@ -249,7 +249,7 @@ const initiateDelete = () => {
         <div className="mt-6 flex flex-col items-end space-y-2">
           {showDeleteConfirm ? (
             <>
-              <p className="italic text-pink-600 text-sm text-center w-full">“{deleteQuote}”</p>
+              <p className="italic text-pink-600 text-sm text-center w-full">"{deleteQuote}"</p>
               <div className="flex justify-end gap-2 w-full">
                 <button onClick={deletePlushie} className="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700">
                   Yes, delete

@@ -139,9 +139,9 @@ export default function MyPreOrdersPage() {
                     "Once the plushie reaches its goal, we begin production! You'll be notified as it moves to shipping, and soon, it'll arrive at your doorstep.",
                 },
                 {
-                  title: "4. What If the Goal Isn't Met?",
+                  title: "4. What If the Goal Isn&apos;t Met?",
                   desc:
-                    "If a plushie doesn't reach its goal in time, your payment will be fully refunded—no worries!",
+                    "If a plushie doesn&apos;t reach its goal in time, your payment will be fully refunded—no worries!",
                 },
               ].map((step) => (
                 <div key={step.title}>

@@ -108,8 +108,8 @@ const EmotionCard = ({ emotion, isSelected, onClick }) => (
       <p className="font-medium text-gray-800">{emotion}</p>
       <p className="text-sm text-gray-500 mt-1">
         {emotion === 'Happy' ? 'Radiating joy' :
-         emotion === 'Sleepy' ? 'Peaceful & calm' :
-         emotion === 'Curious' ? 'Friendly & sweet' :
+         emotion === 'Sleepy' ? 'Peaceful and calm' :
+         emotion === 'Curious' ? 'Friendly and sweet' :
          'Adorably shy'}
       </p>
     </div>
