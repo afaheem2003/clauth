@@ -21,6 +21,7 @@ model User {
 
   displayName   String?        @unique
   photoUrl      String?
+  bio           String         @default("")
   createdAt     DateTime       @default(now())
 
   role          Role           @default(USER)

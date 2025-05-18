@@ -60,20 +60,9 @@ const user = await prisma.user.findUnique({
           <div className="mt-4 md:mt-0">
             <h2 className="text-2xl font-bold text-gray-800">{displayName}</h2>
             <p className="text-gray-600 mt-2">
-              These are {displayName}&apos;s published plushie designs!
+              {user.bio || `These are ${displayName}'s published plushie designs!`}
             </p>
           </div>
-        </div>
-
-        {/* Back button */}
-        <div className="mt-6">
-          <Link
-            href="/discover"
-            className="inline-flex items-center border border-green-400 text-green-500 px-6 py-2 rounded-full font-semibold hover:bg-green-50 transition"
-          >
-            <ArrowLeftIcon className="w-5 h-5 mr-2" />
-            Back
-          </Link>
         </div>
 
         {/* Published Plushies */}

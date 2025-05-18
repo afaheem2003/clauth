@@ -48,8 +48,10 @@ export default function Nav() {
   const logout = () => signOut().finally(close);
 
   const links = [
-    { label: "Create Design", href: "/design" },
-    { label: "Discover", href: "/discover" },
+    { href: '/', label: 'Home' },
+    { href: '/discover', label: 'Discover' },
+    { href: '/creators', label: 'Creators' },
+    { href: '/design', label: 'Design' },
   ];
 
   return (

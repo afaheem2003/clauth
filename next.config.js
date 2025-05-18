@@ -3,17 +3,27 @@ const nextConfig = {
   images: {
     domains: [
       "placehold.co",
-      "lh3.googleusercontent.com",
-      "bpvyypcpikgmrmlfajctb.supabase.co",
+      "lh3.googleusercontent.com"
     ],
     remotePatterns: [
       {
         protocol: "https",
-        hostname: "bpvyypcpikgmrmlfajctb.supabase.co",
+        hostname: "*.supabase.co",
         port: "",
-        pathname: "/storage/v1/object/public/**",
+        pathname: "/storage/v1/object/public/avatars/**",
       },
+      {
+        protocol: "https",
+        hostname: "*.supabase.co",
+        port: "",
+        pathname: "/storage/v1/object/public/plushies/**",
+      }
     ],
+  },
+  experimental: {
+    serverActions: {
+      allowedOrigins: ["localhost:3000"],
+    },
   },
 }
 

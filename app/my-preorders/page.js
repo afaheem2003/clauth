@@ -74,7 +74,10 @@ export default function MyPreOrdersPage() {
                       src={order.image}
                       alt={order.name}
                       fill
+                      sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+                      priority
                       className="object-cover rounded-lg"
+                      unoptimized
                     />
                   </div>
                   <h3 className="text-xl font-semibold text-gray-800">
@@ -92,7 +95,7 @@ export default function MyPreOrdersPage() {
             </div>
           ) : (
             <p className="text-gray-600 text-center text-lg">
-              You haven’t pre-ordered any plushies yet.{' '}
+              You haven't pre-ordered any plushies yet.{' '}
               <Link href="/discover" className="text-blue-600 hover:underline">
                 Browse plushies
               </Link>
@@ -121,24 +124,24 @@ export default function MyPreOrdersPage() {
             <div className="max-w-3xl mx-auto space-y-12">
               {[
                 {
-                  title: '1. Pre-Order Your Favorite Plushie',
+                  title: "1. Pre-Order Your Favorite Plushie",
                   desc:
-                    'Select a plushie you love and place a pre-order. Your payment is securely processed, and you’ll be among the first to receive it!',
+                    "Select a plushie you love and place a pre-order. Your payment is securely processed, and you'll be among the first to receive it!",
                 },
                 {
-                  title: '2. Reaching the Minimum Goal',
+                  title: "2. Reaching the Minimum Goal",
                   desc:
-                    'Each plushie needs a minimum number of pre-orders before we can start production. You can track its progress right here.',
+                    "Each plushie needs a minimum number of pre-orders before we can start production. You can track its progress right here.",
                 },
                 {
-                  title: '3. Production & Shipping',
+                  title: "3. Production & Shipping",
                   desc:
-                    'Once the plushie reaches its goal, we begin production! You’ll be notified as it moves to shipping, and soon, it’ll arrive at your doorstep.',
+                    "Once the plushie reaches its goal, we begin production! You'll be notified as it moves to shipping, and soon, it'll arrive at your doorstep.",
                 },
                 {
-                  title: '4. What If the Goal Isn’t Met?',
+                  title: "4. What If the Goal Isn't Met?",
                   desc:
-                    'If a plushie doesn’t reach its goal in time, your payment will be fully refunded—no worries!',
+                    "If a plushie doesn't reach its goal in time, your payment will be fully refunded—no worries!",
                 },
               ].map((step) => (
                 <div key={step.title}>

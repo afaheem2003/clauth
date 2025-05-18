@@ -1,17 +1,18 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useRouter }           from 'next/navigation';
-import { useSession }          from 'next-auth/react';
+import { useRouter } from 'next/navigation';
+import { useSession } from 'next-auth/react';
+import ImageUpload from '@/components/settings/ImageUpload';
 
 const RE_USERNAME = /^[a-zA-Z0-9_]{3,20}$/;          // 3-20 chars, letters / numbers / _
 
 export default function SettingsPage() {
   const { data: session, status, update } = useSession();
-  const router   = useRouter();
+  const router = useRouter();
 
-  const [raw , setRaw]  = useState('');
-  const [err , setErr]  = useState('');
+  const [raw, setRaw] = useState('');
+  const [err, setErr] = useState('');
   const [busy, setBusy] = useState(false);
 
   /* pre-fill current username once session is ready */
@@ -64,8 +65,24 @@ export default function SettingsPage() {
     }
   }
 
+  /* handle profile picture update */
+  const handleImageUpload = async (imageUrl) => {
+    try {
+      setBusy(true);
+      if (typeof update === 'function') {
+        await update({ image: imageUrl });
+        router.refresh();
+      }
+    } catch (error) {
+      console.error('Failed to update profile picture:', error);
+      setErr('Failed to update profile picture. Please try again.');
+    } finally {
+      setBusy(false);
+    }
+  };
+
   /* loading splash */
-  if (status === 'loading') {
+  if (status === 'loading' || !session?.user) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <p className="text-lg font-semibold">Loading…</p>
@@ -81,6 +98,15 @@ export default function SettingsPage() {
           <h1 className="text-3xl font-bold text-gray-800 mb-6">
             Account&nbsp;Settings
           </h1>
+
+          {/* Profile Picture Upload */}
+          <div className="mb-8">
+            <ImageUpload
+              currentImage={session?.user?.image}
+              onUpload={handleImageUpload}
+              disabled={busy}
+            />
+          </div>
 
           <label className="block text-gray-700 font-semibold mb-2">
             Display&nbsp;Name&nbsp;/&nbsp;Username
