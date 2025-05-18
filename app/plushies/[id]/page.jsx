@@ -9,7 +9,6 @@ import { CANCELLATION_QUOTES } from '@/utils/cancellationQuotes';
 import Input from '@/components/common/Input';
 import BigSpinner from '@/components/common/BigSpinner';
 import Footer from '@/components/common/Footer';
-import { Metadata } from 'next'
 
 const stripePromise = loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY);
 
@@ -30,7 +29,7 @@ export default function PlushieDetailPage() {
   const [showPaymentForm, setShowPaymentForm]     = useState(false);
   const [desiredQty, setDesiredQty]               = useState(1);
 
-  // Load plushie
+  // Fetch plushie
   useEffect(() => {
     (async () => {
       const res  = await fetch(`/api/plushies/${id}`);
@@ -43,7 +42,7 @@ export default function PlushieDetailPage() {
     })();
   }, [id, session?.user?.uid]);
 
-  // Load comments
+  // Fetch comments
   useEffect(() => {
     if (!plushie) return;
     (async () => {
@@ -75,7 +74,7 @@ export default function PlushieDetailPage() {
   const progress    = (pledged / goal) * 100;
   const goalReached = pledged >= goal;
 
-  // Like
+  // Like toggle
   async function handleLike() {
     const res = await fetch('/api/like', {
       method: 'POST',
@@ -89,7 +88,7 @@ export default function PlushieDetailPage() {
     setLikes(n => liked ? n + 1 : Math.max(0, n - 1));
   }
 
-  // Delete
+  // Delete flow
   function initiateDelete() {
     setDeleteQuote(
       CANCELLATION_QUOTES[Math.floor(Math.random() * CANCELLATION_QUOTES.length)]
@@ -122,7 +121,7 @@ export default function PlushieDetailPage() {
     await stripe.redirectToCheckout({ sessionId });
   }
 
-  // Comments
+  // Comment submit & replies
   async function handleCommentSubmit(e, parentId = null) {
     e.preventDefault();
     const text = parentId
@@ -168,7 +167,6 @@ export default function PlushieDetailPage() {
       <main className="min-h-screen bg-gray-50 py-12">
         <div className="max-w-screen-lg mx-auto px-4">
           <div className="bg-white rounded-2xl shadow-lg overflow-hidden">
-
             <div className="md:flex">
               {/* Image */}
               <div className="md:w-1/2 h-80 md:h-auto">
@@ -188,15 +186,15 @@ export default function PlushieDetailPage() {
               {/* Details */}
               <div className="md:w-1/2 p-8 flex flex-col">
                 <h1 className="text-5xl font-extrabold text-gray-900">{name}</h1>
-    <p className="mt-1 text-gray-700">
-  by:{' '}
-  <span
-    className="italic hover:underline cursor-pointer"
-    onClick={() => router.push(`/user/${creator?.displayName || creator?.id}`)}
-  >
-    {author}
-  </span>
-</p>
+                <p className="mt-1 text-gray-700">
+                  by:{' '}
+                  <span
+                    className="italic hover:underline cursor-pointer"
+                    onClick={() => router.push(`/user/${creator?.displayName || creator?.id}`)}
+                  >
+                    {author}
+                  </span>
+                </p>
 
                 <p className="mt-4 text-gray-700 text-lg">
                   Animal: <span className="font-medium">{animal}</span>
@@ -205,34 +203,36 @@ export default function PlushieDetailPage() {
                   <p className="mt-4 text-gray-800">{description}</p>
                 )}
 
-                {/* Delete */}
+                {/* Delete UI */}
                 {session?.user?.uid === creator.id && !goalReached && (
-                  !showDeleteConfirm ? (
-                    <button
-                      onClick={initiateDelete}
-                      className="mt-6 px-4 py-2 border border-red-500 text-red-600 rounded hover:bg-red-50 transition"
-                    >
-                      Delete Plushie
-                    </button>
-                  ) : (
-                    <div className="mt-6 bg-gray-100 p-4 rounded space-y-3">
-                      <p className="italic text-red-600">“{deleteQuote}”</p>
-                      <div className="flex gap-2">
-                        <button
-                          onClick={confirmDelete}
-                          className="flex-1 px-4 py-2 bg-red-500 text-white rounded hover:bg-red-600 transition"
-                        >
-                          Yes, delete
-                        </button>
-                        <button
-                          onClick={() => setShowDeleteConfirm(false)}
-                          className="flex-1 px-4 py-2 border rounded hover:bg-gray-200 transition"
-                        >
-                          Cancel
-                        </button>
+                  !showDeleteConfirm
+                    ? (
+                      <button
+                        onClick={initiateDelete}
+                        className="mt-6 px-4 py-2 border border-red-500 text-red-600 rounded hover:bg-red-50 transition"
+                      >
+                        Delete Plushie
+                      </button>
+                    )
+                    : (
+                      <div className="mt-6 bg-gray-100 p-4 rounded space-y-3">
+                        <p className="italic text-red-600">“{deleteQuote}”</p>
+                        <div className="flex gap-2">
+                          <button
+                            onClick={confirmDelete}
+                            className="flex-1 px-4 py-2 bg-red-500 text-white rounded hover:bg-red-600 transition"
+                          >
+                            Yes, delete
+                          </button>
+                          <button
+                            onClick={() => setShowDeleteConfirm(false)}
+                            className="flex-1 px-4 py-2 border rounded hover:bg-gray-200 transition"
+                          >
+                            Cancel
+                          </button>
+                        </div>
                       </div>
-                    </div>
-                  )
+                    )
                 )}
 
                 {/* Like & Progress */}
@@ -291,12 +291,11 @@ export default function PlushieDetailPage() {
                   </p>
                 )}
 
-                {/* Comments */}
+                {/* Comments section */}
                 <div className="mt-8 flex-1 overflow-auto">
-                  {comments.length === 0 ? (
-                    <p className="italic text-gray-500">No comments yet.</p>
-                  ) : (
-                    comments.map(c => (
+                  {comments.length === 0
+                    ? <p className="italic text-gray-500">No comments yet.</p>
+                    : comments.map(c => (
                       <div key={c.id} className="mb-6">
                         <div className="flex justify-between">
                           <div>
@@ -340,9 +339,9 @@ export default function PlushieDetailPage() {
                         )}
                       </div>
                     ))
-                  )}
+                  }
 
-                  {/* New comment */}
+                  {/* New comment box */}
                   <form onSubmit={e => handleCommentSubmit(e)} className="space-y-2">
                     <textarea
                       rows={2}

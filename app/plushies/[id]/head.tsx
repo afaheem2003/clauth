@@ -1,19 +1,20 @@
-// app/plushies/[id]/head.tsx
-import { Metadata } from 'next'
+// app/plushies/[id]/head.js
 
-export async function generateMetadata({ params }): Promise<Metadata> {
+export async function generateMetadata({ params }) {
   const res = await fetch(
     `${process.env.NEXT_PUBLIC_SITE_URL}/api/plushies/${params.id}`,
     { cache: 'no-store' }
-  )
+  );
+
   if (!res.ok) {
-    return { title: 'Plushie not found' }
+    return { title: 'Plushie not found' };
   }
-  const { plushie } = await res.json()
-  const title       = plushie.name
-  const description = plushie.description || `${title} plushie`
-  const url         = `${process.env.NEXT_PUBLIC_SITE_URL}/plushies/${params.id}`
-  const image       = plushie.imageUrl
+
+  const { plushie } = await res.json();
+  const title       = plushie.name;
+  const description = plushie.description || `${title} plushie`;
+  const url         = `${process.env.NEXT_PUBLIC_SITE_URL}/plushies/${params.id}`;
+  const image       = plushie.imageUrl;
 
   return {
     title,
@@ -23,7 +24,9 @@ export async function generateMetadata({ params }): Promise<Metadata> {
       description,
       url,
       siteName: 'Ploosh',
-      images: [{ url: image, width: 800, height: 800, alt: title }],
+      images: [
+        { url: image, width: 800, height: 800, alt: title }
+      ],
       type: 'website',
     },
     twitter: {
@@ -32,5 +35,5 @@ export async function generateMetadata({ params }): Promise<Metadata> {
       description,
       images: [image],
     },
-  }
+  };
 }
