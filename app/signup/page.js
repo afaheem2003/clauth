@@ -11,8 +11,18 @@ export default function SignupPage() {
   async function handleGoogleSignup() {
     setError("");
     try {
-      await signIn("google", { callbackUrl: "/" });
+      const result = await signIn("google", {
+        redirect: false,
+        callbackUrl: "/"
+      });
+      
+      if (result?.error) {
+        setError(result.error);
+      } else if (result?.url) {
+        router.push(result.url);
+      }
     } catch (err) {
+      console.error("Sign up error:", err);
       setError("Google sign-up failed. Please try again.");
     }
   }

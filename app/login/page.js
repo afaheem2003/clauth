@@ -11,9 +11,18 @@ export default function LoginPage() {
   async function handleGoogleSignIn() {
     setError("");
     try {
-      // Use NextAuth's signIn method with the "google" provider.
-      await signIn("google", { callbackUrl: "/" });
+      const result = await signIn("google", {
+        redirect: false,
+        callbackUrl: "/"
+      });
+      
+      if (result?.error) {
+        setError(result.error);
+      } else if (result?.url) {
+        router.push(result.url);
+      }
     } catch (err) {
+      console.error("Sign in error:", err);
       setError("Google login failed. Please try again.");
     }
   }
