@@ -43,3 +43,5 @@ next-env.d.ts
 # firebase
 lib/serviceAccountKey.json
 
+*.sql
+*.dump

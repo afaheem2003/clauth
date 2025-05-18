@@ -9,6 +9,7 @@ import { CANCELLATION_QUOTES } from '@/utils/cancellationQuotes';
 import Input from '@/components/common/Input';
 import BigSpinner from '@/components/common/BigSpinner';
 import Footer from '@/components/common/Footer';
+import { Metadata } from 'next'
 
 const stripePromise = loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY);
 
