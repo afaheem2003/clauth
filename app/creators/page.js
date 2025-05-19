@@ -2,22 +2,22 @@ import { prisma } from '@/lib/prisma';
 import CreatorsClient from './CreatorsClient';
 
 export const metadata = {
-  title: 'Top Creators | Ploosh',
-  description: 'Discover the most talented plushie creators on Ploosh',
+  title: 'Top Creators | Clauth',
+  description: 'Discover the most talented clothing designers on Clauth',
   openGraph: {
-    title: 'Top Creators | Ploosh',
-    description: 'Discover the most talented plushie creators on Ploosh',
+    title: 'Top Creators | Clauth',
+    description: 'Discover the most talented clothing designers on Clauth',
   },
 };
 
 export default async function CreatorsPage() {
   const topCreators = await prisma.user.findMany({
     where: {
-      plushies: {
+      clothingItems: {
         some: {
           isPublished: true,
           isDeleted: false,
-          status: 'PENDING'  // Only show plushies that can still be purchased
+          status: 'PENDING'
         }
       }
     },
@@ -28,21 +28,21 @@ export default async function CreatorsPage() {
       image: true,
       _count: {
         select: {
-          plushies: {
+          clothingItems: {
             where: {
               isPublished: true,
               isDeleted: false,
-              status: 'PENDING'  // Match the same conditions
+              status: 'PENDING'
             }
           }
         }
       },
-      plushies: {
+      clothingItems: {
         where: {
           AND: [
             { isPublished: true },
             { isDeleted: false },
-            { status: 'PENDING' }  // Only show plushies that can still be purchased
+            { status: 'PENDING' }
           ]
         },
         select: {
@@ -61,7 +61,7 @@ export default async function CreatorsPage() {
       }
     },
     orderBy: {
-      plushies: {
+      clothingItems: {
         _count: 'desc'
       }
     },
@@ -70,15 +70,15 @@ export default async function CreatorsPage() {
 
   // Calculate total likes and enrich the data
   const enrichedCreators = topCreators.map(creator => {
-    const totalLikes = creator.plushies.reduce((sum, plushie) => sum + plushie.likes.length, 0);
+    const clothingData = creator.clothingItems || [];
+    const totalLikes = clothingData.reduce((sum, item) => sum + (item.likes?.length || 0), 0);
     
-    // Format plushies data
-    const availablePlushies = creator.plushies.map(plushie => ({
-      id: plushie.id,
-      name: plushie.name,
-      imageUrl: plushie.imageUrl || '/images/plushie-placeholder.png',
-      likes: plushie.likes.length,
-      progress: Math.min(100, Math.round((plushie.pledged / plushie.goal) * 100))
+    const availableClothingItems = clothingData.map(item => ({
+      id: item.id,
+      name: item.name,
+      imageUrl: item.imageUrl || '/images/clothing-item-placeholder.png',
+      likes: item.likes?.length || 0,
+      progress: Math.min(100, Math.round((item.pledged / item.goal) * 100))
     }));
 
     return {
@@ -86,10 +86,10 @@ export default async function CreatorsPage() {
       displayName: creator.displayName || creator.name || 'Anonymous Creator',
       image: creator.image || '/images/profile-placeholder.png',
       stats: {
-        plushies: creator._count.plushies,
+        clothingItems: creator._count.clothingItems,
         likes: totalLikes
       },
-      availablePlushies
+      availableClothingItems
     };
   });
 

@@ -1,18 +1,24 @@
+import prisma from '@/lib/prisma';
 import InProductionClient from './Client';
-import { prisma } from '@/lib/prisma';
 
 export const dynamic = 'force-dynamic';
 
-
-export default async function InProductionPage() {
-  const plushies = await prisma.plushie.findMany({
-    where  : { status: 'IN_PRODUCTION' },
-    include: {
-      creator : { select: { displayName: true, email: true } },
-      preorders: { select: { id: true } },
+async function getInProgressItems() {
+  const clothingItems = await prisma.clothingItem.findMany({
+    where: {
+      status: 'IN_PRODUCTION',
     },
-    orderBy: { createdAt: 'asc' },
+    include: {
+      creator: true,
+    },
+    orderBy: {
+      updatedAt: 'desc',
+    }
   });
+  return clothingItems;
+}
 
-  return <InProductionClient initialPlushies={plushies} />;
+export default async function InProgressPage() {
+  const clothingItems = await getInProgressItems();
+  return <InProductionClient initialClothingItems={clothingItems} />;
 }

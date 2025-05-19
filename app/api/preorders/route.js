@@ -12,18 +12,19 @@ export async function GET(request) {
   }
   const userId = session.user.uid;
 
-  // 2) fetch all of their pre‑orders, including the plushie details
+  // 1) Auth check complete
+  // 2) fetch all of their pre‑orders, including the clothing item details
   const records = await prisma.preorder.findMany({
-    where: { userId },
+    where: { userId: userId },
     include: {
-      plushie: {
+      payment: true,
+      clothingItem: {
         select: {
-          id: true,
           name: true,
           imageUrl: true,
+          status: true,
           pledged: true,
           goal: true,
-          status: true,
         },
       },
     },
@@ -33,22 +34,24 @@ export async function GET(request) {
   // 3) map into a simple shape
   const orders = records.map((o) => ({
     id: o.id,
-    name: o.plushie.name,
-    image: o.plushie.imageUrl,
-    status:
-      o.plushie.status === "PENDING"
-        ? "Awaiting Enough Pre‑Orders"
-        : o.plushie.status === "IN_PRODUCTION"
-        ? "In Production"
-        : o.plushie.status === "SHIPPED"
-        ? "Shipped"
-        : o.plushie.status === "CANCELED"
-        ? "Canceled"
-        : "Unknown",
-    price: `$${o.price.toFixed(2)}`,
-    pledged: o.plushie.pledged,
-    goal: o.plushie.goal,
-    quantity: o.quantity,
+    name: o.clothingItem.name,
+    image: o.clothingItem.imageUrl,
+    qty: o.quantity,
+    total: o.price,
+    status: o.status,
+    canCancel: o.clothingItem.status === "PENDING",
+    progress: o.clothingItem.status === "PENDING"
+      ? "Pre-order Confirmed"
+      : o.clothingItem.status === "IN_PRODUCTION"
+      ? "In Production"
+      : o.clothingItem.status === "SHIPPED"
+      ? "Shipped"
+      : o.clothingItem.status === "CANCELED"
+      ? "Canceled"
+      : "Delivered",
+    pledged: o.clothingItem.pledged,
+    goal: o.clothingItem.goal,
+    createdAt: o.createdAt.toISOString(),
   }));
 
   return NextResponse.json(orders);

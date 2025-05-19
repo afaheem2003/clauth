@@ -1,16 +1,23 @@
 import { NextResponse } from 'next/server';
 import Stripe from 'stripe';
 import { prisma } from '@/lib/prisma';
+import { getServerSession } from 'next-auth/next';
+import { authOptions } from '@/app/api/auth/[...nextauth]/route';
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
 
 export async function POST(req, { params }) {
   const { id } = params;
+  const session = await getServerSession(authOptions);
+
+  if (!session || !session.user.isAdmin) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
 
   // fetch preorder and its payment intent
   const preorder = await prisma.preorder.findUnique({
     where: { id },
-    include: { payment: true },
+    include: { user: true, clothingItem: true },
   });
 
   if (!preorder || !preorder.payment || !preorder.payment.intentId) {
@@ -27,7 +34,7 @@ export async function POST(req, { params }) {
     const updated = await prisma.preorder.update({
       where: { id },
       data: { status: 'REFUNDED' },
-      include: { user: true, plushie: true },
+      include: { user: true, clothingItem: true },
     });
 
     await prisma.paymentIntent.update({

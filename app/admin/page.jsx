@@ -2,19 +2,26 @@ import React from 'react';
 import { prisma } from '@/lib/prisma';
 import StatusBarChart from './StatusBarChart';
 import TrendLineChart from './TrendLineChart';
+import { ChartBarIcon, UsersIcon, CurrencyDollarIcon, ShoppingCartIcon } from '@heroicons/react/24/outline';
+import Link from 'next/link';
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/lib/authOptions";
+import StatCard from '@/components/admin/StatCard';
+import ChartCard from '@/components/admin/ChartCard';
+import { RecentPreordersTable, PreorderColumns } from '@/components/admin/RecentPreordersTable';
 
 export const dynamic = 'force-dynamic';
 
-export default async function AdminDashboard() {
+async function getAdminDashboardData() {
   // 1) Totals
-  const [plushieCount, userCount, preorderCount] = await Promise.all([
-    prisma.plushie.count(),
+  const [clothingItemCount, userCount, preorderCount] = await Promise.all([
+    prisma.clothingItem.count(),
     prisma.user.count(),
     prisma.preorder.count(),
   ]);
 
   // 2) Status breakdown
-  const plushieStatusRaw = await prisma.plushie.groupBy({
+  const clothingItemStatusRaw = await prisma.clothingItem.groupBy({
     by: ['status'],
     _count: { status: true },
   });
@@ -22,14 +29,15 @@ export default async function AdminDashboard() {
     by: ['status'],
     _count: { status: true },
   });
-  const plushieStatus = plushieStatusRaw.map((d) => ({ status: d.status, count: d._count.status }));
+  const clothingItemStatus = clothingItemStatusRaw.map((d) => ({ status: d.status, count: d._count.status }));
   const preorderStatus = preorderStatusRaw.map((d) => ({ status: d.status, count: d._count.status }));
 
-  // 3) Top plushies
-  const topPlushies = await prisma.plushie.findMany({
+  // 3) Top clothing items
+  const topClothingItems = await prisma.clothingItem.findMany({
     orderBy: { pledged: 'desc' },
     take: 5,
     select: {
+      id: true,
       name: true,
       pledged: true,
       goal: true,
@@ -72,7 +80,7 @@ export default async function AdminDashboard() {
   const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
   const recentPreorders = await prisma.preorder.findMany({
     where: { createdAt: { gte: sevenDaysAgo } },
-    include: { user: true, plushie: true },
+    include: { user: true, clothingItem: true },
     orderBy: { createdAt: 'desc' },
     take: 10,
   });
@@ -89,36 +97,58 @@ export default async function AdminDashboard() {
     return { date, count: preorderMap[date] || 0 };
   });
 
+  return {
+    clothingItemCount,
+    userCount,
+    preorderCount,
+    newUsersThisMonth,
+    clothingItemStatus,
+    preorderStatus,
+    topClothingItems,
+    userTrend,
+    recentPreorders,
+    preorderTrend,
+  };
+}
+
+export default async function AdminDashboard() {
+  const session = await getServerSession(authOptions);
+  if (session?.user?.role !== 'ADMIN') {
+    return <p className="p-6">Access Denied. You must be an admin to view this page.</p>;
+  }
+
+  const data = await getAdminDashboardData();
+
   return (
     <div className="p-8 bg-gray-50 space-y-12">
       <h1 className="text-4xl font-bold text-gray-900">Admin Dashboard</h1>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <StatCard title="Total Plushies" value={plushieCount} />
-        <StatCard title="Total Users" value={userCount} subtitle={`${newUsersThisMonth} new this month`} />
-        <StatCard title="Total Pre-orders" value={preorderCount} />
+        <StatCard title="Total Clothing Items" value={data.clothingItemCount} />
+        <StatCard title="Total Users" value={data.userCount} subtitle={`${data.newUsersThisMonth} new this month`} />
+        <StatCard title="Total Pre-orders" value={data.preorderCount} />
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <ChartCard title="Plushies by Status">
-          <StatusBarChart data={plushieStatus} dataKey="status" />
+        <ChartCard title="Clothing Items by Status">
+          <StatusBarChart data={data.clothingItemStatus} dataKey="status" />
         </ChartCard>
         <ChartCard title="Pre-orders by Status">
-          <StatusBarChart data={preorderStatus} dataKey="status" />
+          <StatusBarChart data={data.preorderStatus} dataKey="status" />
         </ChartCard>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <ChartCard title="User Signups (Last 30 Days)">
-          <TrendLineChart data={userTrend} />
+          <TrendLineChart data={data.userTrend} />
         </ChartCard>
         <ChartCard title="Pre-orders (Last 7 Days)">
-          <TrendLineChart data={preorderTrend} />
+          <TrendLineChart data={data.preorderTrend} />
         </ChartCard>
       </div>
 
       <div className="space-y-4">
-        <h2 className="text-2xl font-semibold text-gray-900">Top 5 Plushies by Pledges</h2>
+        <h2 className="text-2xl font-semibold text-gray-900">Top 5 Clothing Items by Pledges</h2>
         <table className="w-full bg-white rounded-lg shadow overflow-hidden">
           <thead className="bg-gray-100">
             <tr>
@@ -132,15 +162,19 @@ export default async function AdminDashboard() {
             </tr>
           </thead>
           <tbody>
-            {topPlushies.map((p, i) => (
-              <tr key={i} className="border-t last:border-b">
-                <td className="px-4 py-3 text-gray-900">{p.name}</td>
-                <td className="px-4 py-3 text-gray-900">{p.creator?.displayName ?? 'Unknown Artist'}</td>
-                <td className="px-4 py-3 text-gray-900">{p.pledged}</td>
-                <td className="px-4 py-3 text-gray-900">{p.goal}</td>
-                <td className="px-4 py-3 text-gray-900">{p.texture}</td>
-                <td className="px-4 py-3 text-gray-900">{p.size}</td>
-                <td className="px-4 py-3 text-gray-900">{p.status}</td>
+            {data.topClothingItems.map((item, i) => (
+              <tr key={item.id} className="border-t last:border-b">
+                <td className="px-4 py-3 text-gray-900">
+                  <Link href={`/admin/clothing/${item.id}`} legacyBehavior>
+                    <a className="hover:underline">{item.name}</a>
+                  </Link>
+                </td>
+                <td className="px-4 py-3 text-gray-900">{item.creator?.displayName ?? 'Unknown Artist'}</td>
+                <td className="px-4 py-3 text-gray-900">{item.pledged}</td>
+                <td className="px-4 py-3 text-gray-900">{item.goal}</td>
+                <td className="px-4 py-3 text-gray-900">{item.texture}</td>
+                <td className="px-4 py-3 text-gray-900">{item.size}</td>
+                <td className="px-4 py-3 text-gray-900">{item.status}</td>
               </tr>
             ))}
           </tbody>
@@ -154,18 +188,18 @@ export default async function AdminDashboard() {
             <tr>
               <th className="px-4 py-3 text-left font-medium text-gray-800">When</th>
               <th className="px-4 py-3 text-left font-medium text-gray-800">User</th>
-              <th className="px-4 py-3 text-left font-medium text-gray-800">Plushie</th>
+              <th className="px-4 py-3 text-left font-medium text-gray-800">Clothing Item</th>
               <th className="px-4 py-3 text-left font-medium text-gray-800">Qty</th>
             </tr>
           </thead>
           <tbody>
-            {recentPreorders.map((o) => (
+            {data.recentPreorders.map((o) => (
               <tr key={o.id} className="border-t last:border-b">
                 <td className="px-4 py-3 text-gray-900">{new Date(o.createdAt).toLocaleString()}</td>
                 <td className="px-4 py-3 text-gray-900">
                   {o.user?.email ?? o.guestEmail ?? 'Unknown'}
                 </td>
-                <td className="px-4 py-3 text-gray-900">{o.plushie.name}</td>
+                <td className="px-4 py-3 text-gray-900">{o.clothingItem.name}</td>
                 <td className="px-4 py-3 text-gray-900">{o.quantity}</td>
               </tr>
             ))}

@@ -15,7 +15,7 @@ export default function CreatorsClient({ initialCreators }) {
             Top Creators
           </h1>
           <p className="mt-3 max-w-2xl mx-auto text-xl text-gray-500 sm:mt-4">
-            Meet the talented artists behind Ploosh's most beloved plushies
+            Meet the talented designers behind Clauth's most beloved clothing items
           </p>
         </div>
 
@@ -51,10 +51,12 @@ export default function CreatorsClient({ initialCreators }) {
                 {/* Creator Stats */}
                 <div className="mt-6 grid grid-cols-2 gap-4 border-t border-gray-100 pt-4">
                   <div className="text-center">
-                    <span className="block text-2xl font-bold text-gray-900">
-                      {formatCompactNumber(creator.stats.plushies)}
-                    </span>
-                    <span className="block text-sm text-gray-500">Plushies</span>
+                    <div className="text-sm text-gray-500">
+                      Creations
+                    </div>
+                    <div className="text-xl font-bold text-gray-900">
+                      {formatCompactNumber(creator.stats.clothingItems || creator.stats.clothingItems)}
+                    </div>
                   </div>
                   <div className="text-center">
                     <span className="block text-2xl font-bold text-gray-900">
@@ -64,23 +66,23 @@ export default function CreatorsClient({ initialCreators }) {
                   </div>
                 </div>
 
-                {/* Available Plushies */}
-                {creator.availablePlushies.length > 0 && (
+                {/* Available Clothing Items */}
+                {(creator.availableClothingItems || creator.availableClothingItems)?.length > 0 && (
                   <div className="mt-6 border-t border-gray-100 pt-4">
                     <h3 className="text-sm font-medium text-gray-900 mb-4">
-                      Available Plushies
+                      Available Designs
                     </h3>
                     <div className="space-y-4">
-                      {creator.availablePlushies.map((plushie) => (
+                      {(creator.availableClothingItems || creator.availableClothingItems).map((item) => (
                         <div
-                          key={plushie.id}
-                          onClick={() => router.push(`/plushies/${plushie.id}`)}
+                          key={item.id}
+                          onClick={() => router.push(`/clothing/${item.id}`)}
                           className="flex items-center space-x-3 cursor-pointer hover:bg-gray-50 p-2 rounded-lg transition-colors"
                         >
                           <div className="relative h-12 w-12 flex-shrink-0">
                             <Image
-                              src={plushie.imageUrl}
-                              alt={plushie.name}
+                              src={item.imageUrl}
+                              alt={item.name}
                               fill
                               unoptimized
                               sizes="(max-width: 768px) 48px, 48px"
@@ -89,12 +91,12 @@ export default function CreatorsClient({ initialCreators }) {
                           </div>
                           <div className="flex-1 min-w-0">
                             <p className="text-sm font-medium text-gray-900 truncate">
-                              {plushie.name}
+                              {item.name}
                             </p>
                             <div className="mt-1 w-full bg-gray-200 rounded-full h-1.5">
                               <div
                                 className="bg-green-500 h-1.5 rounded-full"
-                                style={{ width: `${plushie.progress}%` }}
+                                style={{ width: `${item.progress}%` }}
                               />
                             </div>
                           </div>
@@ -106,7 +108,7 @@ export default function CreatorsClient({ initialCreators }) {
                             >
                               <path d="M10 18l-1.45-1.32C3.89 12.36 1 9.27 1 5.5 1 2.91 3.01 1 5.5 1c1.74 0 3.41.81 4.5 2.09C11.09 1.81 12.76 1 14.5 1 16.99 1 19 2.91 19 5.5c0 3.77-2.89 6.86-7.55 11.18L10 18z" />
                             </svg>
-                            {formatCompactNumber(plushie.likes)}
+                            {formatCompactNumber(item.likes)}
                           </div>
                         </div>
                       ))}

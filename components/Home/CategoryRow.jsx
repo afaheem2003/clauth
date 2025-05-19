@@ -1,6 +1,7 @@
 'use client'
 
-import PlushieCard from '@/components/plushie/PlushieCard'
+import Link from 'next/link'
+import ClothingItemCard from '@/components/clothing/ClothingItemCard'
 import clsx        from 'clsx'
 
 export default function CategoryRow ({ title, items = [] }) {
@@ -18,8 +19,8 @@ export default function CategoryRow ({ title, items = [] }) {
         )}
       >
         {items.map(p => (
-          <div key={p.id} className="w-48 shrink-0 snap-start">
-            <PlushieCard plushie={p} />
+          <div key={p.id} className="flex-[0_0_auto] w-72 h-auto mr-5 last:mr-0">
+            <ClothingItemCard clothingItem={p} />
           </div>
         ))}
       </div>

@@ -10,7 +10,7 @@ const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, {
 export async function POST(req) {
   const session = await getServerSession(authOptions);
   const {
-    plushieId,
+    clothingItemId,
     imageUrl,
     quantity = 1,
     returnTo = "/discover",
@@ -23,8 +23,8 @@ export async function POST(req) {
   const origin = req.headers.get("origin");
 
   const base = origin + returnTo;
-  const successUrl = `${base}?success=true&plushieId=${plushieId}`;
-  const cancelUrl = `${base}?canceled=true&plushieId=${plushieId}`;
+  const successUrl = `${base}?success=true&clothingItemId=${clothingItemId}`;
+  const cancelUrl = `${base}?canceled=true&clothingItemId=${clothingItemId}`;
   const fullImage = imageUrl.startsWith("http") ? imageUrl : `${origin}${imageUrl}`;
 
   try {
@@ -37,7 +37,7 @@ export async function POST(req) {
             currency: "usd",
             unit_amount: priceInCents,
             product_data: {
-              name: `Pre‑order Plushie (${plushieId})`,
+              name: `Pre-order Clothing Item (${clothingItemId})`,
               images: [fullImage],
             },
           },
@@ -56,7 +56,7 @@ export async function POST(req) {
       cancel_url: cancelUrl,
       client_reference_id: userId || undefined,
       metadata: {
-        plushieId,
+        clothingItemId,
         quantity: qty.toString(),
         guestEmail: guestEmail || "",
       },

@@ -7,24 +7,24 @@ import Link from 'next/link';
 import Header from '@/components/layout/Header';
 import HeroCarousel from '@/components/Home/HeroCarousel';
 import Footer from '@/components/common/Footer';
-import PlushieGeneratorModal from '@/components/layout/PlushieGeneratorModal';
+import ClothingItemGeneratorModal from '@/components/layout/ClothingItemGeneratorModal';
 import AuthPromptModal from '@/components/common/AuthPromptModal';
 
 const heroPanelsDesktop = [
   {
     img: '/images/homepage/background1.png',
-    heading: 'Ready to fall in plush?',
-    cta: 'Browse the latest creator-generated plushies',
+    heading: 'Ready to find your style?',
+    cta: 'Browse the latest creator-generated clothing',
   },
   {
     img: '/images/homepage/background2.png',
-    heading: 'Lose yourself in Ploosh joy…',
+    heading: 'Lose yourself in Clauth joy…',
     cta: 'Explore top-voted community creations',
   },
   {
     img: '/images/homepage/background3.png',
     heading: 'Ready to design your own?',
-    cta: 'Create Your Plushie',
+    cta: 'Design Your Clothing',
     highlightCreate: true,
   },
 ];
@@ -32,18 +32,18 @@ const heroPanelsDesktop = [
 const heroPanelsMobile = [
   {
     img: '/images/homepage/background_mobile1.png',
-    heading: 'Looking for a new squeeze?',
-    cta: 'Discover our latest Plushies',
+    heading: 'Looking for a new look?',
+    cta: 'Discover our latest Clothing',
   },
   {
     img: '/images/homepage/background_mobile2.png',
-    heading: 'Lose yourself in Ploosh joy…',
+    heading: 'Lose yourself in Clauth joy…',
     cta: 'Browse community favourites',
   },
   {
     img: '/images/homepage/background_mobile3.png',
     heading: 'Ready to design your own?',
-    cta: 'Create Your Plushie',
+    cta: 'Design Your Clothing',
     highlightCreate: true,
   },
 ];
@@ -107,7 +107,7 @@ export default function HomeClient({ featured = [], almostThere = [], trending =
         <section className="py-12 bg-gray-50">
           <div className="container mx-auto px-6">
             <h2 className="text-3xl font-semibold text-gray-900 text-center mb-6">
-              Featured Plushies
+              Featured Clothing Items
             </h2>
             <HeroCarousel items={featured} />
           </div>
@@ -118,7 +118,7 @@ export default function HomeClient({ featured = [], almostThere = [], trending =
         <section className="py-12 bg-gray-50">
           <div className="container mx-auto px-6">
             <h2 className="text-3xl font-semibold text-gray-900 text-center mb-6">
-              Almost&nbsp;There&nbsp;&mdash;&nbsp;Help These Plushies Come to Life
+              Almost&nbsp;There&nbsp;&mdash;&nbsp;Help These Designs Come to Life
             </h2>
             <HeroCarousel items={almostThere} />
           </div>
@@ -138,7 +138,7 @@ export default function HomeClient({ featured = [], almostThere = [], trending =
 
       <Footer />
 
-      {showGen && <PlushieGeneratorModal onClose={() => setShowGen(false)} />}
+      {showGen && <ClothingItemGeneratorModal onClose={() => setShowGen(false)} />}
       {showAuth && <AuthPromptModal onClose={() => setShowAuth(false)} />}
     </>
   );

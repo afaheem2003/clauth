@@ -3,16 +3,16 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/authOptions";
 import prisma from "@/lib/prisma";
 
-// 1) GET => Retrieve likes by plushieId
+// 1) GET => Retrieve likes by clothingItemId
 export async function GET(req) {
   const { searchParams } = new URL(req.url);
-  const plushieId = searchParams.get("plushieId");
-  if (!plushieId) {
-    return NextResponse.json({ error: "Missing plushieId" }, { status: 400 });
+  const clothingItemId = searchParams.get("clothingItemId");
+  if (!clothingItemId) {
+    return NextResponse.json({ error: "Missing clothingItemId" }, { status: 400 });
   }
   try {
     const likes = await prisma.like.findMany({
-      where: { plushieId },
+      where: { clothingItemId },
       orderBy: { createdAt: "asc" },
       include: { user: true },
     });
@@ -33,31 +33,31 @@ export async function POST(req) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const { plushieId } = await req.json();
-  if (!plushieId) {
-    return NextResponse.json({ error: "Missing plushieId" }, { status: 400 });
+  const { clothingItemId } = await req.json();
+  if (!clothingItemId) {
+    return NextResponse.json({ error: "Missing clothingItemId" }, { status: 400 });
   }
 
   try {
     const userId = session.user.uid;
     // Check if a like already exists
-    const existingLike = await prisma.like.findFirst({
-      where: { userId, plushieId },
+    const existingLike = await prisma.like.findUnique({
+      where: { userId_clothingItemId: { userId, clothingItemId } },
     });
 
     if (existingLike) {
       // If found, remove the like (unlike)
       await prisma.like.delete({ where: { id: existingLike.id } });
-      return NextResponse.json({ liked: false });
+      return NextResponse.json({ message: "Unliked" });
     } else {
       // Otherwise, create the like
-      const like = await prisma.like.create({
+      await prisma.like.create({
         data: {
           user: { connect: { id: userId } },
-          plushie: { connect: { id: plushieId } },
+          clothingItem: { connect: { id: clothingItemId } },
         },
       });
-      return NextResponse.json({ liked: true, like });
+      return NextResponse.json({ message: "Liked" });
     }
   } catch (err) {
     console.error("Error toggling like:", err);

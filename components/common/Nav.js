@@ -58,7 +58,7 @@ export default function Nav() {
     <header className="bg-white border-b sticky top-0 z-50">
       <div className="container mx-auto px-6 h-14 flex items-center justify-between">
         <Link href="/" className="text-2xl font-extrabold text-gray-900">
-          Ploosh
+          Clauth
         </Link>
 
         {/* DESKTOP NAV */}

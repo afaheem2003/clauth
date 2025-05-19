@@ -7,7 +7,11 @@ import { useRouter, usePathname } from "next/navigation";
 /**
  * Global route-protection helper
  *
- *  • The Home page ( “/” ), Discover ( “/discover” ), and Plushie pages ( “/plushies/[id]” ) are public.
+ *  • Public paths:
+ *    The following paths are publicly accessible and do NOT require authentication:
+ *    • The Home page ( “/” ), Discover ( “/discover” ), and Clothing pages ( “/clothing/[id]” ) are public.
+ *    • Auth pages ( “/login”, “/signup”, “/forgot-password”, etc... ) are public.
+ *    • API routes ( “/api/*” ) are public by default, but are individually protected as needed.
  *  • All other routes require sign-in and appropriate roles.
  */
 export default function AuthGuard({ children }) {
@@ -22,7 +26,8 @@ export default function AuthGuard({ children }) {
     const isPublic =
       pathname === "/" ||
       pathname.startsWith("/discover") ||
-      pathname.startsWith("/plushies");
+      pathname.startsWith("/clothing") ||
+      pathname.startsWith("/api");
 
     if (!session && isPublic) {
       return; // allow visitors to access public routes

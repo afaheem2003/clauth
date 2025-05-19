@@ -17,15 +17,15 @@ export default function AdminLayout({ children }) {
         <div className="flex min-h-screen">
           {/* ────────── Sidebar ────────── */}
           <aside className="w-64 bg-gray-900 text-white p-6">
-            <h2 className="text-2xl font-bold mb-8 text-gray-100">Ploosh&nbsp;Admin</h2>
+            <h2 className="text-2xl font-bold mb-8 text-gray-100">Clauth&nbsp;Admin</h2>
 
             <nav className="space-y-4 text-lg">
   <Link href="/admin"                  className="block font-medium text-gray-200 hover:text-gray-100">
     Dashboard
   </Link>
 
-  <Link href="/admin/plushies"         className="block font-medium text-gray-200 hover:text-gray-100">
-    Plushies
+  <Link href="/admin/clothing"         className="block font-medium text-gray-200 hover:text-gray-100">
+    Clothing Items
   </Link>
 
   <Link href="/admin/preorders"        className="block font-medium text-gray-200 hover:text-gray-100">

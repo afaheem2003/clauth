@@ -6,6 +6,7 @@ import Link from 'next/link';
 import OrderDetailsModal from '../../components/common/OrderDetailsModal';
 import ProgressBar from '../../components/common/ProgressBar';
 import Footer from '@/components/common/Footer';
+import { ShoppingCartIcon } from '@heroicons/react/24/outline';
 
 export default function MyPreOrdersPage() {
   const [orders, setOrders] = useState([]);
@@ -46,7 +47,7 @@ export default function MyPreOrdersPage() {
               My Pre-Orders
             </h1>
             <p className="text-gray-600 text-lg md:text-xl text-center">
-              Track and manage your plushie pre-orders.
+              Track and manage your clothing item pre-orders.
             </p>
             <button
               onClick={scrollToExplanation}
@@ -94,12 +95,20 @@ export default function MyPreOrdersPage() {
               ))}
             </div>
           ) : (
-            <p className="text-gray-600 text-center text-lg">
-              You haven&apos;t pre-ordered any plushies yet.{' '}
-              <Link href="/discover" className="text-blue-600 hover:underline">
-                Browse plushies
+            <div className="text-center bg-white p-10 rounded-lg shadow-md">
+              <ShoppingCartIcon className="mx-auto h-16 w-16 text-gray-400 mb-4" />
+              <p className="text-xl font-medium text-gray-700 mb-2">
+                No Pre-Orders Yet!
+              </p>
+              <p className="text-gray-500 mb-6">
+                You haven&apos;t pre-ordered any clothing items yet.{' '}
+              </p>
+              <Link href="/discover" legacyBehavior>
+                <a className="px-6 py-3 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 transition-colors text-sm font-medium">
+                  Browse clothing items
+                </a>
               </Link>
-            </p>
+            </div>
           )}
         </section>
 
@@ -124,24 +133,24 @@ export default function MyPreOrdersPage() {
             <div className="max-w-3xl mx-auto space-y-12">
               {[
                 {
-                  title: "1. Pre-Order Your Favorite Plushie",
+                  title: "1. Pre-Order Your Favorite Clothing Item",
                   desc:
-                    "Select a plushie you love and place a pre-order. Your payment is securely processed, and you'll be among the first to receive it!",
+                    "Select a clothing item you love and place a pre-order. Your payment is securely processed, and you'll be among the first to receive it!",
                 },
                 {
-                  title: "2. Reaching the Minimum Goal",
+                  title: "2. Help It Reach Its Goal",
                   desc:
-                    "Each plushie needs a minimum number of pre-orders before we can start production. You can track its progress right here.",
+                    "Each clothing item needs a minimum number of pre-orders before we can start production. You can track its progress right here.",
                 },
                 {
                   title: "3. Production & Shipping",
                   desc:
-                    "Once the plushie reaches its goal, we begin production! You'll be notified as it moves to shipping, and soon, it'll arrive at your doorstep.",
+                    "Once the clothing item reaches its goal, we begin production! You'll be notified as it moves to shipping, and soon, it'll arrive at your doorstep.",
                 },
                 {
-                  title: "4. What If the Goal Isn&apos;t Met?",
+                  title: "4. Goal Not Met? Full Refund!",
                   desc:
-                    "If a plushie doesn&apos;t reach its goal in time, your payment will be fully refunded—no worries!",
+                    "If a clothing item doesn&apos;t reach its goal in time, your payment will be fully refunded—no worries!",
                 },
               ].map((step) => (
                 <div key={step.title}>
@@ -153,9 +162,9 @@ export default function MyPreOrdersPage() {
               ))}
               <Link
                 href="/discover"
-                className="inline-block mt-8 px-6 py-3 text-lg font-semibold bg-blue-600 text-white rounded-lg shadow hover:bg-blue-700 transition"
+                className="mt-6 inline-block px-8 py-3 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors font-semibold text-lg shadow-md"
               >
-                Browse Plushies
+                Browse Clothing Items
               </Link>
             </div>
           </div>

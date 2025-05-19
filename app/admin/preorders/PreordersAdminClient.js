@@ -1,15 +1,15 @@
-
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 
-const PAGE_SIZE = 10;
+const PAGE_SIZE = 5;
 
 export default function PreordersAdminClient({ initialOrders }) {
   const [orders, setOrders] = useState(initialOrders);
   const [page, setPage] = useState(0);
+  const [searchTerm, setSearchTerm] = useState('');
 
   const handleDelete = async (id) => {
     if (!confirm('Cancel this preorder?')) return;
@@ -30,84 +30,135 @@ export default function PreordersAdminClient({ initialOrders }) {
     }
   };
 
-  const groupedByPlushie = orders.reduce((acc, order) => {
-    const key = order.plushie.id;
-    if (!acc[key]) acc[key] = { plushie: order.plushie, orders: [] };
-    acc[key].orders.push(order);
-    return acc;
-  }, {});
+  const groupedByClothingItem = useMemo(() => {
+    return orders.reduce((acc, order) => {
+      const key = order.clothingItem.id;
+      if (!acc[key]) {
+        acc[key] = { clothingItem: order.clothingItem, orders: [] };
+      }
+      acc[key].orders.push(order);
+      return acc;
+    }, {});
+  }, [orders]);
 
-  const plushieKeys = Object.keys(groupedByPlushie);
-  const totalPages = Math.ceil(plushieKeys.length / PAGE_SIZE);
-  const paginatedKeys = plushieKeys.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE);
+  const filteredClothingItemKeys = useMemo(() => {
+    const keys = Object.keys(groupedByClothingItem);
+    if (!searchTerm) return keys;
+    return keys.filter(key => {
+      const item = groupedByClothingItem[key].clothingItem;
+      const customerQuery = groupedByClothingItem[key].orders.some(o => 
+        o.user.email?.toLowerCase().includes(searchTerm.toLowerCase()) || 
+        o.user.name?.toLowerCase().includes(searchTerm.toLowerCase())
+      );
+      return item.name.toLowerCase().includes(searchTerm.toLowerCase()) || customerQuery;
+    });
+  }, [groupedByClothingItem, searchTerm]);
+
+  const totalPages = Math.ceil(filteredClothingItemKeys.length / PAGE_SIZE);
+  const paginatedClothingItemKeys = filteredClothingItemKeys.slice(
+    page * PAGE_SIZE,
+    (page + 1) * PAGE_SIZE
+  );
+
+  const updateOrderStatus = (orderId, newStatus) => {
+    setOrders(prevOrders => prevOrders.map(o => o.id === orderId ? {...o, status: newStatus} : o));
+  };
 
   return (
-    <div className="p-8 bg-gray-50">
-      <h1 className="text-3xl font-bold mb-6 text-gray-800">Manage Pre-orders</h1>
+    <div className="container mx-auto px-4 py-8">
+      <h1 className="text-3xl font-bold mb-6 text-gray-800">Manage Preorders</h1>
+      
+      <div className="mb-6">
+        <input 
+          type="text"
+          placeholder="Search by item name or customer..."
+          className="w-full p-3 border border-gray-300 rounded-lg shadow-sm focus:ring-purple-500 focus:border-purple-500"
+          value={searchTerm}
+          onChange={(e) => {setSearchTerm(e.target.value); setPage(0);}}
+        />
+      </div>
 
-      {paginatedKeys.map((key) => {
-        const { plushie, orders } = groupedByPlushie[key];
-        return (
-          <div key={key} className="mb-10 border rounded bg-white shadow-md">
-            <div className="flex items-center gap-4 p-4 border-b">
-              <Image src={plushie.imageUrl} alt={plushie.name} width={64} height={64} className="rounded" />
-              <div>
-                <h2 className="text-xl font-semibold">{plushie.name}</h2>
-                <p className="text-gray-500 italic">{orders.length} orders</p>
-              </div>
-            </div>
-
-            <ul className="divide-y">
-              {orders.map((o) => (
-                <li key={o.id} className="flex justify-between items-center px-4 py-2">
+      {filteredClothingItemKeys.length === 0 ? (
+        <p className="text-gray-600 text-center py-10">No preorders found{searchTerm ? ' matching your search' : ''}.</p>
+      ) : (
+        <div className="space-y-8">
+          {paginatedClothingItemKeys.map(key => {
+            const { clothingItem, orders: itemOrders } = groupedByClothingItem[key];
+            const totalQuantity = itemOrders.reduce((sum, o) => sum + o.quantity, 0);
+            return (
+              <div key={key} className="bg-white shadow-lg rounded-xl overflow-hidden">
+                <div className="p-6 bg-gradient-to-r from-purple-500 to-pink-500 text-white flex items-center space-x-4">
+                  {clothingItem.imageUrl && (
+                    <Image src={clothingItem.imageUrl} alt={clothingItem.name} width={64} height={64} className="rounded-lg object-cover shadow-md" />
+                  )}
                   <div>
-                    <p className="text-gray-800">
-                      <strong>{o.user?.email || o.guestEmail || "Unknown"}</strong> &rarr; {o.quantity}x <span className="text-sm text-gray-600">Status: {o.status}</span>
-                    </p>
+                    <h2 className="text-2xl font-bold truncate" title={clothingItem.name}>{clothingItem.name}</h2>
+                    <p className="text-sm opacity-90">Total Preordered: {totalQuantity}</p>
                   </div>
-                  <div className="flex space-x-4">
-                    <Link
-                      href={`/admin/preorders/${o.id}`}
-                      className="text-blue-600 hover:underline"
-                    >
-                      Details
-                    </Link>
-                    <button
-                      onClick={() => handleDelete(o.id)}
-                      className="text-red-600 hover:underline"
-                    >
-                      Cancel
-                    </button>
-                    {o.status === 'COLLECTED' && (
-                      <button
-                        onClick={() => handleRefund(o.id)}
-                        className="text-yellow-600 hover:underline"
-                      >
-                        Refund
-                      </button>
+                  <Link href={`/admin/preorders?clothingItemId=${clothingItem.id}`} className="ml-auto px-4 py-2 bg-white text-purple-600 rounded-md text-sm font-semibold hover:bg-purple-50 transition">
+                    View All for this Item
+                  </Link>
+                </div>
+                
+                <div className="p-2">
+                  <table className="min-w-full divide-y divide-gray-200">
+                    <thead className="bg-gray-50">
+                      <tr>
+                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Order ID</th>
+                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Customer</th>
+                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Quantity</th>
+                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody className="bg-white divide-y divide-gray-200">
+                      {itemOrders.slice(0, 5).map(order => (
+                        <tr key={order.id} className="hover:bg-gray-50">
+                          <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-700">{order.id.substring(0,8)}...</td>
+                          <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-700">{order.user.name || order.user.email}</td>
+                          <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-700">{order.quantity}</td>
+                          <td className="px-4 py-3 whitespace-nowrap">
+                            <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${order.status === 'CONFIRMED' || order.status === 'PENDING' ? 'bg-yellow-100 text-yellow-800' : order.status === 'SHIPPED' || order.status === 'DELIVERED' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
+                              {order.status}
+                            </span>
+                          </td>
+                          <td className="px-4 py-3 whitespace-nowrap text-sm font-medium">
+                            <Link href={`/admin/preorders/${order.id}`} className="text-purple-600 hover:text-purple-800">
+                              Edit
+                            </Link>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                  {itemOrders.length > 5 && (
+                     <div className="text-center p-2">
+                        <Link href={`/admin/preorders?clothingItemId=${clothingItem.id}`} className="text-sm text-purple-600 hover:text-purple-800">
+                            View all {itemOrders.length} orders for this item...
+                        </Link>
+                     </div>
                     )}
-                  </div>
-                </li>
-              ))}
-            </ul>
-          </div>
-        );
-      })}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
 
       {totalPages > 1 && (
-        <div className="flex justify-center gap-4 mt-6">
-          <button
-            onClick={() => setPage(prev => Math.max(0, prev - 1))}
+        <div className="mt-8 flex justify-center items-center space-x-2">
+          <button 
+            onClick={() => setPage(p => Math.max(0, p - 1))} 
             disabled={page === 0}
-            className="px-4 py-2 bg-gray-300 rounded disabled:opacity-50"
+            className="px-4 py-2 bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300 disabled:opacity-50"
           >
             Previous
           </button>
-          <span className="self-center">Page {page + 1} of {totalPages}</span>
-          <button
-            onClick={() => setPage(prev => Math.min(totalPages - 1, prev + 1))}
+          <span className="text-sm text-gray-600">Page {page + 1} of {totalPages}</span>
+          <button 
+            onClick={() => setPage(p => Math.min(totalPages - 1, p + 1))} 
             disabled={page === totalPages - 1}
-            className="px-4 py-2 bg-gray-300 rounded disabled:opacity-50"
+            className="px-4 py-2 bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300 disabled:opacity-50"
           >
             Next
           </button>

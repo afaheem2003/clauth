@@ -1,6 +1,7 @@
 'use client'
 
-import PlushieCard from '@/components/plushie/PlushieCard'
+import React from "react";
+import ClothingItemCard from "@/components/clothing/ClothingItemCard";
 import clsx from 'clsx'
 
 /**
@@ -23,12 +24,12 @@ export default function HeroCarousel({ items = [], cardWidth = 'w-56' }) {
             'scrollbar-none [-ms-overflow-style:none] [scrollbar-width:none]'
           )}
         >
-          {items.map(p => (
+          {items.map((p, index) => (
             <div
               key={p.id}
               className={clsx(cardWidth, 'shrink-0 snap-start')}
             >
-              <PlushieCard plushie={p} />
+              <ClothingItemCard clothingItem={p} />
             </div>
           ))}
         </div>

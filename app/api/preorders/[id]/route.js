@@ -13,10 +13,10 @@ export async function DELETE(request, { params }) {
   const userId = session.user.uid;
   const { id: preorderId } = params;
 
-  // 2) Fetch the preorder so we know quantity & plushie
+  // 2) Fetch the preorder so we know quantity & clothing item
   const existing = await prisma.preorder.findUnique({
     where: { id: preorderId },
-    select: { quantity: true, plushieId: true, userId: true },
+    select: { quantity: true, clothingItemId: true, userId: true },
   });
   if (!existing) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
@@ -32,9 +32,9 @@ export async function DELETE(request, { params }) {
     where: { id: preorderId },
   });
 
-  // 5) Decrement the Plushie.pledged counter
-  await prisma.plushie.update({
-    where: { id: existing.plushieId },
+  // 5) Decrement the ClothingItem.pledged counter
+  await prisma.clothingItem.update({
+    where: { id: existing.clothingItemId },
     data: {
       pledged: { decrement: existing.quantity },
     },
@@ -44,7 +44,7 @@ export async function DELETE(request, { params }) {
 }
 
 export async function PUT(request, { params }) {
-  // Only admins may update preorder or plushie status
+  // Only admins may update preorder or clothing item status
   const session = await getServerSession(authOptions);
   if (session?.user?.role !== "ADMIN") {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -62,16 +62,16 @@ export async function PUT(request, { params }) {
     );
   }
 
-  if (data.plushieStatus) {
+  if (data.clothingItemStatus) {
     const rec = await prisma.preorder.findUnique({
       where: { id: preorderId },
-      select: { plushieId: true },
+      select: { clothingItemId: true },
     });
     if (rec) {
       ops.push(
-        prisma.plushie.update({
-          where: { id: rec.plushieId },
-          data: { status: data.plushieStatus },
+        prisma.clothingItem.update({
+          where: { id: rec.clothingItemId },
+          data: { status: data.clothingItemStatus },
         })
       );
     }

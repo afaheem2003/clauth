@@ -23,7 +23,7 @@ export default function Header({ showSearch = true, showLogo = true }) {
       >
         {showLogo && (
           <span className="text-2xl font-extrabold text-gray-900 mr-6">
-            Ploosh
+            Clauth
           </span>
         )}
 
@@ -38,7 +38,7 @@ export default function Header({ showSearch = true, showLogo = true }) {
             <input
               value={q}
               onChange={e => setQ(e.target.value)}
-              placeholder="Search plushies, creators…"
+              placeholder="Search clothing, designers…"
               className="
                 w-full bg-gray-100 text-gray-800 placeholder-gray-500
                 rounded-full pl-4 pr-14 py-2 shadow-sm

@@ -7,11 +7,11 @@ export default function CompetitionSection() {
     <section className="bg-gray-50 py-16 text-center">
       <div className="container mx-auto px-6">
         <h2 className="text-4xl md:text-5xl font-bold text-gray-800 mb-4">
-          Join the Ploosh Competition
+          Join the Clauth Competition
         </h2>
         <p className="text-xl md:text-2xl text-gray-700 max-w-2xl mx-auto mb-8">
-          Submit your plushie ideas, vote on your favorites, and see which
-          designs rise to the top. When a design reaches enough votes, we’ll
+          Submit your clothing design ideas, vote on your favorites, and see which
+          designs rise to the top. When a design reaches enough votes, we'll
           bring it to life!
         </p>
         <Link

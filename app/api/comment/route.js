@@ -12,10 +12,10 @@ export async function POST(req) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const { plushieId, text, parentId = null } = await req.json();
+  const { clothingItemId, content, parentId = null } = await req.json();
 
   const filter = new Filter();
-  if (filter.isProfane(text)) {
+  if (filter.isProfane(content)) {
     return NextResponse.json(
       { error: "Inappropriate language detected" },
       { status: 400 }
@@ -25,9 +25,9 @@ export async function POST(req) {
   try {
     const comment = await prisma.comment.create({
       data: {
-        content: text,
+        content: content,
         author: { connect: { id: session.user.uid } },
-        plushie: { connect: { id: plushieId } },
+        clothingItem: { connect: { id: clothingItemId } },
         ...(parentId && { parent: { connect: { id: parentId } } }), // ✅ fixed
       },
       include: { author: true },
@@ -82,15 +82,15 @@ export async function DELETE(req) {
 
 export async function GET(req) {
   const { searchParams } = new URL(req.url);
-  const plushieId = searchParams.get("plushieId");
+  const clothingItemId = searchParams.get("clothingItemId");
 
-  if (!plushieId) {
-    return NextResponse.json({ error: "Missing plushieId" }, { status: 400 });
+  if (!clothingItemId) {
+    return NextResponse.json({ error: "Missing clothingItemId" }, { status: 400 });
   }
 
   try {
     const comments = await prisma.comment.findMany({
-      where: { plushieId, parentId: null },
+      where: { clothingItemId, parentId: null },
       orderBy: { createdAt: "asc" },
       include: {
         author: true,

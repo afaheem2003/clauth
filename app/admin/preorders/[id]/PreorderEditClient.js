@@ -1,69 +1,138 @@
-
 'use client';
 import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import Image from 'next/image';
 
-export default function PreorderEditClient({ order }) {
-  const [status, setStatus] = useState(order.status);
-  const [plushieStatus, setPlushieStatus] = useState(order.plushie.status);
+export default function PreorderEditClient({ order: initialOrder }) {
   const router = useRouter();
+  const [order, setOrder] = useState(initialOrder);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
+  const [clothingItemStatus, setClothingItemStatus] = useState(order.clothingItem.status);
 
-  const update = async (fields) => {
-    const res = await fetch(`/api/preorders/${order.id}`, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(fields),
-    });
-    if (res.ok) router.push('/admin/preorders');
+  const updateOrderField = (field, value) => {
+    setOrder(prev => ({ ...prev, [field]: value }));
   };
 
-  const handleSave = () => update({ status });
-  const handleApproveProduction = () => update({ plushieStatus: 'IN_PRODUCTION' });
+  const updateClothingItemStatusField = (value) => {
+    setClothingItemStatus(value);
+  };
+
+  const handleStatusUpdate = async (newStatus, endpoint, bodyFields = {}) => {
+    setLoading(true);
+    setError(null);
+    if (!confirm(`Are you sure you want to set status to ${newStatus}?`)) {
+      setLoading(false);
+      return;
+    }
+    try {
+      const res = await fetch(endpoint, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ clothingItemId: order.clothingItem.id, preorderId: order.id, status: newStatus, ...bodyFields }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        if (endpoint.includes('clothing/status')) {
+          setClothingItemStatus(newStatus);
+          setOrder(prev => ({...prev, clothingItem: {...prev.clothingItem, status: newStatus}}));
+        }
+        alert(`Status updated to ${newStatus}`);
+      } else {
+        throw new Error(data.error || `Failed to update status to ${newStatus}`);
+      }
+    } catch (err) {
+      console.error(err);
+      setError(err.message);
+      alert(err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleApproveProduction = () => handleStatusUpdate('IN_PRODUCTION', '/api/clothing/approve');
+  const handleMarkShipped = () => handleStatusUpdate('SHIPPED', '/api/clothing/status');
+  const handleMarkDelivered = () => handleStatusUpdate('DELIVERED', '/api/clothing/status');
+  const handleRefund = async () => {
+    setLoading(true);
+    setError(null);
+    if (!confirm('Are you sure you want to refund this preorder? This is irreversible.')) {
+      setLoading(false);
+      return;
+    }
+    try {
+      const res = await fetch(`/api/preorders/${order.id}/refund`, { method: 'POST' });
+      const data = await res.json();
+      if (res.ok) {
+        alert('Preorder refunded successfully.');
+        setOrder(prev => ({ ...prev, status: 'REFUNDED' }));
+        router.refresh();
+      } else {
+        throw new Error(data.error || 'Failed to refund preorder.');
+      }
+    } catch (err) {
+      console.error(err);
+      setError(err.message);
+      alert(err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  if (!order) return <p>Loading order details...</p>;
 
   return (
-    <div className="p-8 bg-gray-50">
-      <h1 className="text-2xl font-bold mb-4 text-gray-800">Pre-order Detail</h1>
-      <div className="bg-white p-6 rounded shadow grid grid-cols-2 gap-6">
-        <div>
-          <p><strong>User:</strong> {order.user?.email || order.guestEmail || "Unknown"}</p>
-          <p><strong>Quantity:</strong> {order.quantity}</p>
-          <p><strong>Price:</strong> ${order.price.toFixed(2)}</p>
-          <label className="block mt-4">
-            <span>Status</span>
-            <select
-              value={status}
-              onChange={e => setStatus(e.target.value)}
-              className="mt-1 block w-full border p-2 rounded text-gray-800"
-            >
-              <option value="PENDING">Pending</option>
-              <option value="CONFIRMED">Confirmed</option>
-              <option value="CANCELED">Canceled</option>
-              <option value="REFUNDED">Refunded</option>
-            </select>
-          </label>
-          <button
-            onClick={handleSave}
-            className="mt-6 px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
-          >
-            Save
-          </button>
+    <div className="container mx-auto px-4 py-8">
+      <h1 className="text-2xl font-semibold mb-6">Edit Preorder #{order.id.substring(0, 8)}</h1>
+      {error && <p className="text-red-500 bg-red-100 p-3 rounded mb-4">Error: {error}</p>}
+      
+      <div className="bg-white shadow rounded-lg p-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+          <div>
+            <h2 className="text-xl font-semibold mb-3">Customer Details</h2>
+            <p><strong>User:</strong> {order.user.name || order.user.email}</p>
+            <p><strong>Email:</strong> {order.user.email}</p>
+            <p><strong>Address:</strong> {order.shippingAddress?.street}, {order.shippingAddress?.city}, {order.shippingAddress?.state} {order.shippingAddress?.zip} {order.shippingAddress?.country}</p>
+          </div>
+          <div>
+            <h2 className="text-xl font-semibold mb-3">Clothing Item Details</h2>
+            <div className="flex items-center">
+              {order.clothingItem.imageUrl && (
+                <Image 
+                  src={order.clothingItem.imageUrl} 
+                  alt={order.clothingItem.name} 
+                  width={80} 
+                  height={80} 
+                  className="rounded mr-4 object-cover" 
+                />
+              )}
+              <div>
+                <p><strong>Item Name:</strong> {order.clothingItem.name}</p>
+                <p><strong>Current Production Status:</strong> {clothingItemStatus}</p>
+                <p><strong>Pledged/Goal:</strong> {order.clothingItem.pledged || 0} / {order.clothingItem.minimumGoal}</p>
+              </div>
+            </div>
+          </div>
         </div>
-        <div>
-          <p><strong>Plushie:</strong> {order.plushie.name}</p>
-          <img
-            src={order.plushie.imageUrl}
-            alt={order.plushie.name}
-            className="h-48 w-48 object-cover rounded shadow mt-2"
-          />
-          <p className="mt-4"><strong>Current Production Status:</strong> {order.plushie.status}</p>
-          {order.plushie.pledged >= order.plushie.minimumGoal && (
-            <button
-              onClick={handleApproveProduction}
-              className="mt-4 px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700"
-            >
-              Approve for Production
-            </button>
-          )}
+
+        <div className="mb-6">
+          <h2 className="text-xl font-semibold mb-3">Order Status & Actions</h2>
+          <p className="mb-1"><strong>Order Status:</strong> {order.status}</p>
+          
+          <div className="flex flex-wrap gap-2 mt-2">
+            {clothingItemStatus === 'PENDING' && order.clothingItem.pledged >= order.clothingItem.minimumGoal && (
+              <button onClick={handleApproveProduction} disabled={loading} className="btn-primary">Approve for Production</button>
+            )}
+            {clothingItemStatus === 'IN_PRODUCTION' && (
+              <button onClick={handleMarkShipped} disabled={loading} className="btn-success">Mark Shipped</button>
+            )}
+            {clothingItemStatus === 'SHIPPED' && (
+              <button onClick={handleMarkDelivered} disabled={loading} className="btn-success">Mark Delivered</button>
+            )}
+            {order.status !== 'REFUNDED' && order.status !== 'CANCELED' && (
+              <button onClick={handleRefund} disabled={loading} className="btn-danger">Refund Preorder</button>
+            )}
+          </div>
         </div>
       </div>
     </div>

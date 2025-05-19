@@ -53,9 +53,10 @@ export function sanitizePrompt(prompt) {
 
   sanitized = cleanUpText(sanitized);
 
-  if (!sanitized.includes("under 12 inches")) {
+  // Ensure some default characteristics if not specified, tailored for clothing items
+  if (!sanitized.includes("fabric details") && !sanitized.includes("material details")) { // Check for more generic terms
     sanitized +=
-      " The plush is small, under 12 inches for easy manufacturing, made from soft, commercial-grade materials such as cotton or polyester blend. It has a rounded, symmetrical body, with clearly defined stitching and embroidered facial features for durability and ease of mass production.";
+      " The clothing item is designed for comfort and style, made from quality, common fabrics like cotton or polyester blends. It features durable stitching and clear design elements suitable for apparel production.";
   }
 
   return sanitized;

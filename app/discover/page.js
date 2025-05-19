@@ -1,58 +1,55 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
-import PlushieCard from '@/components/plushie/PlushieCard';
+import { useEffect, useState } from 'react';
+import ClothingItemCard from '@/components/clothing/ClothingItemCard';
 import { TEXTURES, SIZES } from '@/app/constants/options';
-import { MagnifyingGlassIcon } from '@heroicons/react/24/solid';
+import FilterBar from '@/components/discover/FilterBar';
+// import SearchBar from '@/components/discover/SearchBar'; // Removed as component not found
 import Footer from '@/components/common/Footer';
 
 const PER_PAGE = 20;
 
 export default function DiscoverPage() {
-  const [plushies, setPlushies] = useState([]);
+  const [clothingItems, setClothingItems] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
-  const [sort, setSort] = useState('trending');
-  const [selectedTexture, setSelectedTexture] = useState('');
-  const [selectedSize, setSelectedSize] = useState('');
-  const [searchBar, setSearchBar] = useState('');
+  const [searchTerm, setSearchTerm] = useState('');
+  const [selectedTexture, setSelectedTexture] = useState('All');
+  const [selectedSize, setSelectedSize] = useState('All');
 
   const [page, setPage] = useState(1);
 
   useEffect(() => {
-    (async () => {
+    async function fetchDiscoverData() {
+      setLoading(true);
+      setError(null);
       try {
-        const res = await fetch('/api/discover', { cache: 'no-store' });
+        const res = await fetch('/api/discover');
+        if (!res.ok) throw new Error('Failed to fetch clothing items');
         const data = await res.json();
-        setPlushies(data.plushies || []);
+        setClothingItems(data.clothingItems || []);
       } catch (e) {
-        console.error('Failed to fetch plushies:', e);
-      } finally {
-        setLoading(false);
+        console.error('Failed to fetch clothing items:', e);
+        setError('Could not load items. Please try again later.');
+        setClothingItems([]);
       }
-    })();
+      setLoading(false);
+    }
+    fetchDiscoverData();
   }, []);
 
-  const filtered = useMemo(() => {
-    let out = plushies;
-    if (selectedTexture) out = out.filter(p => p.texture === selectedTexture);
-    if (selectedSize) out = out.filter(p => p.size === selectedSize);
-    if (searchBar) {
-      const q = searchBar.toLowerCase();
-      out = out.filter(p =>
-        p.name.toLowerCase().includes(q) ||
-        p.creator?.name?.toLowerCase().includes(q) ||
-        p.creator?.displayName?.toLowerCase().includes(q)
-      );
-    }
-    return out;
-  }, [plushies, selectedTexture, selectedSize, searchBar]);
+  const filteredItems = clothingItems.filter(item => {
+    return (
+      (selectedTexture === 'All' || item.texture === selectedTexture) &&
+      (selectedSize === 'All' || item.size === selectedSize) &&
+      (searchTerm === '' || item.name.toLowerCase().includes(searchTerm.toLowerCase()) || item.itemType.toLowerCase().includes(searchTerm.toLowerCase()) || item.description.toLowerCase().includes(searchTerm.toLowerCase()))
+    );
+  });
 
-  const totalPages = Math.max(1, Math.ceil(filtered.length / PER_PAGE));
+  const totalPages = Math.max(1, Math.ceil(filteredItems.length / PER_PAGE));
   const pageSafe = Math.min(page, totalPages);
-  const paged = filtered.slice((pageSafe - 1) * PER_PAGE, pageSafe * PER_PAGE);
-
-  useEffect(() => setPage(1), [selectedTexture, selectedSize, searchBar]);
+  const pagedItems = filteredItems.slice((pageSafe - 1) * PER_PAGE, pageSafe * PER_PAGE);
 
   if (loading) {
     return (
@@ -73,10 +70,10 @@ export default function DiscoverPage() {
           <div className="absolute inset-0 bg-black/30" />
           <div className="relative container mx-auto px-6 text-center">
             <h1 className="text-4xl font-extrabold text-white mb-2">
-              Discover Creator Generated Plushies
+              Discover Amazing Clothing Items
             </h1>
             <p className="text-lg text-white/90">
-              Browse top community favorites and newest drops
+              Find your next favorite piece designed by our community.
             </p>
           </div>
         </section>
@@ -87,12 +84,11 @@ export default function DiscoverPage() {
             <div className="max-w-2xl mx-auto relative">
               <input
                 type="text"
-                value={searchBar}
-                onChange={e => setSearchBar(e.target.value)}
-                placeholder="Search plushies, creators…"
+                value={searchTerm}
+                onChange={e => setSearchTerm(e.target.value)}
+                placeholder="Search by name, type, or description..."
                 className="w-full rounded-full pl-5 pr-14 py-3 bg-white text-gray-800 placeholder-gray-500 shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
-              <MagnifyingGlassIcon className="w-5 h-5 text-gray-400 absolute right-5 top-1/2 -translate-y-1/2" />
             </div>
           </div>
         </section>
@@ -102,26 +98,13 @@ export default function DiscoverPage() {
           {/* sidebar */}
           <aside className="lg:w-64 space-y-6 lg:sticky lg:top-24">
             <div>
-              <h3 className="font-semibold text-gray-700 mb-1">Sort by</h3>
-              <select
-                value={sort}
-                onChange={e => setSort(e.target.value)}
-                className="w-full bg-white border border-gray-300 rounded-md px-3 py-2"
-              >
-                <option value="trending">Trending</option>
-                <option value="newest">Newest</option>
-                <option value="popular">Popular</option>
-              </select>
-            </div>
-
-            <div>
               <h3 className="font-semibold text-gray-700 mb-1">Texture</h3>
               <select
                 value={selectedTexture}
                 onChange={e => setSelectedTexture(e.target.value)}
                 className="w-full bg-white border border-gray-300 rounded-md px-3 py-2"
               >
-                <option value="">All</option>
+                <option value="All">All Textures</option>
                 {TEXTURES.map(t => (
                   <option key={t} value={t}>{t}</option>
                 ))}
@@ -135,7 +118,7 @@ export default function DiscoverPage() {
                 onChange={e => setSelectedSize(e.target.value)}
                 className="w-full bg-white border border-gray-300 rounded-md px-3 py-2"
               >
-                <option value="">All</option>
+                <option value="All">All Sizes</option>
                 {SIZES.map(s => (
                   <option key={s} value={s}>{s}</option>
                 ))}
@@ -145,15 +128,15 @@ export default function DiscoverPage() {
 
           {/* results */}
           <div className="flex-1">
-            {filtered.length === 0 ? (
+            {filteredItems.length === 0 ? (
               <p className="text-center text-gray-600 mt-16">
-                No plushies match those filters &mdash; try widening your search!
+                No clothing items match those filters &mdash; try widening your search!
               </p>
             ) : (
               <>
                 <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-5 gap-8">
-                  {paged.map(p => (
-                    <PlushieCard key={p.id} plushie={p} setPlushies={setPlushies} />
+                  {pagedItems.map(item => (
+                    <ClothingItemCard key={item.id} clothingItem={item} />
                   ))}
                 </div>
 

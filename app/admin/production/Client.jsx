@@ -2,12 +2,15 @@
 
 import { useState } from 'react';
 import Image from 'next/image';
+import Link from 'next/link';
 
 const ITEMS_PER_PAGE = 10;
 
-export default function ReadyForProdClient({ initialPlushies }) {
-  const [items, setItems] = useState(initialPlushies);
+export default function ReadyForProdClient({ initialClothingItems }) {
+  const [items, setItems] = useState(initialClothingItems);
   const [page, setPage] = useState(0);
+  const [loading, setLoading] = useState(null);
+  const [error, setError] = useState(null);
 
   const grouped = items.reduce((acc, p) => {
     if (!acc[p.name]) acc[p.name] = [];
@@ -18,36 +21,62 @@ export default function ReadyForProdClient({ initialPlushies }) {
   const groupNames = Object.keys(grouped);
   const pagedGroupNames = groupNames.slice(page * ITEMS_PER_PAGE, (page + 1) * ITEMS_PER_PAGE);
 
-  async function approve(id) {
-    if (!confirm('Approve this plushie for production?')) return;
-    const res = await fetch('/api/plushies/approve', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ id })
-    });
-    if (res.ok) setItems(prev => prev.filter(p => p.id !== id));
-    else alert('Error approving plushie.');
-  }
+  const handleAction = async (itemId, actionType) => {
+    setLoading(itemId);
+    setError(null);
+    let confirmMessage, apiEndpoint, successMessage, errorMessage;
 
-  async function cancel(id) {
-    if (!confirm('Cancel preorders for this plushie?')) return;
-    const res = await fetch('/api/plushies/cancel', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ id })
-    });
-    if (res.ok) setItems(prev => prev.filter(p => p.id !== id));
-    else alert('Error cancelling plushie.');
-  }
+    if (actionType === 'approve') {
+      confirmMessage = 'Approve this clothing item for production?';
+      apiEndpoint = '/api/clothing/approve';
+      successMessage = 'Clothing item approved for production.';
+      errorMessage = 'Error approving clothing item.';
+    } else if (actionType === 'cancel') {
+      confirmMessage = 'Cancel preorders for this clothing item?';
+      apiEndpoint = '/api/clothing/cancel';
+      successMessage = 'Preorders cancelled for clothing item.';
+      errorMessage = 'Error cancelling clothing item.';
+    } else {
+      return;
+    }
+
+    if (!confirm(confirmMessage)) {
+      setLoading(null);
+      return;
+    }
+
+    try {
+      const res = await fetch(apiEndpoint, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ clothingItemId: itemId }),
+      });
+      if (res.ok) {
+        setItems(prevItems => prevItems.filter(item => item.id !== itemId));
+        alert(successMessage);
+      } else {
+        const errData = await res.json().catch(() => ({}));
+        setError(errData.error || errorMessage);
+        alert(errData.error || errorMessage);
+      }
+    } catch (e) {
+      console.error(e);
+      setError('An unexpected error occurred.');
+      alert('An unexpected error occurred.');
+    } finally {
+      setLoading(null);
+    }
+  };
 
   return (
     <div className="p-8 bg-gray-50 min-h-screen">
       <h1 className="text-3xl font-bold mb-6 text-gray-800">
-        Plushies Ready&nbsp;for&nbsp;Production
+        Clothing Items Ready&nbsp;for&nbsp;Production
       </h1>
+      {error && <p className="text-red-500 bg-red-100 p-3 rounded mb-4">{error}</p>}
 
       {groupNames.length === 0 && (
-        <p className="text-gray-600">No plushies have reached their goal yet.</p>
+        <p className="text-gray-600">No clothing items have reached their goal yet.</p>
       )}
 
       {pagedGroupNames.map(name => (
@@ -80,13 +109,13 @@ export default function ReadyForProdClient({ initialPlushies }) {
 
                 <div className="flex gap-2">
                   <button
-                    onClick={() => approve(p.id)}
+                    onClick={() => handleAction(p.id, 'approve')}
                     className="px-4 py-2 bg-green-700 text-white rounded hover:bg-green-800 text-sm"
                   >
                     Approve
                   </button>
                   <button
-                    onClick={() => cancel(p.id)}
+                    onClick={() => handleAction(p.id, 'cancel')}
                     className="px-4 py-2 bg-red-700 text-white rounded hover:bg-red-800 text-sm"
                   >
                     Cancel

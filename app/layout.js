@@ -4,8 +4,8 @@ import AuthGuard from "@/components/common/AuthGuard";
 import Providers from "./providers"; // <-- Our new Providers file
 
 export const metadata = {
-  title: "Ploosh",
-  description: "Create and discover AI plushies",
+  title: "Clauth",
+  description: "Create and discover AI-designed clothing",
 };
 
 export default function RootLayout({ children }) {

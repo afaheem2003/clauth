@@ -1,26 +1,31 @@
+import prisma from '@/lib/prisma';
 import ReadyForProdClient from './Client';
-import { prisma } from '@/lib/prisma';
 
 export const dynamic = 'force-dynamic';
 
-
-
-/** List every plushie that has met (or exceeded) its minimum goal
- *  but is still in the PENDING stage.
+/** List every clothing item that has met (or exceeded) its minimum goal
+ *  and is currently in 'PENDING' status, ready for production approval.
  */
-export default async function ProductionQueuePage() {
-  /* 1️⃣  get every PENDING plushie */
-  const allPending = await prisma.plushie.findMany({
-    where : { status: 'PENDING' },
-    include: {
-      creator   : { select: { displayName: true, email: true } },
-      preorders : { select: { id: true } },
+async function getReadyForProductionItems() {
+  /* 1️⃣  get every PENDING clothing item */
+  const allPending = await prisma.clothingItem.findMany({
+    where: {
+      status: 'PENDING',
     },
-    orderBy: { createdAt: 'asc' },
+    include: {
+      creator: true, // Assuming you need creator info
+    },
+    orderBy: {
+      createdAt: 'asc',
+    },
   });
 
-  /* 2️⃣  keep only those that actually hit their goal */
-  const plushies = allPending.filter(p => p.pledged >= p.minimumGoal);
+  /* 2️⃣  filter to only those that met their goal */
+  const clothingItems = allPending.filter(item => item.pledged >= item.minimumGoal);
+  return clothingItems;
+}
 
-  return <ReadyForProdClient initialPlushies={plushies} />;
+export default async function ProductionPage() {
+  const clothingItems = await getReadyForProductionItems();
+  return <ReadyForProdClient initialClothingItems={clothingItems} />;
 }

@@ -1,16 +1,16 @@
-# Ploosh - AI-Designed Plush Toy Crowdfunding Platform
+# Clauth - AI-Designed Clothing Crowdfunding Platform
 
-This is a Next.js 14 (App Router) web app called Ploosh - a crowdfunding platform for AI-designed plush toys. The project uses TypeScript and is structured with the following key directories:
+This is a Next.js 14 (App Router) web app called Clauth - a crowdfunding platform for AI-designed clothing. The project uses TypeScript and is structured with the following key directories:
 
 ## File Structure
 
 ```
 /app - Main application directory using Next.js 14 App Router
-  /plushies - Plushie-related routes
+  /clothing - Clothing-related routes
   /user - User-specific routes
   /api - API endpoints
   /admin - Admin control panel
-  /design - Plushie design/creation interface
+  /design - Clothing design/creation interface
   /discover - Marketplace/discovery features
   /my-preorders - User's preorder management
   /profile - User profiles
@@ -29,21 +29,21 @@ This is a Next.js 14 (App Router) web app called Ploosh - a crowdfunding platfor
 - Backend: Next.js API routes
 - Database: PostgreSQL with Prisma ORM
 - Authentication: NextAuth.js with Google Sign-In
-- Storage: Supabase for AI-generated plushie images
+- Storage: Supabase for AI-generated clothing images
 - Payments: Stripe integration with manual capture and guest checkout
 - SEO: Dynamic metadata with route-level head.js files
 
 ## Key Features
 
-### 1. AI-Powered Plushie Creation
+### 1. AI-Powered Clothing Creation
 
-- Users can generate custom plushies using descriptive prompts
+- Users can generate custom clothing items using descriptive prompts
 - AI-generated images stored in Supabase
 - Design customization and preview
 
 ### 2. Marketplace Features
 
-- Featured plushies section
+- Featured clothing section
 - Trending items
 - "Almost-There" section for items close to funding goal
 - Progress bars for funding status
@@ -67,7 +67,7 @@ This is a Next.js 14 (App Router) web app called Ploosh - a crowdfunding platfor
 ### 5. Admin Features
 
 - Content moderation
-- Plushie visibility control
+- Clothing item visibility control
 - Deletion capabilities
 - User management
 
@@ -89,7 +89,7 @@ This is a Next.js 14 (App Router) web app called Ploosh - a crowdfunding platfor
 
 ## Implementation Details
 
-The application uses server-side rendering (SSR) for metadata and initial page loads, while features like image generation and comment interactions are client-rendered for optimal performance. Data is persisted in PostgreSQL via Prisma, with proper relationships between users, plushies, comments, and orders.
+The application uses server-side rendering (SSR) for metadata and initial page loads, while features like image generation and comment interactions are client-rendered for optimal performance. Data is persisted in PostgreSQL via Prisma, with proper relationships between users, clothing items, comments, and orders.
 
 ### Recent Updates
 

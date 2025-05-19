@@ -1,487 +1,405 @@
 'use client';
 
-import { useState }   from 'react';
-import { useRouter }  from 'next/navigation';
-import { useSession } from 'next-auth/react';
-import { createClient } from '@supabase/supabase-js';
-import { ArrowLeftIcon, ArrowRightIcon } from '@heroicons/react/24/solid';
+import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import Image from 'next/image';
-
-import { EMOTIONS, TEXTURES, SIZES } from '@/app/constants/options';
+import { useSession } from 'next-auth/react';
+// import { TEXTURES, SIZES } from "@/app/constants/options"; // Commented out as they are not used after simplification
 import sanitizePrompt from '@/utils/sanitizePrompt';
-import { normalizeDataUrl } from '@/utils/normalizeDataUrl';
+// generateClothingPromptJSON is removed as API call is now direct for full insights
+import { generateCompositePromptFromJSON } from '@/utils/clothingPromptUtils';
+import Input from '@/components/common/Input';
+// import ButtonGroup from '@/components/common/ButtonGroup'; // Commented out as not directly used
+import BigSpinner from '@/components/common/BigSpinner';
 
-import Footer       from '@/components/common/Footer';
-import BigSpinner   from '@/components/common/BigSpinner';
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
-);
-
-const STEPS = [
-  { id: 'basics', title: 'Basic Details' },
-  { id: 'appearance', title: 'Appearance' },
-  { id: 'personality', title: 'Personality' },
-  { id: 'generate', title: 'Generate' },
+const placeholderPrompts = [
+  "A cozy oversized hoodie, charcoal grey, minimalist logo on chest...",
+  "Classic white t-shirt, subtle floral embroidery on the sleeve...",
+  "Soft cotton t-shirt, pastel yellow, small geometric graphic print...",
+  "Comfortable joggers, navy blue, with a simple side stripe detail...",
+  "A simple knit beanie, forest green, cable knit texture...",
+  "Crewneck sweatshirt, heather grey, vintage university-style lettering...",
+  "Basic baseball cap, black, with a small embroidered nature icon...",
+  "Lightweight canvas tote bag, natural off-white, bold typographic quote...",
+  "Denim jacket, medium wash, with custom patch on the back...",
+  "Flowy summer dress, muted floral pattern, midi length..."
 ];
 
-const TextureCard = ({ texture, isSelected, onClick }) => (
-  <button
-    onClick={onClick}
-    className={`relative p-4 rounded-3xl transition-all ${
-      isSelected 
-        ? 'bg-gray-50 scale-105 shadow-lg' 
-        : 'bg-white hover:bg-gray-50'
-    } border-2 ${isSelected ? 'border-gray-900' : 'border-gray-100'}`}
-  >
-    <div className="text-center">
-      <div className={`w-20 h-20 mx-auto mb-3 rounded-full bg-cover bg-center
-        ${texture === 'Fluffy' ? "bg-[url('/images/textures/fluffy.jpg')]" :
-          texture === 'Soft' ? "bg-[url('/images/textures/soft.jpg')]" :
-          texture === 'Fuzzy' ? "bg-[url('/images/textures/fuzzy.jpg')]" :
-          texture === 'Plush' ? "bg-[url('/images/textures/plush.jpg')]" :
-          "bg-[url('/images/textures/smooth.jpg')]"}
-      `} />
-      <p className="font-medium text-gray-800">{texture}</p>
-      <p className="text-sm text-gray-500 mt-1">
-        {texture === 'Fluffy' ? 'Extra soft & cloud-like' :
-         texture === 'Soft' ? 'Gentle to touch' :
-         texture === 'Fuzzy' ? 'Cozy & warm' :
-         texture === 'Plush' ? 'Classic & huggable' :
-         'Sleek & silky'}
-      </p>
-    </div>
-  </button>
-);
-
-const SizeCard = ({ size, isSelected, onClick }) => (
-  <button
-    onClick={onClick}
-    className={`relative p-4 rounded-3xl transition-all ${
-      isSelected 
-        ? 'bg-gray-50 scale-105 shadow-lg' 
-        : 'bg-white hover:bg-gray-50'
-    } border-2 ${isSelected ? 'border-gray-900' : 'border-gray-100'}`}
-  >
-    <div className="text-center">
-      <div className="relative mx-auto mb-3">
-        <div className={`mx-auto bg-gray-100 rounded-full
-          ${size === 'Keychain' ? 'w-10 h-10' : 
-           size === 'Small' ? 'w-16 h-16' : 
-           'w-20 h-20'}
-        `}>
-          <div className="absolute inset-0 flex items-center justify-center">
-            <span className="text-gray-400 text-xs">
-              {size === 'Keychain' ? '4"' : 
-               size === 'Small' ? '8"' : 
-               '12"'}
-            </span>
-          </div>
-        </div>
-      </div>
-      <p className="font-medium text-gray-800">{size}</p>
-      <p className="text-sm text-gray-500 mt-1">
-        {size === 'Keychain' ? 'Perfect for bags' :
-         size === 'Small' ? 'Desk companion' :
-         'Cuddle buddy'}
-      </p>
-    </div>
-  </button>
-);
-
-const EmotionCard = ({ emotion, isSelected, onClick }) => (
-  <button
-    onClick={onClick}
-    className={`relative p-4 rounded-3xl transition-all ${
-      isSelected 
-        ? 'bg-gray-50 scale-105 shadow-lg' 
-        : 'bg-white hover:bg-gray-50'
-    } border-2 ${isSelected ? 'border-gray-900' : 'border-gray-100'}`}
-  >
-    <div className="text-center">
-      <div className="text-4xl mb-3">
-        {emotion === 'Happy' ? '🥰' : 
-         emotion === 'Sleepy' ? '😴' : 
-         emotion === 'Curious' ? '🤗' : '🥺'}
-      </div>
-      <p className="font-medium text-gray-800">{emotion}</p>
-      <p className="text-sm text-gray-500 mt-1">
-        {emotion === 'Happy' ? 'Radiating joy' :
-         emotion === 'Sleepy' ? 'Peaceful and calm' :
-         emotion === 'Curious' ? 'Friendly and sweet' :
-         'Adorably shy'}
-      </p>
-    </div>
-  </button>
-);
-
-const Input = ({ label, value, onChange, placeholder, required }) => (
-  <div className="w-full">
-    <label className="block text-sm font-medium text-gray-700 mb-1">
-      {label} {required && <span className="text-red-500">*</span>}
-    </label>
-    <input
-      type="text"
-      value={value}
-      onChange={e => onChange(e.target.value)}
-      placeholder={placeholder}
-      className="w-full px-4 py-2 rounded-lg border-2 border-gray-200 focus:border-gray-900 focus:ring-0 transition-colors placeholder-gray-400 text-gray-900"
-    />
-  </div>
-);
-
-export default function CreateDesignPage() {
+export default function DesignPage() {
   const router = useRouter();
-  const { data: session } = useSession();
+  const { data: session, status } = useSession();
 
-  const [currentStep, setCurrentStep] = useState(0);
-  const [plushieName, setPlushieName] = useState('');
+  // Core item details to be filled by user in Stage 2
+  const [itemName, setItemName] = useState('');
   const [description, setDescription] = useState('');
-  const [animal, setAnimal] = useState('');
-  const [texture, setTexture] = useState('');
-  const [color, setColor] = useState('');
-  const [accessories, setAccessories] = useState('');
-  const [emotion, setEmotion] = useState('');
-  const [outfit, setOutfit] = useState('');
-  const [pose, setPose] = useState('');
-  const [size, setSize] = useState('');
+  const [itemType, setItemType] = useState(''); // This might be pre-filled by AI from promptJsonData
+  
+  // Creative prompt for AI generation
+  const [creativePrompt, setCreativePrompt] = useState('');
 
-  const [imageUrl, setImageUrl] = useState(null);
-  const [loadingButton, setLoadingButton] = useState(null);
+  // Data from AI
+  const [promptJsonData, setPromptJsonData] = useState(null); // Stores the structured JSON for visuals & details
+  const [estimatedCost, setEstimatedCost] = useState(null);
+  const [suggestedPrice, setSuggestedPrice] = useState(null);
+  const [generatedImageUrl, setGeneratedImageUrl] = useState(null);
+  const [imageService, setImageService] = useState('stability');
+  const [imageOptions, setImageOptions] = useState({
+    size: "1024x1024",
+    background: "auto"
+  });
+  
+  const [loadingState, setLoadingState] = useState(null); // 'generate', 'save', 'publish'
   const [errorMessage, setErrorMessage] = useState('');
 
-  const prompt = `${size} ${texture} plushie of a ${color} ${animal} with ${accessories}, wearing ${outfit}, showing a ${emotion} expression, posed ${pose}`;
-  const sanitizedPrompt = sanitizePrompt(prompt);
+  // Cycling placeholder logic
+  const [currentPlaceholder, setCurrentPlaceholder] = useState(placeholderPrompts[0]);
+  useEffect(() => {
+    let index = 0;
+    const intervalId = setInterval(() => {
+      index = (index + 1) % placeholderPrompts.length;
+      setCurrentPlaceholder(placeholderPrompts[index]);
+    }, 3500);
+    return () => clearInterval(intervalId);
+  }, []);
 
-  async function generatePlushie() {
-    setLoadingButton('generate');
+
+  async function generateAIInsightsAndImage() {
+    if (status !== 'authenticated') {
+      setErrorMessage('Please log in to design clothing items.');
+      return;
+    }
+    if (!creativePrompt.trim()) {
+      setErrorMessage('Please enter a creative prompt.');
+      return;
+    }
+    setLoadingState('generate');
     setErrorMessage('');
-    setImageUrl(null);
+    setGeneratedImageUrl(null);
+    setPromptJsonData(null);
+    setEstimatedCost(null);
+    setSuggestedPrice(null);
+    setItemName(''); // Reset item name for new generation
+    setDescription(''); // Reset description
+    setItemType(''); // Reset item type
 
     try {
-      if (!session?.user) throw new Error('You must be logged in.');
-      if (!animal || !texture || !size) throw new Error('Animal, Texture & Size are required.');
-
-      const res = await fetch('/api/generate-stability', {
+      // Step 1: Get structured JSON, estimated cost, and suggested price from our backend API
+      console.log("[DesignPage] Calling /api/generate-clothing-json with:", creativePrompt.trim());
+      const insightsRes = await fetch('/api/generate-clothing-json', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ prompt, userId: session.user.uid })
+        body: JSON.stringify({ creativePrompt: creativePrompt.trim() }),
       });
 
-      if (!res.ok) throw new Error((await res.json()).error || 'Generation failed');
-      const { imageUrl: url } = await res.json();
-      setImageUrl(url);
-    } catch (e) {
-      setErrorMessage(e.message || 'Failed to generate image.');
+      if (!insightsRes.ok) {
+        const errorData = await insightsRes.json().catch(() => ({}));
+        throw new Error(errorData.error || 'Failed to get AI design insights.');
+      }
+      const insightsData = await insightsRes.json();
+      console.log("[DesignPage] Received insights:", insightsData);
+      console.log("[DesignPage] promptJsonData from insights:", insightsData.promptJsonData);
+
+      if (!insightsData.promptJsonData) {
+        throw new Error('AI did not return valid structured data (promptJsonData missing).');
+      }
+      
+      setPromptJsonData(insightsData.promptJsonData);
+      setEstimatedCost(insightsData.estimatedCost);
+      setSuggestedPrice(insightsData.suggestedPrice);
+
+      // Pre-fill form fields from promptJsonData if available
+      if (insightsData.promptJsonData.name) {
+        setItemName(insightsData.promptJsonData.name);
+      }
+      if (insightsData.promptJsonData.description) {
+        setDescription(insightsData.promptJsonData.description);
+      }
+      if (insightsData.promptJsonData.itemType) {
+        setItemType(insightsData.promptJsonData.itemType);
+      }
+
+      // Step 2: Prepare prompt for image generation.
+      // For image generation, use the user's original creative prompt to capture the full outfit context if provided.
+      const imageGenerationPrompt = creativePrompt.trim(); // Use the original, full prompt for the image.
+      console.log("[DesignPage] Prompt for image generation (original creative prompt):", imageGenerationPrompt);
+      
+      // The promptJsonData (focused on the main item) will be used for structured data and for the sanitized prompt saved to DB.
+      // If a more complex composite prompt from the *main item* was needed for image gen, it would be different.
+      // For now, we assume the original prompt is best for Stability to visualize the (potentially) full scene.
+
+      // Step 3: Generate image using the imageGenerationPrompt
+      const imageRes = await fetch('/api/generate-stability', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          prompt: imageGenerationPrompt, 
+          userId: session.user.uid,
+          service: imageService,
+          imageOptions: imageService === 'openai' ? imageOptions : undefined,
+          promptJsonData: insightsData.promptJsonData // Pass the JSON data for graphics positioning
+        }),
+      });
+
+      if (!imageRes.ok) {
+        const errorData = await imageRes.json().catch(() => ({}));
+        throw new Error(errorData.error || 'Image generation failed. Please try a different prompt.');
+      }
+      const imageData = await imageRes.json();
+      setGeneratedImageUrl(imageData.imageUrl);
+      console.log("[DesignPage] Image generated successfully:", imageData.imageUrl);
+
+    } catch (err) {
+      console.error("[DesignPage] Error in generation process:", err);
+      setErrorMessage(err.message || 'An unexpected error occurred during generation.');
+      // Reset potentially sensitive AI data on error
+      setPromptJsonData(null);
+      setEstimatedCost(null);
+      setSuggestedPrice(null);
     } finally {
-      setLoadingButton(null);
+      setLoadingState(null);
     }
   }
 
-  async function saveOrPublish(type) {
-    setLoadingButton(type);
+  async function saveOrPublishClothingItem(publishAction) {
+    if (status !== 'authenticated') {
+      setErrorMessage('Please log in to save or publish.');
+      return;
+    }
+    if (!generatedImageUrl) {
+      setErrorMessage('Please generate an image first.');
+      return;
+    }
+    if (!itemName.trim()) {
+      setErrorMessage('Please give your clothing item a name.');
+      return;
+    }
+    if (!itemType.trim()) {
+      setErrorMessage('Please fill in the Item Type before saving.');
+      return;
+    }
+
+    setLoadingState(publishAction ? 'publish' : 'save');
     setErrorMessage('');
+    
+    const payload = {
+      name: itemName.trim(),
+      description: description.trim(),
+      itemType: itemType.trim(),
+      imageUrl: generatedImageUrl,
+      promptRaw: creativePrompt.trim(), 
+      // promptSanitized will represent the main item's details, derived from promptJsonData
+      promptSanitized: promptJsonData ? generateCompositePromptFromJSON(promptJsonData) : sanitizePrompt(creativePrompt.trim()),
+      promptJsonData: promptJsonData ? JSON.stringify(promptJsonData) : null,
+      // ADDING COST AND PRICE - ensure they are numbers or null/undefined as expected by API
+      cost: estimatedCost !== null && !isNaN(estimatedCost) ? Number(estimatedCost) : undefined,
+      price: suggestedPrice !== null && !isNaN(suggestedPrice) ? Number(suggestedPrice) : undefined,
+      isPublished: publishAction,
+      // creatorId is handled by the backend using the session
+    };
+    console.log("[DesignPage] Saving/Publishing with payload:", payload);
 
     try {
-      if (!session?.user) throw new Error('Not authenticated.');
-      if (!imageUrl) throw new Error('Generate an image first.');
-      if (!plushieName.trim()) throw new Error('Please give your plushie a name.');
-
-      const payload = {
-        name: plushieName.trim(),
-        description: description.trim(),
-        animal,
-        imageUrl,
-        promptRaw: prompt,
-        promptSanitized: sanitizePrompt,
-        texture, size, emotion, color, outfit, accessories, pose,
-        isPublished: type === 'publish',
-        creatorId: session.user.uid,
-      };
-
-      const resp = await fetch('/api/saved-plushies', {
+      const resp = await fetch('/api/saved-clothing-items', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
+        body: JSON.stringify(payload),
       });
 
-      if (!resp.ok) throw new Error((await resp.json()).error || 'Save failed');
-      router.push('/discover');
-    } catch (e) {
-      setErrorMessage(e.message || 'Failed to save plushie.');
+      if (!resp.ok) {
+        const errorData = await resp.json().catch(() => ({}));
+        throw new Error(errorData.error || 'Failed to save clothing item.');
+      }
+      router.push('/profile'); // Or a success page, or the new item's page
+    } catch (err) {
+      console.error("[DesignPage] Error saving item:", err);
+      setErrorMessage(err.message || 'An unexpected error occurred while saving.');
     } finally {
-      setLoadingButton(null);
+      setLoadingState(null);
     }
   }
 
-  const isGenerating = loadingButton === 'generate';
-  const isSaving = loadingButton === 'save';
-  const isPublishing = loadingButton === 'publish';
-  const anyLoading = !!loadingButton;
-
-  const canProceed = () => {
-    if (currentStep === 0) return animal.trim() !== '';
-    if (currentStep === 1) return texture !== '' && size !== '';
-    if (currentStep === 2) return true; // Optional steps
-    return true;
-  };
-
-  const renderStepContent = () => {
-    switch(currentStep) {
-      case 0:
-        return (
-          <div className="space-y-8">
-            <div className="text-center mb-8">
-              <h2 className="text-2xl font-medium text-gray-800 mb-2">Let&apos;s create your perfect plushie friend</h2>
-              <p className="text-gray-600">Start by telling us what kind of animal you&apos;d like to bring to life</p>
-            </div>
-            <Input
-              label="What adorable animal would you like to create?"
-              value={animal}
-              onChange={setAnimal}
-              placeholder="e.g., Baby Penguin, Sleepy Koala, Gentle Elephant"
-              required
-            />
-            <Input
-              label="What soft, dreamy colors should it have?"
-              value={color}
-              onChange={setColor}
-              placeholder="e.g., Pastel Pink, Soft Gray, Gentle Blue"
-            />
-          </div>
-        );
-      case 1:
-        return (
-          <div className="space-y-6">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-3">
-                Choose a texture <span className="text-red-500">*</span>
-              </label>
-              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-4">
-                {TEXTURES.map(t => (
-                  <TextureCard
-                    key={t}
-                    texture={t}
-                    isSelected={texture === t}
-                    onClick={() => setTexture(t)}
-                  />
-                ))}
-              </div>
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-3">
-                Choose a size <span className="text-red-500">*</span>
-              </label>
-              <div className="grid grid-cols-3 gap-4">
-                {SIZES.map(s => (
-                  <SizeCard
-                    key={s}
-                    size={s}
-                    isSelected={size === s}
-                    onClick={() => setSize(s)}
-                  />
-                ))}
-              </div>
-            </div>
-          </div>
-        );
-      case 2:
-        return (
-          <div className="space-y-6">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-3">
-                Choose an emotion
-              </label>
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-                {EMOTIONS.map(e => (
-                  <EmotionCard
-                    key={e}
-                    emotion={e}
-                    isSelected={emotion === e}
-                    onClick={() => setEmotion(e)}
-                  />
-                ))}
-              </div>
-            </div>
-            <Input
-              label="What should it wear?"
-              value={outfit}
-              onChange={setOutfit}
-              placeholder="e.g., Wizard robe, Space suit"
-            />
-            <Input
-              label="Any accessories?"
-              value={accessories}
-              onChange={setAccessories}
-              placeholder="e.g., Magic wand, Flower crown"
-            />
-            <Input
-              label="How should it be posed?"
-              value={pose}
-              onChange={setPose}
-              placeholder="e.g., Sitting, Flying"
-            />
-          </div>
-        );
-      case 3:
-        return !imageUrl ? (
-          <div className="text-center space-y-6">
-            <p className="text-gray-600">Ready to bring your plushie to life?</p>
-            <button
-              onClick={generatePlushie}
-              disabled={anyLoading}
-              className="w-full max-w-md py-4 rounded-xl bg-gray-900 text-white hover:bg-gray-800 transition-colors"
-            >
-              {isGenerating ? <BigSpinner /> : 'Generate Plushie'}
-            </button>
-            {errorMessage && <p className="text-red-600">{errorMessage}</p>}
-          </div>
-        ) : (
-          <div className="flex flex-col items-center space-y-6">
-            <div className="w-80 h-80 overflow-hidden rounded-xl shadow-lg relative">
-              <Image
-                src={imageUrl}
-                alt="Generated plushie"
-                fill
-                className="object-cover"
-                sizes="(max-width: 768px) 100vw, 320px"
-                priority
-              />
-            </div>
-            <div className="w-full max-w-md space-y-4">
-              <Input
-                label="Give your plushie a name"
-                value={plushieName}
-                onChange={setPlushieName}
-                placeholder="e.g., Captain Whiskers"
-                required
-              />
-              <Input
-                label="Add a description"
-                value={description}
-                onChange={setDescription}
-                placeholder="Tell us about your plushie..."
-              />
-            </div>
-            <div className="flex flex-col w-full max-w-md space-y-3">
-              <button
-                onClick={() => { setImageUrl(null); setErrorMessage(''); }}
-                className="w-full py-3 bg-gray-400 text-white rounded-xl hover:bg-gray-500 transition-colors"
-              >
-                Try Again
-              </button>
-              <button
-                onClick={() => saveOrPublish('save')}
-                disabled={anyLoading}
-                className="w-full py-3 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-colors"
-              >
-                {isSaving ? <BigSpinner /> : 'Save for Later'}
-              </button>
-              <button
-                onClick={() => saveOrPublish('publish')}
-                disabled={anyLoading}
-                className="w-full py-3 bg-green-600 text-white rounded-xl hover:bg-green-700 transition-colors"
-              >
-                {isPublishing ? <BigSpinner /> : 'Publish Plushie'}
-              </button>
-            </div>
-            {errorMessage && <p className="text-center text-red-600">{errorMessage}</p>}
-          </div>
-        );
-      default:
-        return null;
-    }
-  };
+  if (status === "loading") {
+    return <p className="text-center py-10">Loading design studio...</p>;
+  }
 
   return (
-    <div className="min-h-screen flex flex-col">
-      <div
-        className="relative w-full h-48 sm:h-56 md:h-80 bg-center bg-cover flex items-center justify-center"
-        style={{ backgroundImage: "url('/images/create/banner.png')" }}
-      >
-        <div className="absolute inset-0 bg-black/20" />
-        <h1 className="relative z-10 text-3xl sm:text-4xl md:text-5xl font-extrabold text-white text-center px-4">
-          Design Your Perfect Plushie
-        </h1>
-      </div>
+    <div className="min-h-screen bg-gradient-to-br from-purple-100 via-pink-50 to-orange-50 py-8 px-4 sm:px-6 lg:px-8">
+      <div className="max-w-3xl mx-auto">
+        <header className="text-center mb-10">
+          <h1 className="text-5xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-purple-600 via-pink-500 to-orange-500">
+            Design Your Next Clauth Hit
+          </h1>
+          <p className="mt-3 text-xl text-gray-600">
+            Let your creativity flow and design unique clothing items for the Clauth community.
+          </p>
+        </header>
 
-      <div className="flex-grow bg-gradient-to-b from-gray-100 to-gray-200 py-10 px-4">
-        <div className="w-full max-w-4xl mx-auto">
-          {/* Progress Steps */}
-          <div className="mb-8">
-            <div className="flex justify-between items-center w-full">
-              {STEPS.map((step, index) => (
-                <div key={step.id} className="flex items-center">
-                  <div className={`
-                    flex items-center justify-center w-8 h-8 rounded-full
-                    ${index <= currentStep ? 'bg-gray-900 text-white' : 'bg-gray-300 text-gray-600'}
-                    transition-colors
-                  `}>
-                    {index + 1}
-                  </div>
-                  {index < STEPS.length - 1 && (
-                    <div className={`
-                      hidden sm:block h-1 w-24 mx-2
-                      ${index < currentStep ? 'bg-gray-900' : 'bg-gray-300'}
-                      transition-colors
-                    `} />
-                  )}
+        <div className="bg-white p-8 rounded-xl shadow-2xl">
+          {!generatedImageUrl ? (
+            // STAGE 1: Creative Prompt Input
+            <div className="space-y-6">
+              <div>
+                <h2 className="text-2xl font-semibold text-gray-800 mb-1">1. Describe Your Vision</h2>
+                <p className="text-sm text-gray-500 mb-2">Describe your clothing concept or full outfit, including model appearance. Please clearly indicate your main clothing item for sale (e.g., 'The main item is the jacket.'). We'll visualize the full scene and use this main item for its specific details and financial estimates.</p>
+                <textarea
+                  value={creativePrompt}
+                  onChange={(e) => setCreativePrompt(e.target.value)}
+                  placeholder={currentPlaceholder}
+                  rows={5}
+                  className="w-full p-3 border border-slate-300 rounded-lg text-slate-700 placeholder-slate-400 text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 shadow-sm transition-all"
+                />
+              </div>
+
+              {/* Image Generation Service Toggle */}
+              <div className="mb-6">
+                <label className="block text-sm font-medium text-slate-700 mb-2">Choose Image Generation Service:</label>
+                <div className="flex space-x-4">
+                  <button 
+                    type="button"
+                    onClick={() => setImageService('stability')}
+                    className={`px-4 py-2 rounded-md text-sm font-medium transition-colors 
+                                ${imageService === 'stability' 
+                                  ? 'bg-indigo-600 text-white shadow-md'
+                                  : 'bg-slate-200 text-slate-700 hover:bg-slate-300'}`}
+                  >
+                    Stability AI
+                  </button>
+                  <button 
+                    type="button"
+                    onClick={() => setImageService('openai')}
+                    className={`px-4 py-2 rounded-md text-sm font-medium transition-colors 
+                                ${imageService === 'openai' 
+                                  ? 'bg-indigo-600 text-white shadow-md'
+                                  : 'bg-slate-200 text-slate-700 hover:bg-slate-300'}`}
+                  >
+                    OpenAI GPT-Image
+                  </button>
                 </div>
-              ))}
-            </div>
-            <div className="hidden sm:flex justify-between mt-2">
-              {STEPS.map((step, index) => (
-                <span key={step.id} className={`
-                  text-sm font-medium
-                  ${index <= currentStep ? 'text-gray-900' : 'text-gray-500'}
-                `}>
-                  {step.title}
-                </span>
-              ))}
-            </div>
-          </div>
+                {imageService === 'openai' && (
+                  <div className="mt-4 space-y-4">
+                    <div>
+                      <label className="block text-sm font-medium text-slate-700 mb-2">Background:</label>
+                      <select
+                        value={imageOptions.background}
+                        onChange={(e) => setImageOptions(prev => ({ ...prev, background: e.target.value }))}
+                        className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+                      >
+                        <option value="auto">Auto (Let AI choose)</option>
+                        <option value="transparent">Transparent</option>
+                        <option value="opaque">Opaque</option>
+                      </select>
+                    </div>
+                    <p className="text-xs text-gray-600 bg-gray-100 border border-gray-200 p-2 rounded-md">
+                      Note: GPT-Image-1 will generate a 1024x1024 image with all four views arranged in a grid layout.
+                    </p>
+                  </div>
+                )}
+              </div>
 
-          {/* Form Content */}
-          <div className="bg-white rounded-2xl shadow-xl p-6 md:p-8">
-            {renderStepContent()}
-          </div>
+              <button
+                onClick={generateAIInsightsAndImage} // Changed function call
+                disabled={!!loadingState || status !== 'authenticated'}
+                className="w-full py-3 px-4 bg-gradient-to-r from-purple-600 to-pink-500 text-white font-semibold rounded-lg shadow-md hover:from-purple-700 hover:to-pink-600 transition-all duration-300 ease-in-out disabled:opacity-60 flex items-center justify-center text-lg"
+              >
+                {loadingState === 'generate' ? <BigSpinner /> : 'Generate Design Insights & Image'}
+              </button>
+              {status !== 'authenticated' && <p className="text-xs text-red-500 text-center mt-1">Please log in to generate designs.</p>}
+            </div>
+          ) : (
+            // STAGE 2: Review Image and Add Details
+            <div className="space-y-6">
+              <h2 className="text-2xl font-semibold text-gray-800 mb-1 text-center">2. Review &amp; Refine Details</h2>
+              <div className="w-full aspect-square bg-gray-100 rounded-lg shadow-inner flex items-center justify-center overflow-hidden mb-6 relative">
+                {loadingState === 'generate' ? (
+                  <div className="flex flex-col items-center justify-center">
+                    <BigSpinner />
+                    <p className="text-sm text-gray-500 mt-2">Generating your design...</p>
+                  </div>
+                ) : generatedImageUrl ? (
+                  <>
+                    {/* Regular img tag for better compatibility with both URLs and base64 */}
+                    <img 
+                      src={generatedImageUrl.startsWith('http') ? generatedImageUrl : `data:image/png;base64,${generatedImageUrl}`}
+                      alt="Generated clothing item"
+                      className="object-contain w-full h-full"
+                      onError={(e) => {
+                        console.error("[Design Page] Image load error:", {
+                          error: e,
+                          src: generatedImageUrl.substring(0, 100) + '...'
+                        });
+                        setErrorMessage("Failed to load the generated image. Please try again.");
+                      }}
+                      onLoad={() => {
+                        console.log("[Design Page] Image loaded successfully");
+                        setErrorMessage('');
+                        setLoadingState(null);
+                      }}
+                    />
+                    {errorMessage && (
+                      <div className="absolute inset-0 flex items-center justify-center bg-black/50">
+                        <p className="text-white text-center p-4">{errorMessage}</p>
+                      </div>
+                    )}
+                  </>
+                ) : (
+                  <div className="text-gray-400">No image generated yet</div>
+                )}
+              </div>
+              
+              <Input label="Item Name" value={itemName} onChange={setItemName} placeholder={promptJsonData?.name || "e.g., 'Sunset Vibes Hoodie'"} required />
+              
+              <div>
+                <label htmlFor="description" className="font-medium block text-xs mb-1 text-gray-800">Description (Optional)</label>
+                <textarea
+                  id="description"
+                  value={description}
+                  onChange={(e) => setDescription(e.target.value)}
+                  placeholder={promptJsonData?.description || "Key features, style notes, story..."}
+                  rows={3}
+                  className="w-full px-2 py-1.5 border rounded-md text-gray-800 placeholder-gray-500 text-sm focus:ring-purple-500 focus:border-purple-500 shadow-sm"
+                />
+              </div>
 
-          {/* Navigation Buttons */}
-          {!imageUrl && (
-            <div className="flex justify-between mt-6">
-              {currentStep > 0 && (
+              <Input label="Item Type (e.g., Hoodie, T-Shirt)" value={itemType} onChange={setItemType} placeholder={promptJsonData?.itemType || "e.g., Hoodie, T-Shirt, Hat"} required disabled={!!generatedImageUrl} />
+              
+              {/* Texture, Size, Color inputs were previously removed for simplification - can be re-added if AI provides them in promptJsonData and they are desired */}
+
+              <div className="w-full grid grid-cols-1 md:grid-cols-2 gap-3 pt-2">
                 <button
-                  onClick={() => setCurrentStep(prev => prev - 1)}
-                  className="flex items-center px-6 py-3 rounded-xl bg-white text-gray-800 hover:bg-gray-50 transition-colors"
+                  onClick={() => saveOrPublishClothingItem(false)}
+                  disabled={!!loadingState || !itemName.trim() || !itemType.trim() || status !== 'authenticated'}
+                  className="w-full py-3 px-4 bg-gray-700 text-white font-semibold rounded-lg shadow-md hover:bg-gray-800 transition-colors disabled:opacity-60 flex items-center justify-center"
                 >
-                  <ArrowLeftIcon className="w-5 h-5 mr-2" />
-                  Back
+                  {loadingState === 'save' ? <BigSpinner /> : 'Save Draft'}
                 </button>
-              )}
-              {currentStep === 0 && <div />} {/* Empty div for spacing when back button is hidden */}
-              {currentStep < 3 && (
                 <button
-                  onClick={() => setCurrentStep(prev => prev + 1)}
-                  disabled={!canProceed()}
-                  className={`
-                    flex items-center px-6 py-3 rounded-xl
-                    ${canProceed()
-                      ? 'bg-gray-900 text-white hover:bg-gray-800'
-                      : 'bg-gray-200 text-gray-400 cursor-not-allowed'}
-                    transition-colors
-                  `}
+                  onClick={() => saveOrPublishClothingItem(true)}
+                  disabled={!!loadingState || !itemName.trim() || !itemType.trim() || status !== 'authenticated'}
+                  className="w-full py-3 px-4 bg-green-500 text-white font-semibold rounded-lg shadow-md hover:bg-green-600 transition-colors disabled:opacity-60 flex items-center justify-center"
                 >
-                  Next
-                  <ArrowRightIcon className="w-5 h-5 ml-2" />
+                  {loadingState === 'publish' ? <BigSpinner /> : 'Publish Item'}
                 </button>
-              )}
+              </div>
+               <button
+                  onClick={() => { 
+                    setGeneratedImageUrl(null); 
+                    setPromptJsonData(null);
+                    setEstimatedCost(null);
+                    setSuggestedPrice(null);
+                    // Optionally reset itemName, description, itemType if you want a fully fresh start
+                  }}
+                  disabled={!!loadingState}
+                  className="w-full text-sm text-purple-600 hover:text-purple-800 py-2"
+              >
+                &larr; Start Over / Edit Prompt
+              </button>
             </div>
           )}
+          {errorMessage && 
+            <p className="mt-4 text-center text-sm text-red-600 bg-red-50 p-3 rounded-md">{errorMessage}</p>
+          }
         </div>
       </div>
-
-      <Footer />
     </div>
   );
 }

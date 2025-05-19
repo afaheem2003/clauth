@@ -1,36 +1,40 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 
-export async function GET() {
+export async function GET(req) {
   try {
-    const plushies = await prisma.plushie.findMany({
+    const clothingItems = await prisma.clothingItem.findMany({
       where: {
         isPublished: true,
-        isDeleted: false, // ✅ Only fetch plushies not marked as deleted
+        isDeleted: false,
       },
       include: {
         creator: true,
         likes: true,
+        preorders: true,
         comments: {
           include: {
             author: true,
           },
         },
       },
+      orderBy: {
+        createdAt: 'desc'
+      }
     });
 
-    // Sort by closeness to goal
-    const sortedPlushies = plushies.sort((a, b) => {
-      const diffA = a.goal - a.pledged;
-      const diffB = b.goal - b.pledged;
-      return diffA - diffB;
-    });
+    // Process items for serialization
+    const processedItems = clothingItems.map(item => ({
+      ...item,
+      price: item.price?.toString() ?? null,
+      cost: item.cost?.toString() ?? null,
+    }));
 
-    return NextResponse.json({ plushies: sortedPlushies });
+    return NextResponse.json({ clothingItems: processedItems });
   } catch (err) {
-    console.error("Error fetching plushies:", err);
+    console.error("Error fetching clothing items:", err);
     return NextResponse.json(
-      { error: "Failed to fetch plushies" },
+      { error: "Failed to fetch clothing items" },
       { status: 500 }
     );
   }

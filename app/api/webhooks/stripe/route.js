@@ -56,14 +56,14 @@ export async function POST(request) {
     const session = event.data.object;
     const meta = session.metadata || {};
     const userId = session.client_reference_id;
-    const plushieId = meta.plushieId;
+    const clothingItemId = meta.clothingItemId;
     const qty = parseInt(meta.quantity || "1", 10);
     const cents = session.amount_total || 0;
     const email = session.customer_details?.email;
     const name = session.customer_details?.name || "friend";
     const address = session.customer_details?.address;
 
-    console.log("📌 Session metadata:", { userId, plushieId, qty, cents, email });
+    console.log("📌 Session metadata:", { userId, clothingItemId, qty, cents, email });
 
     try {
       console.log("💳 Recording payment intent...");
@@ -87,7 +87,7 @@ export async function POST(request) {
       await prisma.preorder.create({
         data: {
           userId,
-          plushieId,
+          clothingItemId: clothingItemId,
           price: cents / 100,
           quantity: qty,
           status: "CONFIRMED",
@@ -95,15 +95,15 @@ export async function POST(request) {
         },
       });
 
-      console.log("📊 Updating plushie pledge count...");
-      await prisma.plushie.update({
-        where: { id: plushieId },
+      console.log("📊 Updating clothing item pledge count...");
+      await prisma.clothingItem.update({
+        where: { id: clothingItemId },
         data: { pledged: { increment: qty } },
       });
 
-      console.log("🔍 Fetching plushie name...");
-      const plushie = await prisma.plushie.findUnique({
-        where: { id: plushieId },
+      console.log("🔍 Fetching clothing item name...");
+      const clothingItemData = await prisma.clothingItem.findUnique({
+        where: { id: clothingItemId },
         select: { name: true },
       });
 
@@ -113,7 +113,7 @@ export async function POST(request) {
           to: email,
           name,
           email,
-          plushie: plushie?.name || "Plushie",
+          itemName: clothingItemData?.name || "Clothing Item",
           qty,
           total: cents / 100,
         });
@@ -122,7 +122,7 @@ export async function POST(request) {
         console.log("✉️ Email sending skipped (disabled or no email)");
       }
 
-      console.log("✅ Logged preorder and processed checkout for", userId, plushieId, qty);
+      console.log("✅ Logged preorder and processed checkout for", userId, clothingItemId, qty);
     } catch (dbErr) {
       console.error("❌ Failed to log preorder or send receipt:", dbErr);
     }

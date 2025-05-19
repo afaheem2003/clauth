@@ -12,7 +12,7 @@ export default function AuthPromptModal({ onClose }) {
           Sign in to start designing
         </h2>
         <p className="text-gray-600 mb-6">
-          You need an account to create and save plushies.
+          You need an account to create and save clothing designs.
         </p>
 
         <div className="flex flex-col gap-3">

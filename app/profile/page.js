@@ -3,20 +3,21 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
-import PlushieCard from "@/components/plushie/PlushieCard";
-import SavedPlushieCard from "@/components/plushie/SavedPlushieCard";
+import Image from "next/image";
+import ClothingItemCard from "@/components/clothing/ClothingItemCard";
+import SavedClothingItemCard from "@/components/clothing/SavedClothingItemCard";
+import Link from "next/link";
 import { PencilIcon } from "@heroicons/react/24/solid";
 
 export default function ProfilePage() {
   const router = useRouter();
   const { data: session, status, update } = useSession();
-  const [plushies, setPlushies] = useState([]);
+  const [activeTab, setActiveTab] = useState("published");
+  const [clothingItems, setClothingItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [isEditingBio, setIsEditingBio] = useState(false);
   const [bio, setBio] = useState("");
   const [isSavingBio, setIsSavingBio] = useState(false);
-  // activeTab: "published" means live designs; "saved" means drafts
-  const [activeTab, setActiveTab] = useState("published");
 
   useEffect(() => {
     if (status === "loading") return;
@@ -25,24 +26,25 @@ export default function ProfilePage() {
       return;
     }
     setBio(session.user.bio || "");
-    async function fetchMyPlushies() {
-      try {
-        // This endpoint should return plushies where creator.id === session.user.uid
-        const res = await fetch("/api/my-plushies");
-        const data = await res.json();
-        // Sort by creation date (newest first)
-        const sortedPlushies = data.plushies.sort(
-          (a, b) => new Date(b.createdAt) - new Date(a.createdAt)
-        );
-        setPlushies(sortedPlushies);
-      } catch (err) {
-        console.error("Failed to fetch plushies:", err);
-      } finally {
-        setLoading(false);
-      }
-    }
-    fetchMyPlushies();
+    fetchMyClothingItems();
   }, [session, status, router]);
+
+  async function fetchMyClothingItems() {
+    setLoading(true);
+    try {
+      const res = await fetch("/api/my-clothing-items");
+      if (!res.ok) throw new Error("Failed to fetch data");
+      const data = await res.json();
+      const sortedClothingItems = data.clothingItems.sort(
+        (a, b) => new Date(b.createdAt) - new Date(a.createdAt)
+      );
+      setClothingItems(sortedClothingItems);
+    } catch (err) {
+      console.error("Failed to fetch clothing items:", err);
+      setClothingItems([]);
+    }
+    setLoading(false);
+  }
 
   const handleSaveBio = async () => {
     setIsSavingBio(true);
@@ -66,18 +68,24 @@ export default function ProfilePage() {
     }
   };
 
-  if (loading) {
+  if (status === "loading") {
+    return <p className="text-center py-10">Loading profile...</p>;
+  }
+  if (!session) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <p className="text-lg font-semibold">Loading...</p>
+      <div className="min-h-screen flex flex-col items-center justify-center bg-gray-100 p-6">
+        <p className="text-2xl text-gray-700 mb-4">Please log in to view your profile.</p>
+        <Link href="/login" legacyBehavior>
+          <a className="px-6 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 transition-colors">
+            Log In
+          </a>
+        </Link>
       </div>
     );
   }
 
-  // Filter plushies based on active tab:
-  // "published" => isPublished is true; "saved" => isPublished is false.
-  const filteredPlushies = plushies.filter((p) =>
-    activeTab === "saved" ? !p.isPublished : p.isPublished
+  const filteredClothingItems = clothingItems.filter((item) =>
+    activeTab === "published" ? item.isPublished : !item.isPublished
   );
 
   const displayName = session?.user?.name || "Anonymous User";
@@ -151,7 +159,7 @@ export default function ProfilePage() {
                 : "bg-white text-gray-700 border border-gray-300 hover:bg-gray-100"
             }`}
           >
-            Published Plushies
+            Published Clothing Items
           </button>
           <button
             onClick={() => setActiveTab("saved")}
@@ -161,26 +169,36 @@ export default function ProfilePage() {
                 : "bg-white text-gray-700 border border-gray-300 hover:bg-gray-100"
             }`}
           >
-            Saved Plushies
+            Saved Drafts
           </button>
         </div>
 
-        {/* Plushies Grid */}
+        {/* Clothing Items Grid */}
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-8 mt-8">
-          {filteredPlushies.map((plushie) =>
-            activeTab === "saved" ? (
-              <SavedPlushieCard
-                key={plushie.id}
-                plushie={plushie}
-                setPlushies={setPlushies}
-              />
-            ) : (
-              <PlushieCard
-                key={plushie.id}
-                plushie={plushie}
-                setPlushies={setPlushies}
-              />
+          {loading ? (
+            <p className="text-center text-gray-500">Loading designs...</p>
+          ) : filteredClothingItems.length > 0 ? (
+            filteredClothingItems.map((item) =>
+              activeTab === "saved" ? (
+                <SavedClothingItemCard
+                  key={item.id}
+                  clothingItem={item}
+                  setClothingItems={setClothingItems}
+                />
+              ) : (
+                <ClothingItemCard
+                  key={item.id}
+                  clothingItem={item}
+                />
+              )
             )
+          ) : (
+            <p className="text-center text-gray-500 text-xl py-10">
+              {activeTab === "published"
+                ? "You haven't published any clothing items yet."
+                : "You have no saved drafts."
+              }
+            </p>
           )}
         </div>
       </div>

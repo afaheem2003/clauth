@@ -42,13 +42,18 @@ export default async function handler(req, res) {
 
   if (event.type === 'checkout.session.completed') {
     const session = event.data.object;
-    const { plushieId, quantity = '1' } = session.metadata || {};
+    const { clothingItemId, quantity = '1' } = session.metadata || {};
     const userId = session.client_reference_id;
     const qty = parseInt(quantity, 10);
     const cents = session.amount_total || 0;
     const email = session.customer_details?.email;
     const name = session.customer_details?.name || 'friend';
     const address = session.customer_details?.address;
+
+    if (!clothingItemId) {
+      console.error('❌ Missing clothingItemId in Stripe session metadata');
+      return res.status(400).send('Webhook Error: Missing clothingItemId in metadata');
+    }
 
     try {
       const payment = await prisma.paymentIntent.create({
@@ -71,7 +76,7 @@ export default async function handler(req, res) {
         data: {
           userId: userId || null,
           guestEmail: userId ? null : email,
-          plushieId,
+          clothingItemId: clothingItemId,
           price: cents / 100,
           quantity: qty,
           status: 'CONFIRMED',
@@ -79,13 +84,13 @@ export default async function handler(req, res) {
         },
       });
 
-      await prisma.plushie.update({
-        where: { id: plushieId },
+      await prisma.clothingItem.update({
+        where: { id: clothingItemId },
         data: { pledged: { increment: qty } },
       });
 
-      const plushie = await prisma.plushie.findUnique({
-        where: { id: plushieId },
+      const clothingItem = await prisma.clothingItem.findUnique({
+        where: { id: clothingItemId },
         select: { name: true },
       });
 
@@ -94,13 +99,13 @@ export default async function handler(req, res) {
           to: email,
           name,
           email,
-          plushie: plushie?.name || 'Plushie',
+          itemName: clothingItem?.name || 'Clothing Item',
           qty,
           total: cents / 100,
         });
       }
 
-      console.log('✅ Successfully processed preorder for plushie:', plushieId);
+      console.log('✅ Successfully processed preorder for clothing item:', clothingItemId);
     } catch (err) {
       console.error('❌ Error processing preorder:', err);
     }
