@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { useRouter }        from 'next/navigation';
 import Image                from 'next/image';
 import { useSession }       from 'next-auth/react';
+import { TrashIcon }        from '@heroicons/react/24/outline';
 // import { CANCELLATION_QUOTES } from '@/utils/cancellationQuotes'; // This seems unused, consider removing if not needed
 
 function calculateTimeLeft(expiresAt) {
@@ -14,42 +15,41 @@ function calculateTimeLeft(expiresAt) {
   return days;
 }
 
-export default function ClothingItemCard({ clothingItem }) {
-  const router  = useRouter();
+export default function ClothingItemCard({ clothingItem, onItemSoftDeleted }) {
+  const router = useRouter();
   const { data: session } = useSession();
-  const {
-    id,
-    imageUrl = '/images/clothing-item-placeholder.png',
-    name,
-    creator,
-    likes: initialLikes = [],
-    pledged: initialPledged = 0,
-    goal = 50,
-    expiresAt,
-    status,
-    price,
-  } = clothingItem;
+  const { id, name, imageUrl, frontImage, backImage, creator, goal, pledged, price } = clothingItem;
+  const [has, setHas] = useState(clothingItem.hasLiked);
+  const [likes, setLikes] = useState(clothingItem.likes?.length || 0);
+  const [daysLeft, setDaysLeft] = useState(calculateTimeLeft(clothingItem.expiresAt));
+  const [isDeleting, setIsDeleting] = useState(false);
 
   const author = creator?.displayName || creator?.name || 'Anonymous';
-  const [likes, setLikes] = useState(initialLikes.length);
-  const [has, setHas] = useState(false);
-  const [daysLeft, setDaysLeft] = useState(calculateTimeLeft(expiresAt));
-  const progress = (initialPledged / goal) * 100;
+  const initialPledged = pledged || 0;
+  const progress = goal && goal > 0 ? Math.round((initialPledged / goal) * 100) : 0;
   const hasReachedGoal = initialPledged >= goal;
-  const isExpired = !daysLeft && expiresAt && new Date(expiresAt) < new Date();
+  const isExpired = !daysLeft && clothingItem.expiresAt && new Date(clothingItem.expiresAt) < new Date();
+
+  // Determine if the current user can delete this item
+  const isOwner = session?.user?.uid === creator?.id;
+  const isAdmin = session?.user?.role === 'ADMIN';
+  const canDelete = isOwner || isAdmin;
+
+  // Get the best available image
+  const displayImage = frontImage || imageUrl || '/images/clothing-item-placeholder.png';
 
   useEffect(() => {
     if (!session?.user?.uid) return;
-    setHas(initialLikes.some(l => l.userId === session.user.uid));
-  }, [initialLikes, session?.user?.uid]);
+    setHas(clothingItem.likes?.some(l => l.userId === session.user.uid));
+  }, [clothingItem.likes, session?.user?.uid]);
 
   useEffect(() => {
-    if (!expiresAt) return;
+    if (!clothingItem.expiresAt) return;
     const timer = setInterval(() => {
-      setDaysLeft(calculateTimeLeft(expiresAt));
+      setDaysLeft(calculateTimeLeft(clothingItem.expiresAt));
     }, 60000); // Update every minute
     return () => clearInterval(timer);
-  }, [expiresAt]);
+  }, [clothingItem.expiresAt]);
 
   const handleLike = async (e) => {
     e.stopPropagation();
@@ -65,34 +65,88 @@ export default function ClothingItemCard({ clothingItem }) {
     setLikes(n => liked ? n + 1 : Math.max(0, n - 1));
   };
 
+  const handleDeleteClick = async (e) => {
+    e.stopPropagation(); // Prevent card click
+
+    if (!window.confirm(`Are you sure you want to delete "${name}"? This action will hide the item.`)) {
+      return;
+    }
+
+    setIsDeleting(true);
+    try {
+      const res = await fetch(`/api/clothing/${id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ isDeleted: true }),
+      });
+
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => ({}));
+        throw new Error(errorData.error || 'Failed to delete item. Please try again.');
+      }
+
+      if (onItemSoftDeleted) {
+        onItemSoftDeleted(id);
+      }
+
+    } catch (err) {
+      console.error('Error soft deleting item:', err);
+      alert(err.message || 'An error occurred while trying to delete the item.');
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
   return (
     <div
-      className="relative w-full h-auto overflow-hidden rounded-lg"
+      className="relative w-full overflow-hidden rounded-lg group cursor-pointer"
       onClick={() => router.push(`/clothing/${id}`)}
     >
-      <div className="relative w-full aspect-square">
+      {canDelete && (
+        <button
+          onClick={handleDeleteClick}
+          disabled={isDeleting}
+          className="absolute top-2 left-2 z-10 bg-red-500 hover:bg-red-700 text-white p-1.5 rounded-full shadow-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          aria-label="Delete item"
+        >
+          {isDeleting ? (
+            <svg className="animate-spin h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+            </svg>
+          ) : (
+            <TrashIcon className="h-4 w-4" />
+          )}
+        </button>
+      )}
+      <div className="relative w-full aspect-[3/4] overflow-hidden">
         <Image
-          src={imageUrl}
+          src={displayImage}
           alt={name}
           fill
           unoptimized
-          className="object-cover"
+          className="object-cover w-full h-full"
         />
-      </div>
-
-      <div className="absolute inset-0 bg-black/0 group-hover:bg-black/50 transition duration-300 flex flex-col items-center justify-center opacity-0 group-hover:opacity-100 text-white">
-        <p className="font-bold">{name}</p>
-        <p className="text-sm">{author}</p>
-        <p>{progress >= 100 ? 'Goal reached!' : `${initialPledged}/${goal} bought`}</p>
-        {price && <p className="font-semibold">${Number(price).toFixed(2)}</p>}
+        {backImage && (
+          <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+            <Image
+              src={backImage}
+              alt={`${name} - back view`}
+              fill
+              unoptimized
+              className="object-cover w-full h-full"
+            />
+          </div>
+        )}
       </div>
 
       <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/70 to-transparent p-3 text-white">
         <p className="font-semibold text-sm truncate">{name}</p>
         <div className="flex justify-between items-center mt-1">
           <p className="text-xs opacity-90">{author}</p>
-          {price && <p className="text-sm font-semibold">${Number(price).toFixed(2)}</p>}
+          {goal > 0 && <p className="text-xs opacity-90">{progress}% Funded</p>}
         </div>
+        {price && <p className="text-sm font-semibold mt-1">${Number(price).toFixed(2)}</p>}
       </div>
 
       <button

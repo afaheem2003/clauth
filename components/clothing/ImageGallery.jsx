@@ -1,27 +1,27 @@
 import { useState } from 'react';
 import Image from 'next/image';
 import { ChevronLeftIcon, ChevronRightIcon } from '@heroicons/react/24/outline';
+import { ANGLES } from '@/utils/imageProcessing';
 
 export default function ImageGallery({ images, onImageClick }) {
-  const [currentIndex, setCurrentIndex] = useState(0);
-
-  // Filter out any null/undefined images and create labeled entries
+  // Filter to only front and back images
   const availableImages = [
-    ...(images.imageUrl ? [{ url: images.imageUrl, label: 'Main' }] : []),
-    ...(images.frontImage ? [{ url: images.frontImage, label: 'Front' }] : []),
-    ...(images.rightImage ? [{ url: images.rightImage, label: 'Right' }] : []),
-    ...(images.leftImage ? [{ url: images.leftImage, label: 'Left' }] : []),
-    ...(images.backImage ? [{ url: images.backImage, label: 'Back' }] : []),
+    ...(images[ANGLES.FRONT] ? [{ url: images[ANGLES.FRONT], label: 'Front' }] : []),
+    ...(images[ANGLES.BACK] ? [{ url: images[ANGLES.BACK], label: 'Back' }] : []),
+    // Legacy support - if no front/back images, use main image
+    ...(!images[ANGLES.FRONT] && !images[ANGLES.BACK] && images.imageUrl ? [{ url: images.imageUrl, label: 'Main' }] : []),
   ].filter(img => img.url);
+
+  const [currentImageIndex, setCurrentImageIndex] = useState(0);
 
   if (availableImages.length === 0) {
     return (
-      <div className="relative aspect-[4/3]">
+      <div className="relative aspect-[3/4]">
         <Image
           src="/images/clothing-item-placeholder.png"
           alt="No image available"
           fill
-          className="object-cover"
+          className="object-contain"
           priority
         />
       </div>
@@ -29,62 +29,91 @@ export default function ImageGallery({ images, onImageClick }) {
   }
 
   const nextImage = () => {
-    setCurrentIndex((prev) => (prev + 1) % availableImages.length);
+    setCurrentImageIndex((prev) => (prev + 1) % availableImages.length);
   };
 
-  const previousImage = () => {
-    setCurrentIndex((prev) => (prev - 1 + availableImages.length) % availableImages.length);
+  const prevImage = () => {
+    setCurrentImageIndex((prev) => (prev - 1 + availableImages.length) % availableImages.length);
   };
 
   return (
-    <div className="relative">
-      {/* Main Image */}
+    <div className="relative aspect-[3/4] group">
       <div 
-        className="relative aspect-[4/3] cursor-pointer" 
-        onClick={() => onImageClick?.(currentIndex)}
+        className="relative h-full cursor-pointer"
+        onClick={() => onImageClick?.(currentImageIndex)}
       >
         <Image
-          src={availableImages[currentIndex].url}
-          alt={`${availableImages[currentIndex].label} view`}
+          src={availableImages[currentImageIndex].url}
+          alt={`${availableImages[currentImageIndex].label} view`}
           fill
-          className="object-cover"
+          className="object-contain"
           priority
           unoptimized
         />
         
-        {/* Angle Label */}
-        <div className="absolute top-4 right-4 bg-black/50 text-white px-3 py-1 rounded-full">
-          {availableImages[currentIndex].label}
-        </div>
+        {/* Mobile Tap Areas for Navigation (only if more than 1 image) */}
+        {availableImages.length > 1 && (
+          <>
+            {/* Left Tap Area */}
+            <div 
+              className="absolute top-0 left-0 w-1/2 h-full md:hidden z-20" 
+              onClick={(e) => {
+                e.stopPropagation(); // Prevent modal from opening
+                prevImage();
+              }}
+              aria-label="Previous image"
+            />
+            {/* Right Tap Area */}
+            <div 
+              className="absolute top-0 right-0 w-1/2 h-full md:hidden z-20" 
+              onClick={(e) => {
+                e.stopPropagation(); // Prevent modal from opening
+                nextImage();
+              }}
+              aria-label="Next image"
+            />
+          </>
+        )}
       </div>
 
-      {/* Navigation Arrows */}
+      {/* Navigation Arrows (Desktop) */}
       {availableImages.length > 1 && (
         <>
           <button
-            onClick={previousImage}
-            className="absolute left-2 top-1/2 -translate-y-1/2 bg-black/50 text-white p-2 rounded-full hover:bg-black/70 transition-colors"
+            onClick={(e) => {
+              e.stopPropagation();
+              prevImage();
+            }}
+            className="absolute left-2 top-1/2 -translate-y-1/2 bg-black/50 text-white p-2 rounded-full opacity-0 group-hover:opacity-100 transition-opacity hidden md:flex items-center justify-center z-20"
+            aria-label="Previous image (desktop)"
           >
-            <ChevronLeftIcon className="w-6 h-6" />
+            <ChevronLeftIcon className="h-6 w-6" />
           </button>
           <button
-            onClick={nextImage}
-            className="absolute right-2 top-1/2 -translate-y-1/2 bg-black/50 text-white p-2 rounded-full hover:bg-black/70 transition-colors"
+            onClick={(e) => {
+              e.stopPropagation();
+              nextImage();
+            }}
+            className="absolute right-2 top-1/2 -translate-y-1/2 bg-black/50 text-white p-2 rounded-full opacity-0 group-hover:opacity-100 transition-opacity hidden md:flex items-center justify-center z-20"
+            aria-label="Next image (desktop)"
           >
-            <ChevronRightIcon className="w-6 h-6" />
+            <ChevronRightIcon className="h-6 w-6" />
           </button>
         </>
       )}
 
-      {/* Thumbnail Navigation */}
+      {/* Image Indicators */}
       {availableImages.length > 1 && (
-        <div className="flex justify-center gap-2 mt-4">
-          {availableImages.map((img, idx) => (
+        <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex space-x-2">
+          {availableImages.map((_, index) => (
             <button
-              key={idx}
-              onClick={() => setCurrentIndex(idx)}
+              key={index}
+              onClick={(e) => {
+                e.stopPropagation();
+                setCurrentImageIndex(index);
+              }}
               className={`w-2 h-2 rounded-full transition-colors ${
-                idx === currentIndex ? 'bg-purple-600' : 'bg-gray-300'
+                index === currentImageIndex ? 'bg-white' : 'bg-white/50'
               }`}
             />
           ))}

@@ -16,78 +16,95 @@ const supabase = createClient(
 );
 
 /**
- * Splits a 2x2 composite image into four separate images
+ * Splits a landscape image into two vertical panels (front and back views)
  */
 async function splitCompositeImage(imageBuffer) {
   try {
     // Get image metadata
     const metadata = await sharp(imageBuffer).metadata();
     
-    // For a 1024x1024 image, each quadrant should be exactly 512x512
-    // Add a small padding to ensure we capture the full content
-    const padding = 2; // 2 pixels padding to handle any anti-aliasing at the edges
-    const quadrantWidth = Math.floor(metadata.width / 2) + padding;
-    const quadrantHeight = Math.floor(metadata.height / 2) + padding;
+    // Validate image dimensions
+    if (metadata.width !== 1536 || metadata.height !== 1024) {
+      console.warn(`[Image Split] Expected 1536x1024 image, got ${metadata.width}x${metadata.height}`);
+      // Resize to expected dimensions if needed
+      imageBuffer = await sharp(imageBuffer)
+        .resize(1536, 1024, { fit: 'fill' })
+        .toBuffer();
+      metadata.width = 1536;
+      metadata.height = 1024;
+    }
     
-    // Calculate starting positions with negative offsets to capture full content
+    // For a 1536x1024 image, each panel should be exactly 768x1024
+    const trimPixels = 2; // Pixels to trim from each edge where panels meet
+    const panelWidth = Math.floor(metadata.width / 2);
+    const panelHeight = metadata.height;
+    
+    // Calculate starting positions with trim offsets
     const positions = [
-      { left: -padding, top: -padding },                    // Top Left (Front)
-      { left: metadata.width/2 - padding, top: -padding },  // Top Right (Right Side)
-      { left: -padding, top: metadata.height/2 - padding }, // Bottom Left (Left Side)
-      { left: metadata.width/2 - padding, top: metadata.height/2 - padding } // Bottom Right (Back)
+      { left: 0, width: panelWidth - trimPixels, name: 'front' },           // Left Panel (Front)
+      { left: metadata.width/2 + trimPixels, width: panelWidth - trimPixels, name: 'back' }  // Right Panel (Back)
     ];
 
-    // Extract each quadrant with padding
-    const extractQuadrant = async (left, top) => {
-      return sharp(imageBuffer)
+    // Extract each panel with trimming
+    const extractPanel = async (left, width, name) => {
+      console.log(`[Image Split] Extracting ${name} panel from position:`, { left, width, height: panelHeight });
+      const panel = await sharp(imageBuffer)
         .extract({
-          left: Math.max(0, left), // Ensure we don't go negative
-          top: Math.max(0, top),   // Ensure we don't go negative
-          width: quadrantWidth,
-          height: quadrantHeight
+          left: Math.max(0, left),
+          top: 0,
+          width: Math.min(width, metadata.width - left),
+          height: panelHeight
         })
-        .resize(512, 512, { // Resize to exact dimensions
+        .resize(768, 1024, { // Resize to exact dimensions
           fit: 'fill',
           position: 'center'
         })
         .toBuffer();
+      
+      // Validate panel dimensions
+      const panelMetadata = await sharp(panel).metadata();
+      if (panelMetadata.width !== 768 || panelMetadata.height !== 1024) {
+        throw new Error(`Invalid panel dimensions after split: ${panelMetadata.width}x${panelMetadata.height}`);
+      }
+      
+      return panel;
     };
 
-    // Extract all quadrants in parallel
-    const [front, rightSide, leftSide, back] = await Promise.all(
-      positions.map(pos => extractQuadrant(pos.left, pos.top))
+    // Extract both panels in parallel
+    const panels = await Promise.all(
+      positions.map(pos => extractPanel(pos.left, pos.width, pos.name))
     );
 
+    console.log('[Image Split] Successfully split landscape image into panels');
     return {
-      [ANGLES.FRONT]: front,
-      [ANGLES.RIGHT_SIDE]: rightSide,
-      [ANGLES.LEFT_SIDE]: leftSide,
-      [ANGLES.BACK]: back
+      [ANGLES.FRONT]: panels[0],
+      [ANGLES.BACK]: panels[1]
     };
   } catch (error) {
-    console.error('Error splitting composite image:', error);
-    throw new Error('Failed to split composite image into angles');
+    console.error('Error splitting landscape image:', error);
+    throw new Error(`Failed to split landscape image into panels: ${error.message}`);
   }
 }
 
 export async function POST(req) {
   try {
-    const { prompt, userId, service = 'openai', imageOptions = {}, promptJsonData = null } = await req.json();
+    const { promptData, userId, service = 'openai', imageOptions = {} } = await req.json();
 
     if (!userId) {
       return NextResponse.json({ error: "Missing user ID" }, { status: 401 });
     }
 
-    const sanitizedPrompt = sanitizePrompt(prompt);
+    if (!promptData) {
+      return NextResponse.json({ error: "Missing prompt data" }, { status: 400 });
+    }
+
     const useMockApi = process.env.NEXT_PUBLIC_USE_MOCK_API === "true";
 
     if (useMockApi) {
       // For mock data, return predefined URLs for all angles
       const mockUrls = {
         [ANGLES.FRONT]: "/images/clothing-item-1.png",
-        [ANGLES.RIGHT_SIDE]: "/images/clothing-item-2.png",
-        [ANGLES.LEFT_SIDE]: "/images/clothing-item-3.png",
-        [ANGLES.BACK]: "/images/clothing-item-4.png"
+        [ANGLES.BACK]: "/images/clothing-item-2.png"
       };
       return NextResponse.json({ angleUrls: mockUrls });
     }
@@ -98,10 +115,10 @@ export async function POST(req) {
         return NextResponse.json({ error: "OpenAI API key is not configured on the server." }, { status: 503 });
       }
 
-      // Generate the composite image
-      const imageData = await generateImageWithOpenAI(sanitizedPrompt, {
+      // Generate the composite image using the structured promptData
+      const imageData = await generateImageWithOpenAI(null, {
         ...imageOptions,
-        promptJsonData
+        ...promptData
       });
 
       // Convert base64 to buffer
@@ -141,12 +158,16 @@ export async function POST(req) {
         tempItemId
       });
     } else {
-      // Default to Stability AI if service is not 'openai' or not specified
+      // For Stability AI, we need to construct a text prompt from the structured data
       console.log("[API /generate-stability] Using Stability AI for image generation.");
       const STABILITY_API_KEY = process.env.STABILITY_API_KEY;
       if (!STABILITY_API_KEY) {
         return NextResponse.json({ error: "Missing Stability API key" }, { status: 500 });
       }
+
+      // Construct a text prompt from the structured data
+      const textPrompt = `A ${promptData.itemDescription}. Front design: ${promptData.frontDesign}. Back design: ${promptData.backDesign}. Model: ${promptData.modelDetails}`;
+      const sanitizedPrompt = sanitizePrompt(textPrompt);
 
       // For Stability AI, we'll generate a single front view for now
       const formData = new FormData();
@@ -199,9 +220,6 @@ export async function POST(req) {
 
   } catch (error) {
     console.error("🔥 Unexpected Error in /api/generate-stability:", error);
-    if (error instanceof SyntaxError && error.message.includes('JSON')) {
-      return NextResponse.json({ error: "Invalid JSON in request body." }, { status: 400 });
-    }
-    return NextResponse.json({ error: error.message || "Unexpected server error" }, { status: 500 });
+    return NextResponse.json({ error: error.message || "An unexpected error occurred" }, { status: 500 });
   }
 }

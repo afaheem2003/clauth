@@ -20,11 +20,23 @@ export async function getStructuredClothingJSON(userDescription) {
   const messages = [
     {
       role: "system",
-      content: "You are a fashion prompt architect. Your job is to take user descriptions of clothing and return structured JSON according to the provided schema. Think carefully about visibility of each graphic from different angles. The available angles are: front, left_3_4, right_3_4, and back. Ensure the visibility array for each graphic only contains valid angle strings: \"front\", \"left_3_4\", \"right_3_4\", \"back\"."
+      content: `
+You are a fashion prompt architect. Your job is to take user descriptions of clothing and return structured JSON according to the provided schema.
+
+Instead of using 'placement' for each graphic, describe what should be visible from **each of the following angles**:
+- front
+- left_3_4
+- right_3_4
+- back
+
+Do not use 'placement'. Focus on what's actually seen from each angle, even if it's overlapping or the same.
+
+Return a JSON object with 'graphicsByAngle' mapping each view to a string description of the visual details at that angle.
+`
     },
     {
       role: "user",
-      content: `User Description: "${userDescription}"`
+      content: userDescription
     }
   ];
 
@@ -73,16 +85,26 @@ export async function getStructuredClothingJSON(userDescription) {
 } 
 
 
-export async function getAIDesignerInsights(creativePrompt, goalQuantity = 100) {
-  if (!creativePrompt || typeof creativePrompt !== 'string' || creativePrompt.trim() === '') {
-    throw new Error('Creative prompt cannot be empty.');
+export async function getAIDesignerInsights(structuredPrompt, goalQuantity = 100) {
+  if (!structuredPrompt || typeof structuredPrompt !== 'object') {
+    throw new Error('Structured prompt must be an object with required fields.');
   }
+
+  const { itemDescription, frontDesign, backDesign, modelDetails } = structuredPrompt;
+
+  if (!itemDescription || !frontDesign || !backDesign || !modelDetails) {
+    throw new Error('All prompt fields (itemDescription, frontDesign, backDesign, modelDetails) are required.');
+  }
+
   if (!process.env.OPENAI_API_KEY) {
     console.error("OPENAI_API_KEY is not set.");
     throw new Error("OpenAI API key is not configured.");
   }
 
   let promptJsonData;
+  let estimatedCost = null;
+  let suggestedPrice = null;
+  let estimatedShippingWeeks = null;
 
   // Step 1: Get Structured Item Details
   try {
@@ -90,18 +112,22 @@ export async function getAIDesignerInsights(creativePrompt, goalQuantity = 100) 
     const itemDetailsMessages = [
       {
         role: "system",
-        content: `You are an AI fashion designer and prompt architect. Based on the user's creative idea, generate a structured JSON object describing a single clothing item. Your response should include:
+        content: `You are an AI fashion designer and prompt architect. Based on the structured design details, generate a JSON object describing the clothing item. Your response should include:
         1. A catchy, marketable name for the item
         2. A clear, concise description
         3. The type of clothing item (matching one of these exact values: ${ITEM_TYPES.map(t => t.value).join(', ')})
-        4. Visual details like colors, patterns, graphics
-        5. Suggested materials
+        4. Visual details for both front and back views
+        5. Suggested materials and construction details
 
-        If the user describes multiple items, focus on the main/primary item only.`
+        Focus on creating a cohesive design that incorporates all the provided details.`
       },
       {
         role: "user",
-        content: `Creative Idea: "${creativePrompt}"`
+        content: `Design Details:
+        Main Item: ${itemDescription}
+        Front Design: ${frontDesign}
+        Back Design: ${backDesign}
+        Model: ${modelDetails}`
       }
     ];
 
@@ -119,19 +145,11 @@ export async function getAIDesignerInsights(creativePrompt, goalQuantity = 100) 
             itemType: { type: "string", description: "Type of clothing item" },
             productType: { type: "string", description: "The type of clothing item (for image generation)" },
             baseColor: { type: "string", description: "Primary color of the item" },
-            graphics: {
-              type: "array",
-              items: {
-                type: "object",
-                properties: {
-                  placement: { type: "string" },
-                  description: { type: "string" },
-                  visibility: { type: "array", items: { type: "string" } }
-                }
-              }
-            }
+            frontDetails: { type: "string", description: "Description of front design elements" },
+            backDetails: { type: "string", description: "Description of back design elements" },
+            materials: { type: "array", items: { type: "string" }, description: "Suggested materials" }
           },
-          required: ["name", "description", "itemType", "productType", "baseColor", "graphics"]
+          required: ["name", "description", "itemType", "productType", "baseColor", "frontDetails", "backDetails"]
         }
       }],
       function_call: { name: "generateClothingItemDetails" }
@@ -139,8 +157,13 @@ export async function getAIDesignerInsights(creativePrompt, goalQuantity = 100) 
 
     const itemMessage = response.choices[0].message;
     if (itemMessage.function_call && itemMessage.function_call.arguments) {
-      promptJsonData = JSON.parse(itemMessage.function_call.arguments);
-      console.log("[AI Insights] Step 1 successful. promptJsonData obtained:", promptJsonData);
+      try {
+        promptJsonData = JSON.parse(itemMessage.function_call.arguments);
+        console.log("[AI Insights] Step 1 successful. promptJsonData obtained:", promptJsonData);
+      } catch (parseError) {
+        console.error("[AI Insights] JSON parse error:", parseError);
+        throw new Error("Failed to parse AI response into valid JSON");
+      }
     } else {
       console.error("[AI Insights] Step 1 Failed: OpenAI response did not include expected function call for item details.", response);
       throw new Error("AI did not return structured item details.");
@@ -154,34 +177,26 @@ export async function getAIDesignerInsights(creativePrompt, goalQuantity = 100) 
   }
 
   // Step 2: Estimate Cost
-let estimatedCost = null;
-try {
-  console.log("[AI Insights] Step 2: Estimating production cost...");
+  try {
+    console.log("[AI Insights] Step 2: Estimating production cost...");
 
-  const itemDescriptionForCost = `
+    const itemDescriptionForCost = `
 Item: ${promptJsonData.name || 'N/A'}
 Type: ${promptJsonData.itemType || 'N/A'}
 Description: ${promptJsonData.description || 'N/A'}
-Graphics: ${promptJsonData.graphics?.map(g => g.description).join(', ') || 'None'}
-Materials: ${promptJsonData.suggestedMaterials?.join(', ') || 'Cotton'}
-Weight: ${promptJsonData.weight || 'Medium'}
-Add-ons: ${promptJsonData.embellishments?.join(', ') || 'None'}
+Materials: ${promptJsonData.materials?.join(', ') || 'Cotton'}
 `.trim();
 
-  const costMessages = [
-    {
-      role: "system",
-      content: `
+    const costMessages = [
+      {
+        role: "system",
+        content: `
 You are a production cost estimator for high-quality clothing manufactured in Portugal.
 
 Your job is to:
 1. Estimate the base manufacturing cost (materials + labor) of the main item.
 2. Add $5.00 USD to account for landed logistics (duties, shipping).
 3. Return ONLY the final landed cost, rounded **up** and ending in ".95" (e.g., 22.95).
-
-🧾 Internal Breakdown (mentally, not in output): 
-- Evaluate complexity based on item type, fabric weight, and embellishments.
-- Add $5 flat shipping/logistics after that.
 
 📊 Reference Examples (landed cost):
 - Basic cotton t-shirt: $7.95
@@ -191,41 +206,34 @@ Your job is to:
 
 Return only a number like: 18.95 — no text, symbols, or breakdown.
       `.trim()
-    },
-    {
-      role: "user",
-      content: itemDescriptionForCost
-    }
-  ];
+      },
+      {
+        role: "user",
+        content: itemDescriptionForCost
+      }
+    ];
 
-  const costResponse = await openai.chat.completions.create({
-    model: "gpt-4-0613",
-    messages: costMessages,
-    temperature: 0.2,
-  });
+    const costResponse = await openai.chat.completions.create({
+      model: "gpt-4-0613",
+      messages: costMessages,
+      temperature: 0.2,
+    });
 
-  const costText = costResponse.choices[0].message.content;
-  if (costText) {
-    console.log("[AI Insights] Raw cost text from OpenAI:", costText);
-    const match = costText.match(/\d+(\.\d{1,2})?/);
-    if (match && match[0]) {
-      estimatedCost = parseFloat(match[0]);
-      console.log(`[AI Insights] Step 2 successful. Estimated cost: ${estimatedCost}`);
-    } else {
-      console.warn("[AI Insights] Step 2: Could not parse numerical cost from OpenAI response:", costText);
+    const costText = costResponse.choices[0].message.content;
+    if (costText) {
+      const match = costText.match(/\d+\.\d+/);
+      if (match) {
+        estimatedCost = parseFloat(match[0]);
+        suggestedPrice = Math.ceil((estimatedCost * 2.5) / 5) * 5 - 0.05;
+        console.log(`[AI Insights] Step 2 successful. Estimated cost: $${estimatedCost}, Suggested price: $${suggestedPrice}`);
+      }
     }
-  } else {
-    console.warn("[AI Insights] Step 2: No content in OpenAI cost estimation response.");
+  } catch (error) {
+    console.error("[AI Insights] Step 2 Error: Failed to estimate cost:", error);
+    // Don't throw, allow flow to continue with null cost/price
   }
-} catch (error) {
-  console.error("[AI Insights] Step 2 Error: Failed to estimate cost from OpenAI:", error);
-  if (error instanceof OpenAI.APIError) {
-    console.error(`OpenAI API Error (Cost Estimation): ${error.status} ${error.name} - ${error.message}`);
-  }
-}
 
   // Step 3: Calculate Suggested Price
-  let suggestedPrice = null;
   if (estimatedCost !== null && !isNaN(estimatedCost)) {
     suggestedPrice = parseFloat((estimatedCost * 2.0).toFixed(2));
     console.log(`[AI Insights] Step 3 successful. Suggested price (2x landed margin): ${suggestedPrice}`);
@@ -234,7 +242,6 @@ Return only a number like: 18.95 — no text, symbols, or breakdown.
   }
 
   // Step 4: Estimate Shipping Time
-  let estimatedShippingWeeks = null;
   try {
     console.log("[AI Insights] Step 4: Estimating shipping time...");
     const shippingMessages = [
@@ -282,72 +289,69 @@ Return only a number like: 18.95 — no text, symbols, or breakdown.
 } 
 
 export async function generateImageWithOpenAI(prompt, options = {}) {
-  if (!prompt || typeof prompt !== 'string' || prompt.trim() === '') {
-    throw new Error('Prompt cannot be empty for OpenAI image generation.');
-  }
   if (!process.env.OPENAI_API_KEY) {
     console.error("OPENAI_API_KEY is not set.");
     throw new Error("OpenAI API key is not configured for image generation.");
   }
 
   try {
-    console.log("[OpenAI Service] Generating multi-angle image with GPT-Image-1 for prompt:", prompt);
+    console.log("[OpenAI Service] Generating dual-panel landscape image");
     
     // Default options
     const {
       model = "gpt-image-1",
-      size = "1024x1024",
-      promptJsonData = null,
-      background = "auto", // 'auto', 'transparent', or 'opaque'
-      quality = process.env.OPENAI_IMAGE_QUALITY || "low" // Use env variable with fallback
+      size = "1536x1024", // Updated for landscape format
+      itemDescription = '',
+      frontDesign = '',
+      backDesign = '',
+      modelDetails = '',
+      background = "auto",
+      quality = process.env.OPENAI_IMAGE_QUALITY || "high" // Default to high quality
     } = options;
-
-    // Log the quality being used
-    console.log("[OpenAI Service] Using image quality:", quality);
-
-    // Validate options
-    if (size !== "1024x1024") {
-      throw new Error("gpt-image-1 only supports 1024x1024 size");
-    }
 
     // Validate quality
     if (!["low", "high", "medium"].includes(quality)) {
-      console.warn("[OpenAI Service] Invalid quality setting:", quality, "defaulting to low");
-      quality = "low";
+      console.warn("[OpenAI Service] Invalid quality setting:", quality, "defaulting to high");
+      quality = "high";
     }
 
-    // Create a composite prompt that shows all angles in a 2x2 grid
-    const compositePrompt = `Create a professional multi-angle fashion catalog image in a 2x2 layout. Each quadrant should show the same human **runway model** wearing the clothing item in a different angle, captured in a **full-body shot**.
+    const landscapePrompt = `
+Generate a high-resolution horizontal (landscape) image, sized exactly 1536x1024 pixels, divided into two vertical panels of equal width.
 
-    Views to display:
-    - Top Left: Front view (full body)
-    - Top Right: Right 3/4 view (full body)
-    - Bottom Left: Left 3/4 view (full body)
-    - Bottom Right: Back view (full body)
-    
-    All views should:
-    - Use consistent studio lighting and a minimal background
-    - Feature the same model in subtle pose variations that match the angle
-    - Keep the clothing clearly visible and centered
-    - Show full-body proportions (head to toe), not cropped
-    
-    Do not add labels, borders, or text — only the four clean, evenly spaced full-body shots in a 2x2 layout.
-    
-    Clothing description: ${prompt}
-    
-    ${promptJsonData ? `Please incorporate these specific design elements into the item shown: ${JSON.stringify(promptJsonData.graphics || [])}` : ''}
-    `;   
+Both panels must feature the same hyperrealistic runway model wearing the exact same clothing item. The image should appear professionally photographed under consistent **studio lighting** with a **clean, neutral background**. The background must be plain and free of any props, scenery, textures, or visual distractions.
+
+🔹 Left Panel (Front View):
+Display the model facing directly forward, showcasing the front of a ${itemDescription}.
+The front design should include: ${frontDesign}
+
+🔹 Right Panel (Back View):
+Display the same model facing directly backward, showcasing the back of the same ${itemDescription}.
+The back design should include: ${backDesign}
+
+🧍 Model Appearance:
+The same model must appear in both panels. Appearance details: ${modelDetails}
+
+🔧 Image Requirements:
+- Use identical studio conditions across both panels (lighting, pose style, camera distance, proportions)
+- Match professional fashion catalog or editorial photography standards
+- The clothing should be faithfully rendered from both sides
+- Text or lettering printed on the clothing (e.g., logos, mottos, crests) is welcome and encouraged if described
+- Do **not** include any unrelated UI text, captions, labels, borders, watermarks, shadows, or props
+- The **background must remain clean and neutral** in both panels — no gradients, patterns, or depth of field effects
+
+🎯 Final Output:
+A clean, high-quality, side-by-side comparison of the same item viewed from front and back, using studio photography style and the same model throughout.
+`.trim();
 
     const response = await openai.images.generate({
       model,
-      prompt: compositePrompt,
+      prompt: landscapePrompt,
       n: 1,
-      size,
+      size: "1536x1024", // Fixed size for landscape format
       background,
-      quality // Add the quality parameter
+      quality
     });
 
-    // Check for either URL or base64 data in the response
     const imageData = response.data[0];
     console.log("[OpenAI Service] Response data format:", {
       hasUrl: !!imageData.url,
@@ -357,22 +361,21 @@ export async function generateImageWithOpenAI(prompt, options = {}) {
     });
 
     if (imageData.url) {
-      console.log("[OpenAI Service] GPT-Image-1 multi-angle image URL received successfully.");
+      console.log("[OpenAI Service] Landscape dual-panel image URL received successfully.");
       return imageData.url;
     } else if (imageData.b64_json) {
-      console.log("[OpenAI Service] GPT-Image-1 multi-angle image base64 data received successfully.");
-      // Return the raw base64 string
+      console.log("[OpenAI Service] Landscape dual-panel image base64 data received successfully.");
       return imageData.b64_json;
     } else {
-      console.error("[OpenAI Service] GPT-Image-1 did not return valid image data.", response);
-      throw new Error("Failed to get valid image data from GPT-Image-1.");
+      console.error("[OpenAI Service] Did not return valid image data.", response);
+      throw new Error("Failed to get valid image data from OpenAI.");
     }
 
   } catch (error) {
-    console.error("[OpenAI Service] Error generating multi-angle image with GPT-Image-1:", error);
+    console.error("[OpenAI Service] Error generating landscape dual-panel image:", error);
     if (error instanceof OpenAI.APIError) {
-      throw new Error(`OpenAI API Error (GPT-Image-1): ${error.status} ${error.name} - ${error.message}`);
+      throw new Error(`OpenAI API Error: ${error.status} ${error.name} - ${error.message}`);
     }
-    throw new Error("Failed to generate multi-angle image using GPT-Image-1.");
+    throw new Error("Failed to generate landscape dual-panel image.");
   }
 } 

@@ -1,7 +1,5 @@
 export const ANGLES = {
   FRONT: 'front',
-  RIGHT_SIDE: 'right_side',
-  LEFT_SIDE: 'left_side',
   BACK: 'back'
 };
 

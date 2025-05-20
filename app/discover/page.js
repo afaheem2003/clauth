@@ -51,6 +51,10 @@ export default function DiscoverPage() {
   const pageSafe = Math.min(page, totalPages);
   const pagedItems = filteredItems.slice((pageSafe - 1) * PER_PAGE, pageSafe * PER_PAGE);
 
+  const handleItemSoftDeleted = (deletedItemId) => {
+    setClothingItems(prevItems => prevItems.filter(item => item.id !== deletedItemId));
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -136,7 +140,11 @@ export default function DiscoverPage() {
               <>
                 <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-5 gap-8">
                   {pagedItems.map(item => (
-                    <ClothingItemCard key={item.id} clothingItem={item} />
+                    <ClothingItemCard 
+                      key={item.id} 
+                      clothingItem={item} 
+                      onItemSoftDeleted={handleItemSoftDeleted}
+                    />
                   ))}
                 </div>
 

@@ -15,7 +15,13 @@ import NotFound from '@/app/not-found'; // Assuming a generic not-found page
 import BigSpinner from '@/components/common/BigSpinner';
 import CountdownGoalStatus from '@/components/clothing/CountdownGoalStatus';
 import ImageGallery from '@/components/clothing/ImageGallery';
-import ImageModal from '@/components/clothing/ImageModal';
+import ImageModal from '@/app/components/clothing/ImageModal';
+import { ANGLES } from '@/utils/imageProcessing';
+import { loadStripe } from '@stripe/stripe-js'; // Import loadStripe
+
+// Initialize Stripe.js with your publishable key outside of the component render cycle
+// It's a good practice to use an environment variable for your Stripe publishable key
+const stripePromise = loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY);
 
 export default function ClothingItemDetailPage() {
   const router = useRouter();
@@ -28,6 +34,7 @@ export default function ClothingItemDetailPage() {
   const [hasLiked, setHasLiked] = useState(false);
   const [comments, setComments] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [checkoutLoading, setCheckoutLoading] = useState(false);
   const [error, setError] = useState(null);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [isImageModalOpen, setIsImageModalOpen] = useState(false);
@@ -110,13 +117,57 @@ export default function ClothingItemDetailPage() {
     }
   };
 
-  const handlePreorder = () => {
-    if (status !== 'authenticated') {
-      router.push('/login');
-      return;
-    }
+  const handlePreorder = async () => {
     if (!clothingItem) return;
-    router.push(`/checkout?clothingItemId=${clothingItemId}&returnTo=/clothing/${clothingItemId}`);
+
+    setCheckoutLoading(true);
+    setError(null); // Clear previous errors
+
+    // For guest checkouts, you might want to collect email on this page
+    // or rely on Stripe to do it. For now, we'll pass null or an empty string.
+    // If session exists and you want to prefill email for logged-in users:
+    const userEmail = session?.user?.email || null;
+
+    try {
+      const response = await fetch('/api/checkout', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          clothingItemId: clothingItem.id,
+          imageUrl: clothingItem.frontImage || clothingItem.imageUrl, // Send an appropriate image
+          quantity: 1, // Or allow quantity selection
+          returnTo: `/clothing/${clothingItem.id}`, // Return to the current page
+          guestEmail: userEmail, // Pass user's email if logged in, or null/undefined for guest
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || 'Could not initiate checkout. Please try again.');
+      }
+
+      const { sessionId } = await response.json();
+      if (!sessionId) {
+        throw new Error('Checkout session ID not found.');
+      }
+
+      const stripe = await stripePromise;
+      if (!stripe) {
+        throw new Error('Stripe.js failed to load.');
+      }
+
+      const { error: stripeError } = await stripe.redirectToCheckout({ sessionId });
+
+      if (stripeError) {
+        console.error("Stripe redirectToCheckout error:", stripeError);
+        setError(stripeError.message || 'Failed to redirect to Stripe. Please try again.');
+      }
+    } catch (err) {
+      console.error("Preorder error:", err);
+      setError(err.message || 'An unexpected error occurred.');
+    } finally {
+      setCheckoutLoading(false);
+    }
   };
   
   const handleDelete = async () => {
@@ -191,7 +242,13 @@ export default function ClothingItemDetailPage() {
           {/* Image Gallery Section */} 
           <div className="md:w-1/2">
             <ImageGallery 
-              images={{ imageUrl, frontImage, rightImage, leftImage, backImage }}
+              images={{ 
+                imageUrl: imageUrl, // Keep for legacy fallback in ImageGallery
+                [ANGLES.FRONT]: frontImage, 
+                [ANGLES.BACK]: backImage, 
+                // You could also add rightImage and leftImage here if the gallery supported them
+                // e.g., right: rightImage, left: leftImage 
+              }}
               onImageClick={openImageModal}
             />
           </div>
@@ -201,8 +258,8 @@ export default function ClothingItemDetailPage() {
             <div>
               <h1 className="text-3xl md:text-4xl font-bold text-gray-800 mb-2">{name}</h1>
               {price && <p className="text-2xl text-purple-600 font-semibold mb-3">${Number(price).toFixed(2)}</p>}
-              <Link href={`/user/${creator?.displayName || creator?.id}`} legacyBehavior>
-                <a className="text-lg text-purple-500 hover:text-purple-700 mb-4 block">By {creator?.displayName || creator?.name || 'Anonymous Creator'}</a>
+              <Link href={`/user/${creator?.displayName || creator?.id}`} className="text-lg text-purple-500 hover:text-purple-700 mb-4 block">
+                By {creator?.displayName || creator?.name || 'Anonymous Creator'}
               </Link>
 
               {/* Countdown Status */}
@@ -242,8 +299,8 @@ export default function ClothingItemDetailPage() {
               </div>
 
               {canPreorder && (
-                <Button onClick={handlePreorder} fullWidth primary disabled={loading || status==='unauthenticated'}>
-                  Preorder Now
+                <Button onClick={handlePreorder} fullWidth primary disabled={loading || checkoutLoading}>
+                  {checkoutLoading ? 'Processing...' : 'Preorder Now'}
                 </Button>
               )}
               {!isPublished && isOwner && (
@@ -285,7 +342,14 @@ export default function ClothingItemDetailPage() {
         {/* Image Modal */}
         {isImageModalOpen && (
           <ImageModal
-            images={{ imageUrl, frontImage, rightImage, leftImage, backImage }}
+            images={{ 
+              imageUrl: imageUrl, // For legacy fallback in ImageModal
+              [ANGLES.FRONT]: frontImage, 
+              [ANGLES.BACK]: backImage, 
+              // Pass other angles if ImageModal is ever designed to use them
+              // right: rightImage,
+              // left: leftImage
+            }}
             initialIndex={modalImageIndex}
             onClose={closeImageModal}
           />

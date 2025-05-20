@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth/next";
 import Stripe from "stripe";
 import { authOptions } from "@/lib/authOptions";
+import prisma from "@/lib/prisma";
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, {
   apiVersion: "2022-11-15",
@@ -22,10 +23,27 @@ export async function POST(req) {
   const priceInCents = 5499;
   const origin = req.headers.get("origin");
 
+  // --- Fetch Clothing Item Name ---
+  let clothingItemName = 'Clothing Item'; // Default name
+  if (clothingItemId) {
+    try {
+      const item = await prisma.clothingItem.findUnique({
+        where: { id: clothingItemId },
+        select: { name: true, price: true },
+      });
+      if (item && item.name) {
+        clothingItemName = item.name;
+      }
+    } catch (dbError) {
+      console.error("Error fetching clothing item details:", dbError);
+    }
+  }
+  // --- End Fetch Clothing Item Name ---
+
   const base = origin + returnTo;
   const successUrl = `${base}?success=true&clothingItemId=${clothingItemId}`;
   const cancelUrl = `${base}?canceled=true&clothingItemId=${clothingItemId}`;
-  const fullImage = imageUrl.startsWith("http") ? imageUrl : `${origin}${imageUrl}`;
+  const fullImage = imageUrl && imageUrl.startsWith("http") ? imageUrl : `${origin}${imageUrl || ''}`;
 
   try {
     const checkoutSession = await stripe.checkout.sessions.create({
@@ -37,8 +55,8 @@ export async function POST(req) {
             currency: "usd",
             unit_amount: priceInCents,
             product_data: {
-              name: `Pre-order Clothing Item (${clothingItemId})`,
-              images: [fullImage],
+              name: clothingItemName,
+              images: [fullImage].filter(Boolean),
             },
           },
           quantity: qty,

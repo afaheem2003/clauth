@@ -1,98 +1,70 @@
-import { useEffect, useState } from 'react';
+import { useEffect } from 'react';
 import Image from 'next/image';
-import { XMarkIcon, ChevronLeftIcon, ChevronRightIcon } from '@heroicons/react/24/outline';
+import { XMarkIcon } from '@heroicons/react/24/outline';
+import { ANGLES } from '@/utils/imageProcessing';
 
-export default function ImageModal({ images, initialIndex = 0, onClose }) {
-  const [currentIndex, setCurrentIndex] = useState(initialIndex);
-
-  // Filter out any null/undefined images and create labeled entries
-  const availableImages = [
-    ...(images.imageUrl ? [{ url: images.imageUrl, label: 'Main' }] : []),
-    ...(images.frontImage ? [{ url: images.frontImage, label: 'Front' }] : []),
-    ...(images.rightImage ? [{ url: images.rightImage, label: 'Right' }] : []),
-    ...(images.leftImage ? [{ url: images.leftImage, label: 'Left' }] : []),
-    ...(images.backImage ? [{ url: images.backImage, label: 'Back' }] : []),
-  ].filter(img => img.url);
-
+export default function ImageModal({ images, onClose }) {
   useEffect(() => {
     const handleKeyDown = (e) => {
       if (e.key === 'Escape') onClose();
-      if (e.key === 'ArrowRight') nextImage();
-      if (e.key === 'ArrowLeft') previousImage();
     };
 
     document.addEventListener('keydown', handleKeyDown);
     return () => document.removeEventListener('keydown', handleKeyDown);
   }, [onClose]);
 
-  const nextImage = () => {
-    setCurrentIndex((prev) => (prev + 1) % availableImages.length);
-  };
-
-  const previousImage = () => {
-    setCurrentIndex((prev) => (prev - 1 + availableImages.length) % availableImages.length);
-  };
+  // Filter to only front and back images
+  const availableImages = [
+    ...(images[ANGLES.FRONT] ? [{ url: images[ANGLES.FRONT], label: 'Front' }] : []),
+    ...(images[ANGLES.BACK] ? [{ url: images[ANGLES.BACK], label: 'Back' }] : []),
+    // Legacy support - if no front/back images, use main image
+    ...(!images[ANGLES.FRONT] && !images[ANGLES.BACK] && images.imageUrl ? [{ url: images.imageUrl, label: 'Main' }] : []),
+  ].filter(img => img.url);
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-90 z-50 flex items-center justify-center">
+    <div className="fixed inset-0 bg-black bg-opacity-90 z-50 flex items-center justify-center p-4">
       <button
         onClick={onClose}
-        className="absolute top-4 right-4 text-white hover:text-gray-300 transition-colors"
+        className="absolute top-4 right-4 text-white hover:text-gray-300 z-10"
       >
-        <XMarkIcon className="w-8 h-8" />
+        <XMarkIcon className="h-8 w-8" />
       </button>
 
-      <div className="relative w-full h-full flex items-center justify-center">
-        {/* Main Image */}
-        <div className="relative w-full h-full max-w-7xl max-h-[90vh] mx-4">
+      {/* For 2-panel layout, show both images side by side if we have both */}
+      {availableImages.length >= 2 ? (
+        <div className="w-full max-w-6xl grid grid-cols-2 gap-4">
+          {availableImages.slice(0, 2).map((img, idx) => (
+            <div key={idx} className="relative aspect-[3/4]">
+              <Image
+                src={img.url}
+                alt={`${img.label} view`}
+                fill
+                className="object-contain"
+                priority
+                unoptimized
+              />
+              <div className="absolute top-4 right-4 bg-black/50 text-white px-3 py-1 rounded-full">
+                {img.label}
+              </div>
+            </div>
+          ))}
+        </div>
+      ) : (
+        // If we only have one image, show it full width
+        <div className="w-full max-w-3xl aspect-[3/4] relative">
           <Image
-            src={availableImages[currentIndex].url}
-            alt={`${availableImages[currentIndex].label} view`}
+            src={availableImages[0].url}
+            alt={`${availableImages[0].label} view`}
             fill
             className="object-contain"
             priority
             unoptimized
           />
-          
-          {/* Angle Label */}
-          <div className="absolute top-4 left-4 bg-black/50 text-white px-3 py-1 rounded-full">
-            {availableImages[currentIndex].label}
+          <div className="absolute top-4 right-4 bg-black/50 text-white px-3 py-1 rounded-full">
+            {availableImages[0].label}
           </div>
         </div>
-
-        {/* Navigation Arrows */}
-        {availableImages.length > 1 && (
-          <>
-            <button
-              onClick={previousImage}
-              className="absolute left-4 top-1/2 -translate-y-1/2 bg-black/50 text-white p-2 rounded-full hover:bg-black/70 transition-colors"
-            >
-              <ChevronLeftIcon className="w-8 h-8" />
-            </button>
-            <button
-              onClick={nextImage}
-              className="absolute right-4 top-1/2 -translate-y-1/2 bg-black/50 text-white p-2 rounded-full hover:bg-black/70 transition-colors"
-            >
-              <ChevronRightIcon className="w-8 h-8" />
-            </button>
-          </>
-        )}
-
-        {/* Thumbnail Navigation */}
-        {availableImages.length > 1 && (
-          <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex justify-center gap-3">
-            {availableImages.map((img, idx) => (
-              <button
-                key={idx}
-                onClick={() => setCurrentIndex(idx)}
-                className={`w-3 h-3 rounded-full transition-colors ${
-                  idx === currentIndex ? 'bg-white' : 'bg-gray-500'
-                }`}
-              />
-            ))}
-          </div>
-        )}
-      </div>
+      )}
     </div>
   );
 } 

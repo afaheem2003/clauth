@@ -34,24 +34,27 @@ export default function DesignPage() {
   // Core item details to be filled by user in Stage 2
   const [itemName, setItemName] = useState('');
   const [description, setDescription] = useState('');
-  const [itemType, setItemType] = useState(''); // This might be pre-filled by AI from promptJsonData
+  const [itemType, setItemType] = useState('');
   
-  // Creative prompt for AI generation
-  const [creativePrompt, setCreativePrompt] = useState('');
+  // New structured prompt fields
+  const [itemDescription, setItemDescription] = useState('');
+  const [frontDesign, setFrontDesign] = useState('');
+  const [backDesign, setBackDesign] = useState('');
+  const [modelDetails, setModelDetails] = useState('');
 
   // Data from AI
-  const [promptJsonData, setPromptJsonData] = useState(null); // Stores the structured JSON for visuals & details
+  const [promptJsonData, setPromptJsonData] = useState(null);
   const [estimatedCost, setEstimatedCost] = useState(null);
   const [suggestedPrice, setSuggestedPrice] = useState(null);
   const [generatedImageUrls, setGeneratedImageUrls] = useState(null);
   const [imageService, setImageService] = useState('stability');
   const [imageOptions, setImageOptions] = useState({
-    size: "1024x1024",
+    size: "1536x1024", // Updated for landscape format
     background: "auto",
-    quality: process.env.NEXT_PUBLIC_OPENAI_IMAGE_QUALITY || "low" // Use env variable with fallback
+    quality: process.env.NEXT_PUBLIC_OPENAI_IMAGE_QUALITY || "high"
   });
   
-  const [loadingState, setLoadingState] = useState(null); // 'generate', 'save', 'publish'
+  const [loadingState, setLoadingState] = useState(null);
   const [errorMessage, setErrorMessage] = useState('');
 
   // Cycling placeholder logic
@@ -123,19 +126,20 @@ export default function DesignPage() {
 
   // Function to cycle through angles
   const cycleAngle = () => {
-    const angles = Object.values(ANGLES);
-    const currentIndex = angles.indexOf(currentAngle);
-    const nextIndex = (currentIndex + 1) % angles.length;
-    setCurrentAngle(angles[nextIndex]);
+    setCurrentAngle(currentAngle === ANGLES.FRONT ? ANGLES.BACK : ANGLES.FRONT);
   };
+
+  // New fields for the 2-panel design
+  const [frontText, setFrontText] = useState('');
+  const [backText, setBackText] = useState('');
 
   async function generateAIInsightsAndImage() {
     if (status !== 'authenticated') {
       setErrorMessage('Please log in to design clothing items.');
       return;
     }
-    if (!creativePrompt.trim()) {
-      setErrorMessage('Please enter a creative prompt.');
+    if (!itemDescription.trim()) {
+      setErrorMessage('Please describe the main clothing item.');
       return;
     }
     setLoadingState('generate');
@@ -147,11 +151,19 @@ export default function DesignPage() {
     setSuggestedPrice(null);
 
     try {
-      console.log("[DesignPage] Calling /api/generate-clothing-json with:", creativePrompt.trim());
+      // Prepare the structured prompt data
+      const promptData = {
+        itemDescription: itemDescription.trim(),
+        frontDesign: frontDesign.trim(),
+        backDesign: backDesign.trim(),
+        modelDetails: modelDetails.trim()
+      };
+
+      console.log("[DesignPage] Calling /api/generate-clothing-json with:", promptData);
       const insightsRes = await fetch('/api/generate-clothing-json', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ creativePrompt: creativePrompt.trim() }),
+        body: JSON.stringify(promptData),
       });
 
       if (!insightsRes.ok) {
@@ -165,44 +177,29 @@ export default function DesignPage() {
         throw new Error('AI did not return valid structured data (promptJsonData missing).');
       }
       
-      // Set the promptJsonData - this will trigger the useEffect hook for auto-population
       setPromptJsonData(insightsData.promptJsonData);
       setEstimatedCost(insightsData.estimatedCost);
       setSuggestedPrice(insightsData.suggestedPrice);
 
-      // Remove direct field setting here since useEffect will handle it
-      // This prevents duplicate state updates
-
-      // Step 2: Prepare prompt for image generation.
-      // For image generation, use the user's original creative prompt to capture the full outfit context if provided.
-      const imageGenerationPrompt = creativePrompt.trim(); // Use the original, full prompt for the image.
-      console.log("[DesignPage] Prompt for image generation (original creative prompt):", imageGenerationPrompt);
-      
-      // The promptJsonData (focused on the main item) will be used for structured data and for the sanitized prompt saved to DB.
-      // If a more complex composite prompt from the *main item* was needed for image gen, it would be different.
-      // For now, we assume the original prompt is best for Stability to visualize the (potentially) full scene.
-
-      // Step 3: Generate image using the imageGenerationPrompt
+      // Generate image using the structured prompt
       const imageRes = await fetch('/api/generate-stability', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
-          prompt: imageGenerationPrompt, 
+          promptData,
           userId: session.user.uid,
           service: imageService,
-          imageOptions: imageService === 'openai' ? imageOptions : undefined,
-          promptJsonData: insightsData.promptJsonData
+          imageOptions: imageService === 'openai' ? imageOptions : undefined
         }),
       });
 
       if (!imageRes.ok) {
         const errorData = await imageRes.json().catch(() => ({}));
-        throw new Error(errorData.error || 'Image generation failed. Please try a different prompt.');
+        throw new Error(errorData.error || 'Image generation failed. Please try different prompt details.');
       }
       const imageData = await imageRes.json();
       setGeneratedImageUrls(imageData.angleUrls);
       setTempItemId(imageData.tempItemId);
-      setCurrentAngle(ANGLES.FRONT); // Reset to front view
       console.log("[DesignPage] Images generated successfully:", imageData.angleUrls);
 
     } catch (err) {
@@ -245,8 +242,8 @@ export default function DesignPage() {
       itemType: itemType.trim(),
       imageUrls: generatedImageUrls,
       tempItemId,
-      promptRaw: creativePrompt.trim(),
-      promptSanitized: promptJsonData ? generateCompositePromptFromJSON(promptJsonData) : sanitizePrompt(creativePrompt.trim()),
+      promptRaw: frontDesign + backDesign + modelDetails,
+      promptSanitized: promptJsonData ? generateCompositePromptFromJSON(promptJsonData) : sanitizePrompt(frontDesign + backDesign + modelDetails),
       promptJsonData: promptJsonData ? JSON.stringify(promptJsonData) : null,
       cost: estimatedCost !== null && !isNaN(estimatedCost) ? Number(estimatedCost) : undefined,
       price: suggestedPrice !== null && !isNaN(suggestedPrice) ? Number(suggestedPrice) : undefined,
@@ -292,18 +289,58 @@ export default function DesignPage() {
 
         <div className="bg-white p-8 rounded-xl shadow-2xl">
           {!currentImageUrl ? (
-            // STAGE 1: Creative Prompt Input
+            // STAGE 1: Structured Prompt Input
             <div className="space-y-6">
               <div>
-                <h2 className="text-2xl font-semibold text-gray-800 mb-1">1. Describe Your Vision</h2>
-                <p className="text-sm text-gray-500 mb-2">Describe your clothing concept or full outfit, including model appearance. Please clearly indicate your main clothing item for sale (e.g., &apos;The main item is the jacket.&apos;). We&apos;ll visualize the full scene and use this main item for its specific details and financial estimates.</p>
-                <textarea
-                  value={creativePrompt}
-                  onChange={(e) => setCreativePrompt(e.target.value)}
-                  placeholder={currentPlaceholder}
-                  rows={5}
-                  className="w-full p-3 border border-slate-300 rounded-lg text-slate-700 placeholder-slate-400 text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 shadow-sm transition-all"
-                />
+                <h2 className="text-2xl font-semibold text-gray-800 mb-4">1. Describe Your Vision</h2>
+                
+                {/* Main Item Description */}
+                <div className="mb-6">
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Main Clothing Item</label>
+                  <input
+                    type="text"
+                    value={itemDescription}
+                    onChange={(e) => setItemDescription(e.target.value)}
+                    placeholder="e.g., oversized hoodie in charcoal grey"
+                    className="w-full p-3 border border-slate-300 rounded-lg text-slate-700 placeholder-slate-400 text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 shadow-sm transition-all"
+                  />
+                </div>
+
+                {/* Front Design Details */}
+                <div className="mb-6">
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Front Design Details</label>
+                  <textarea
+                    value={frontDesign}
+                    onChange={(e) => setFrontDesign(e.target.value)}
+                    placeholder="Describe what should appear on the front of the item"
+                    rows={3}
+                    className="w-full p-3 border border-slate-300 rounded-lg text-slate-700 placeholder-slate-400 text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 shadow-sm transition-all"
+                  />
+                </div>
+
+                {/* Back Design Details */}
+                <div className="mb-6">
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Back Design Details</label>
+                  <textarea
+                    value={backDesign}
+                    onChange={(e) => setBackDesign(e.target.value)}
+                    placeholder="Describe what should appear on the back of the item"
+                    rows={3}
+                    className="w-full p-3 border border-slate-300 rounded-lg text-slate-700 placeholder-slate-400 text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 shadow-sm transition-all"
+                  />
+                </div>
+
+                {/* Model Description */}
+                <div className="mb-6">
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Model Description</label>
+                  <input
+                    type="text"
+                    value={modelDetails}
+                    onChange={(e) => setModelDetails(e.target.value)}
+                    placeholder="e.g., tall male model with curly hair, neutral expression"
+                    className="w-full p-3 border border-slate-300 rounded-lg text-slate-700 placeholder-slate-400 text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 shadow-sm transition-all"
+                  />
+                </div>
               </div>
 
               {/* Image Generation Service Toggle */}
@@ -346,14 +383,14 @@ export default function DesignPage() {
                       </select>
                     </div>
                     <p className="text-xs text-gray-600 bg-gray-100 border border-gray-200 p-2 rounded-md">
-                      Note: GPT-Image-1 will generate a 1024x1024 image with all four views arranged in a grid layout.
+                      Note: GPT-Image-1 will generate a 1536x1024 landscape image with front and back views.
                     </p>
                   </div>
                 )}
               </div>
 
               <button
-                onClick={generateAIInsightsAndImage} // Changed function call
+                onClick={generateAIInsightsAndImage}
                 disabled={!!loadingState || status !== 'authenticated'}
                 className="w-full py-3 px-4 bg-gradient-to-r from-purple-600 to-pink-500 text-white font-semibold rounded-lg shadow-md hover:from-purple-700 hover:to-pink-600 transition-all duration-300 ease-in-out disabled:opacity-60 flex items-center justify-center text-lg"
               >
