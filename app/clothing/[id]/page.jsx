@@ -258,7 +258,7 @@ export default function ClothingItemDetailPage() {
             <div>
               <h1 className="text-3xl md:text-4xl font-bold text-gray-800 mb-2">{name}</h1>
               {price && <p className="text-2xl text-purple-600 font-semibold mb-3">${Number(price).toFixed(2)}</p>}
-              <Link href={`/user/${creator?.displayName || creator?.id}`} className="text-lg text-purple-500 hover:text-purple-700 mb-4 block">
+              <Link href={`/profile/${creator?.displayName || creator?.id}`} className="text-lg text-purple-500 hover:text-purple-700 mb-4 block">
                 By {creator?.displayName || creator?.name || 'Anonymous Creator'}
               </Link>
 

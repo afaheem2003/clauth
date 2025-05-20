@@ -44,72 +44,70 @@ export async function generateClothingPromptJSON(userDescription) {
   }
 }
 
-export function generateCompositePromptFromJSON(jsonData) {
-  if (!jsonData || typeof jsonData !== 'object') {
-    console.error("Invalid jsonData provided to generateCompositePromptFromJSON");
-    return "Error: Invalid JSON data.";
-  }
+/**
+ * Generates a composite prompt from the JSON data
+ * @param {Object} promptJsonData - The prompt JSON data
+ * @returns {string} - The composite prompt
+ */
+export function generateCompositePromptFromJSON(promptJsonData) {
+  const {
+    itemDescription,
+    frontText,
+    backText,
+    modelDetails,
+    style,
+    color,
+    texture
+  } = promptJsonData;
 
-  const { productType, baseColor, graphics } = jsonData;
+  const parts = [
+    itemDescription,
+    frontText && `Front: ${frontText}`,
+    backText && `Back: ${backText}`,
+    modelDetails && `Model: ${modelDetails}`,
+    style && `Style: ${style}`,
+    color && `Color: ${color}`,
+    texture && `Texture: ${texture}`
+  ].filter(Boolean);
 
-  if (!productType || !baseColor || !Array.isArray(graphics)) {
-    return `Generate a hyperrealistic image of a ${baseColor || ''} ${productType || 'clothing item'}. Focus on clear product presentation in studio lighting.`;
-  }
+  return parts.join('. ');
+}
+
+/**
+ * Generates the landscape prompt for image generation
+ * @param {Object} data - The prompt data
+ * @returns {string} - The formatted landscape prompt
+ */
+export function generateLandscapePrompt(data) {
+  const { mainClothingItem, parsed, modelDescription } = data;
   
-  const angles = {
-    topLeft: { name: "front view", visibleKeywords: ["front", "chest", "center"] },
-    topRight: { name: "left ¾ view", visibleKeywords: ["left", "sleeve", "side", "3/4", "¾"] },
-    bottomLeft: { name: "right ¾ view", visibleKeywords: ["right", "sleeve", "side", "3/4", "¾"] },
-    bottomRight: { name: "back view", visibleKeywords: ["back"] }
-  };
+  return `
+Generate a high-resolution horizontal (landscape) image, sized exactly 1536x1024 pixels, divided into two vertical panels of equal width.
 
-  let compositePrompt = `Generate a hyperrealistic 2x2 composite layout showing a runway model wearing the same ${baseColor} ${productType}. Use clean studio lighting, consistent model, and identical garment representation across all views. Ensure the product is the main focus.\n\nDescription of the ${productType}:\nBase garment: A ${baseColor} ${productType}.\n`;
+Both panels must feature the same hyperrealistic runway model wearing the exact same clothing item. The image should appear professionally photographed under consistent **studio lighting** with a **clean, neutral background**. The background must be plain and free of any props, scenery, textures, or visual distractions.
 
-  if (graphics.length > 0) {
-    compositePrompt += "Graphic elements:\n";
-    graphics.forEach(g => {
-      compositePrompt += `- ${g.description} on the ${g.placement}.\n`;
-    });
-  } else {
-    compositePrompt += "No specific graphics described, focus on the base garment\'s texture and form.\n";
-  }
-  
-  compositePrompt += "\nComposite Quadrants Details:\n";
+🔹 Left Panel (Front View):
+Display the model facing directly forward, showcasing the front of a ${mainClothingItem}.
+The front design should include: ${parsed.frontText}
 
-  function getVisibleGraphicsForAngle(angleKey, allGraphics) {
-    const visible = [];
-    // const angleKeywords = angles[angleKey] ? angles[angleKey].visibleKeywords : [];
-    
-    allGraphics.forEach(graphic => {
-      let isVisible = false;
-      if (graphic.visibility && Array.isArray(graphic.visibility)) {
-         if (graphic.visibility.some(v => angles[angleKey]?.name.toLowerCase().includes(v.replace('_', ' ').replace('3 4', '¾')))) {
-           isVisible = true;
-         }
-      }
-      
-      if (isVisible) {
-        visible.push(`${graphic.description} on the ${graphic.placement}`);
-      }
-    });
-    return visible;
-  }
+🔹 Right Panel (Back View):
+Display the same model facing directly backward, showcasing the back of the same ${mainClothingItem}.
+The back design should include: ${parsed.backText}
 
-  let tlGraphics = getVisibleGraphicsForAngle("topLeft", graphics);
-  compositePrompt += `- Top Left Quadrant (Front View): Shows the ${productType} from the front. Visible details: ${tlGraphics.length > 0 ? tlGraphics.join(", ") : 'standard front details of the garment'}.\n`;
+🧍 Model Appearance:
+The same model must appear in both panels. Appearance details: ${modelDescription}
 
-  let trGraphics = getVisibleGraphicsForAngle("topRight", graphics);
-  compositePrompt += `- Top Right Quadrant (Left ¾ View): Shows the ${productType} from the left three-quarter angle. Visible details: ${trGraphics.length > 0 ? trGraphics.join(", ") : 'standard left ¾ details of the garment'}.\n`;
+🔧 Image Requirements:
+- Use identical studio conditions across both panels (lighting, pose style, camera distance, proportions)
+- Match professional fashion catalog or editorial photography standards
+- The clothing should be faithfully rendered from both sides
+- Text or lettering printed on the clothing (e.g., logos, mottos, crests) is welcome and encouraged if described
+- Do **not** include any unrelated UI text, captions, labels, borders, watermarks, shadows, or props
+- The **background must remain clean and neutral** in both panels — no gradients, patterns, or depth of field effects
 
-  let blGraphics = getVisibleGraphicsForAngle("bottomLeft", graphics);
-  compositePrompt += `- Bottom Left Quadrant (Right ¾ View): Shows the ${productType} from the right three-quarter angle. Visible details: ${blGraphics.length > 0 ? blGraphics.join(", ") : 'standard right ¾ details of the garment'}.\n`;
-
-  let brGraphics = getVisibleGraphicsForAngle("bottomRight", graphics);
-  compositePrompt += `- Bottom Right Quadrant (Back View): Shows the ${productType} from the back. Visible details: ${brGraphics.length > 0 ? brGraphics.join(", ") : 'standard back details of the garment'}.\n`;
-
-  compositePrompt += "\nIMPORTANT REMINDER: Maintain the same model, lighting, garment details, and overall setup across all four views for a cohesive composite image. The garment should be accurately depicted with its specified color and graphics in each view according to what\'s visible.";
-  
-  return compositePrompt;
+Final Output:
+A clean, high-quality, side-by-side comparison of the same item viewed from front and back, using studio photography style and the same model throughout.
+`.trim();
 }
 
 /*

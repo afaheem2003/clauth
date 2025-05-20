@@ -21,7 +21,7 @@ function BigSpinner() {
 function Input({ label, value, setValue, type = "text", required = false, placeholder }) {
   return (
     <div className="w-full">
-      <label className="font-medium block text-xs mb-1 text-gray-800">
+      <label className="font-medium block text-sm mb-1.5 text-gray-700">
         {label} {required && <span className="text-red-500">*</span>}
       </label>
       <input
@@ -29,7 +29,7 @@ function Input({ label, value, setValue, type = "text", required = false, placeh
         placeholder={placeholder || label}
         value={value}
         onChange={(e) => setValue(e.target.value)}
-        className="w-full px-2 py-1.5 border rounded-md text-gray-800 placeholder-gray-400 text-sm focus:ring-2 focus:ring-indigo-500 outline-none"
+        className="w-full px-3 py-2 border-2 border-gray-200 rounded-lg text-gray-800 placeholder-gray-400 text-sm focus:ring-2 focus:ring-indigo-200 focus:border-indigo-300 outline-none bg-white/50"
         required={required}
       />
     </div>
@@ -39,7 +39,7 @@ function Input({ label, value, setValue, type = "text", required = false, placeh
 function ButtonGroup({ label, options, selected, setSelected, required = false }) {
   return (
     <div className="w-full">
-      <label className="font-medium block text-xs mb-1 text-gray-800">
+      <label className="font-medium block text-sm mb-1.5 text-gray-700">
         {label} {required && <span className="text-red-500">*</span>}
       </label>
       <div className="flex flex-wrap gap-2">
@@ -48,8 +48,10 @@ function ButtonGroup({ label, options, selected, setSelected, required = false }
             type="button"
             key={opt}
             onClick={() => setSelected(opt)}
-            className={`px-3 py-1.5 rounded-full border text-sm ${
-              selected === opt ? "bg-gray-900 text-white" : "bg-white text-gray-800 border-gray-300 hover:bg-gray-100"
+            className={`px-4 py-2 rounded-lg border-2 text-sm transition-all ${
+              selected === opt 
+                ? "bg-indigo-600 text-white border-indigo-600" 
+                : "bg-white/50 text-gray-600 border-gray-200 hover:border-indigo-300 hover:bg-indigo-50"
             }`}
           >
             {opt}
@@ -216,27 +218,35 @@ export default function SavedClothingItemCard({ clothingItem, setClothingItems }
 
   return (
     <>
-      <div className="relative group cursor-pointer w-full rounded-lg overflow-hidden shadow-md hover:shadow-xl transition-shadow" onClick={() => setIsModalOpen(true)}>
-        <Image 
-          src={imageUrl || '/images/clothing-item-placeholder.png'} 
-          alt={itemName || itemType || 'Clothing item draft'} 
-          width={320} 
-          height={320} 
-          unoptimized 
-          className="object-cover aspect-square rounded-lg" 
-        />
-        <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-40 transition-opacity flex items-center justify-center opacity-0 group-hover:opacity-100">
-          <p className="text-white font-semibold text-lg">Edit Draft</p>
+      <div className="relative w-full overflow-hidden rounded-lg bg-white shadow-lg group cursor-pointer transform transition-all duration-300 hover:shadow-2xl" onClick={() => setIsModalOpen(true)}>
+        <div className="relative w-full aspect-[3/4] overflow-hidden rounded-lg">
+          <Image 
+            src={imageUrl || '/images/clothing-item-placeholder.png'} 
+            alt={itemName || itemType || 'Clothing item draft'} 
+            width={320} 
+            height={320} 
+            unoptimized 
+            className="object-cover aspect-square rounded-lg" 
+          />
+          <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-40 transition-opacity flex items-center justify-center opacity-0 group-hover:opacity-100">
+            <p className="text-white font-semibold text-lg">Edit Draft</p>
+          </div>
+          
+          {/* Item Info */}
+          <div className="absolute bottom-0 left-0 right-0 bg-white/95 backdrop-blur-sm p-3">
+            <p className="font-semibold text-gray-800 truncate">{itemName || 'Untitled Design'}</p>
+            <p className="text-sm text-gray-600 mt-1">{itemType || 'Draft'}</p>
+          </div>
         </div>
       </div>
 
       <Modal
         isOpen={isModalOpen}
         onRequestClose={() => {
-          if (loadingButton) return; // Prevent closing while loading
+          if (loadingButton) return;
           setIsModalOpen(false);
-          setErrorMessage(""); // Clear error on close
-          setShowDeleteConfirm(false); // Reset delete confirm state
+          setErrorMessage("");
+          setShowDeleteConfirm(false);
         }}
         contentLabel="Edit Saved Clothing Item"
         style={{
@@ -255,85 +265,105 @@ export default function SavedClothingItemCard({ clothingItem, setClothingItems }
             maxHeight: "90vh",
             overflowY: "auto",
             borderRadius: "8px",
-            padding: "2rem", // Increased padding
+            padding: "2rem",
             border: "none",
             boxShadow: "0 10px 25px rgba(0,0,0,0.1)",
+            background: "white",
           },
         }}
       >
-        <button 
-          onClick={() => { if (!loadingButton) setIsModalOpen(false); }} 
-          disabled={!!loadingButton}
-          className="absolute top-4 right-4 text-gray-400 hover:text-gray-600 text-3xl leading-none"
-        >
-          &times;
-        </button>
-        <h2 className="text-3xl font-bold mb-6 text-center text-gray-800">Edit Your Design</h2>
-
-        {errorMessage && <p className="text-red-500 text-xs mt-2 mb-3 text-center">{errorMessage}</p>}
-
-        {/* Form Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4 mb-6">
-          {/* Left Column: Image + Regenerate */}
-          <div className="flex flex-col items-center md:items-start">
-            <div className="w-full max-w-xs aspect-square relative mb-3 shadow-lg rounded-lg overflow-hidden">
-              <Image 
-                src={imageUrl || '/images/clothing-item-placeholder.png'} 
-                alt={itemName || itemType || 'Generated clothing item'} 
-                fill
-                unoptimized 
-                className="object-cover" 
-              />
-            </div>
-            <button 
-              onClick={regenerateClothingItem} 
-              disabled={!!loadingButton} 
-              className="w-full max-w-xs py-2.5 bg-purple-600 text-white rounded-md hover:bg-purple-700 transition duration-150 ease-in-out flex items-center justify-center shadow-sm"
+        <div className="space-y-6">
+          <div className="flex justify-between items-start">
+            <h2 className="text-2xl font-bold text-gray-800">Edit Draft</h2>
+            <button
+              onClick={() => setIsModalOpen(false)}
+              className="text-gray-500 hover:text-gray-700"
             >
-              {loadingButton === "regenerate" ? <BigSpinner /> : "Regenerate Image"}
+              ✕
             </button>
           </div>
 
-          {/* Right Column: Inputs */}
-          <div className="space-y-3.5">
-            <Input label="Item Name" value={itemName} setValue={setItemName} required placeholder="e.g., Cosmic Hoodie"/>
-            <Input label="Item Type" value={itemType} setValue={setItemType} required placeholder="e.g., Hoodie, T-Shirt"/>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div>
-              <label className="font-medium block text-xs mb-1 text-gray-800">Description</label>
-              <textarea 
-                value={description} 
-                onChange={(e) => setDescription(e.target.value)}
-                placeholder="Describe key features or style (e.g., 'Organic cotton, vintage wash')"
-                className="w-full px-2 py-1.5 border rounded-md text-gray-800 placeholder-gray-400 text-sm focus:ring-2 focus:ring-indigo-500 outline-none"
-                rows={3}
+              <div className="relative aspect-square rounded-lg overflow-hidden border-2 border-gray-200 shadow-lg">
+                <Image
+                  src={imageUrl || '/images/clothing-item-placeholder.png'}
+                  alt={itemName || 'Clothing item preview'}
+                  fill
+                  unoptimized
+                  className="object-cover"
+                />
+              </div>
+              <button
+                onClick={regenerateClothingItem}
+                disabled={!!loadingButton}
+                className="w-full mt-4 py-2.5 px-4 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition disabled:opacity-50 flex items-center justify-center"
+              >
+                {loadingButton === "regenerate" ? <BigSpinner /> : "Regenerate Image"}
+              </button>
+            </div>
+
+            <div className="space-y-4">
+              <Input
+                label="Item Name"
+                value={itemName}
+                setValue={setItemName}
+                required
+                placeholder="Give your design a name"
+              />
+              <Input
+                label="Item Type"
+                value={itemType}
+                setValue={setItemType}
+                required
+                placeholder="e.g., T-shirt, Dress, Pants"
+              />
+              <Input
+                label="Description"
+                value={description}
+                setValue={setDescription}
+                placeholder="Describe your design"
+              />
+              <ButtonGroup
+                label="Texture"
+                options={TEXTURES}
+                selected={texture}
+                setSelected={setTexture}
+                required
+              />
+              <ButtonGroup
+                label="Size"
+                options={SIZES}
+                selected={size}
+                setSelected={setSize}
+                required
+              />
+              <Input
+                label="Color"
+                value={color}
+                setValue={setColor}
+                required
+                placeholder="e.g., Red, Blue, Black"
               />
             </div>
-            <ButtonGroup label="Texture" options={TEXTURES} selected={texture} setSelected={setTexture} required />
-            <Input label="Color" value={color} setValue={setColor} required placeholder="e.g., Galaxy Purple, Sunset Orange"/>
-            <ButtonGroup label="Size" options={SIZES} selected={size} setSelected={setSize} required />
           </div>
-        </div>
 
-        <div className="mt-8 pt-6 border-t">
           {showDeleteConfirm ? (
-            <div className="w-full p-4 bg-red-50 border-l-4 border-red-400 rounded">
-              <p className="text-sm text-red-600 italic mb-2">"{deleteQuote}"</p>
-              <p className="font-semibold text-red-700">Are you sure you want to permanently delete this draft?</p>
-              <p className="text-xs text-gray-500 mt-1">This action cannot be undone.</p>
-              <div className="mt-4 flex justify-end space-x-3">
-                <button 
-                  onClick={() => setShowDeleteConfirm(false)} 
-                  disabled={loadingButton === 'delete'}
-                  className="px-4 py-2 text-sm rounded-md border border-gray-300 hover:bg-gray-100 transition"
+            <div className="mt-6 p-4 bg-red-50 rounded-lg border border-red-200">
+              <p className="text-red-600 mb-4">{deleteQuote}</p>
+              <div className="flex justify-end space-x-3">
+                <button
+                  onClick={() => setShowDeleteConfirm(false)}
+                  className="px-4 py-2 text-gray-600 hover:text-gray-800"
                 >
                   Cancel
                 </button>
                 <button
                   onClick={deleteClothingItem}
-                  disabled={loadingButton === 'delete'}
-                  className="px-4 py-2 text-sm rounded-md bg-red-600 text-white hover:bg-red-700 transition flex items-center justify-center"
+                  disabled={!!loadingButton}
+                  className="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 transition disabled:opacity-50"
                 >
-                  {loadingButton === 'delete' ? <BigSpinner/> : "Yes, Delete It"}
+                  {loadingButton === "delete" ? <BigSpinner /> : "Confirm Delete"}
                 </button>
               </div>
             </div>
@@ -352,7 +382,7 @@ export default function SavedClothingItemCard({ clothingItem, setClothingItems }
                   type="button"
                   onClick={() => updateClothingItem(false)}
                   disabled={!!loadingButton || !itemName.trim() || !itemType.trim() || !imageUrl}
-                  className="px-5 py-2.5 rounded-md bg-gray-200 text-gray-800 hover:bg-gray-300 transition disabled:opacity-50 w-full flex items-center justify-center"
+                  className="px-5 py-2.5 rounded-md bg-indigo-600 text-white hover:bg-indigo-700 transition disabled:opacity-50 w-full flex items-center justify-center"
                 >
                   {loadingButton === "update" ? <BigSpinner /> : "Save Draft"}
                 </button>
@@ -360,13 +390,16 @@ export default function SavedClothingItemCard({ clothingItem, setClothingItems }
                   type="button"
                   onClick={() => updateClothingItem(true)}
                   disabled={!!loadingButton || !itemName.trim() || !itemType.trim() || !imageUrl}
-                  className="px-5 py-2.5 rounded-md bg-indigo-600 text-white hover:bg-indigo-700 transition disabled:opacity-50 w-full flex items-center justify-center"
+                  className="px-5 py-2.5 rounded-md bg-green-600 text-white hover:bg-green-700 transition disabled:opacity-50 w-full flex items-center justify-center"
                 >
                   {loadingButton === "publish" ? <BigSpinner /> : "Save & Publish"}
                 </button>
               </div>
             </div>
           )}
+          {errorMessage && 
+            <p className="mt-3 text-center text-red-600 bg-red-100 p-2 rounded-md border border-red-300 text-sm">{errorMessage}</p>
+          }
         </div>
       </Modal>
     </>

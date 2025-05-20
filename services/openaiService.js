@@ -25,8 +25,6 @@ You are a fashion prompt architect. Your job is to take user descriptions of clo
 
 Instead of using 'placement' for each graphic, describe what should be visible from **each of the following angles**:
 - front
-- left_3_4
-- right_3_4
 - back
 
 Do not use 'placement'. Focus on what's actually seen from each angle, even if it's overlapping or the same.
@@ -36,7 +34,15 @@ Return a JSON object with 'graphicsByAngle' mapping each view to a string descri
     },
     {
       role: "user",
-      content: userDescription
+      content: `
+Your job is to sanitize the user input for any branded or trademarked references. 
+Replace brand names (e.g., 'Burberry', 'Nike', 'Chanel') with **generic fashion descriptors** 
+(e.g., 'plaid print', 'luxury sportswear', 'designer look') that convey the same aesthetic.
+
+Then, return a cleaned version of the input that is **safe for commercial use** and free of brand references.
+
+User input: """${userDescription}"""
+`
     }
   ];
 
@@ -113,13 +119,19 @@ export async function getAIDesignerInsights(structuredPrompt, goalQuantity = 100
       {
         role: "system",
         content: `You are an AI fashion designer and prompt architect. Based on the structured design details, generate a JSON object describing the clothing item. Your response should include:
+
         1. A catchy, marketable name for the item
         2. A clear, concise description
         3. The type of clothing item (matching one of these exact values: ${ITEM_TYPES.map(t => t.value).join(', ')})
         4. Visual details for both front and back views
         5. Suggested materials and construction details
-
-        Focus on creating a cohesive design that incorporates all the provided details.`
+        
+        🚫 IMPORTANT: Do NOT use or reference any real-world brand names, company names, logos, slogans, university names, or trademarks (e.g., "Nike", "Burberry", "Harvard", "Coca-Cola", "Fighting Irish"). All names, visuals, and text must be **original**, fictional, and commercially safe.
+        
+        If any trademarked or brand terms appear in the user input, **replace them with fictional alternatives** that preserve the aesthetic or vibe.
+        
+        Focus on creating a cohesive, fictional design that incorporates the provided details.`
+        
       },
       {
         role: "user",
@@ -316,32 +328,36 @@ export async function generateImageWithOpenAI(prompt, options = {}) {
     }
 
     const landscapePrompt = `
-Generate a high-resolution horizontal (landscape) image, sized exactly 1536x1024 pixels, divided into two vertical panels of equal width.
-
-Both panels must feature the same hyperrealistic runway model wearing the exact same clothing item. The image should appear professionally photographed under consistent **studio lighting** with a **clean, neutral background**. The background must be plain and free of any props, scenery, textures, or visual distractions.
-
-🔹 Left Panel (Front View):
-Display the model facing directly forward, showcasing the front of a ${itemDescription}.
-The front design should include: ${frontDesign}
-
-🔹 Right Panel (Back View):
-Display the same model facing directly backward, showcasing the back of the same ${itemDescription}.
-The back design should include: ${backDesign}
-
-🧍 Model Appearance:
-The same model must appear in both panels. Appearance details: ${modelDetails}
-
-🔧 Image Requirements:
-- Use identical studio conditions across both panels (lighting, pose style, camera distance, proportions)
-- Match professional fashion catalog or editorial photography standards
-- The clothing should be faithfully rendered from both sides
-- Text or lettering printed on the clothing (e.g., logos, mottos, crests) is welcome and encouraged if described
-- Do **not** include any unrelated UI text, captions, labels, borders, watermarks, shadows, or props
-- The **background must remain clean and neutral** in both panels — no gradients, patterns, or depth of field effects
-
-🎯 Final Output:
-A clean, high-quality, side-by-side comparison of the same item viewed from front and back, using studio photography style and the same model throughout.
-`.trim();
+    Generate a high-resolution horizontal (landscape) image, sized exactly 1536x1024 pixels, divided into two vertical panels of equal width.
+    
+    Both panels must feature the same hyperrealistic runway model wearing the exact same clothing item. The image should appear professionally photographed under consistent **studio lighting** with a **clean, neutral background**. The background must be plain and free of any props, scenery, textures, or visual distractions.
+    
+    IMPORTANT BRAND SAFETY NOTE:
+    Do **not** use or reference any real-world brand names, logos, university names, slogans, or trademarks (e.g., "Nike", "Harvard", "Burberry", "Fighting Irish"). Every design element, label, or text must be **original** and fictional. Use made-up names, slogans, or symbols that are safe for commercial use.
+    
+    Left Panel (Front View):
+    Display the model facing directly forward, showcasing the front of a ${itemDescription}.
+    The front design should include: ${frontDesign}
+    
+    Right Panel (Back View):
+    Display the same model facing directly backward, showcasing the back of the same ${itemDescription}.
+    The back design should include: ${backDesign}
+    
+    Model Appearance:
+    The same model must appear in both panels. Appearance details: ${modelDetails}
+    
+    Image Requirements:
+    - Use identical studio conditions across both panels (lighting, pose style, camera distance, proportions)
+    - Match professional fashion catalog or editorial photography standards
+    - The clothing should be faithfully rendered from both sides
+    - Text or lettering printed on the clothing (e.g., logos, mottos, crests) is welcome and encouraged if described, but must be fictional and **not** resemble any existing brands or slogans
+    - Do **not** include any unrelated UI text, captions, labels, borders, watermarks, shadows, or props
+    - The **background must remain clean and neutral** in both panels — no gradients, patterns, or depth of field effects
+    
+    Final Output:
+    A clean, high-quality, side-by-side comparison of the same item viewed from front and back, using studio photography style and the same model throughout.
+    `.trim();
+    
 
     const response = await openai.images.generate({
       model,

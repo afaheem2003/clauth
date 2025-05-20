@@ -7,13 +7,17 @@ const clothingPromptSchema = {
       type: "string",
       description: "Basic description of the main clothing item (e.g., 'oversized hoodie in charcoal grey')"
     },
+    designDetails: {
+      type: "string",
+      description: "Single combined design description. GPT will parse what belongs on the front and back (e.g., 'embroidered floral pattern on chest, corset lace-up back')"
+    },
     frontText: {
       type: "string",
-      description: "Detailed description of what should appear on the front of the item"
+      description: "Detailed description of what should appear on the front of the item, parsed from designDetails"
     },
     backText: {
       type: "string",
-      description: "Detailed description of what should appear on the back of the item"
+      description: "Detailed description of what should appear on the back of the item, parsed from designDetails"
     },
     modelDetails: {
       type: "string",
@@ -32,7 +36,7 @@ const clothingPromptSchema = {
       description: "Texture and material description"
     }
   },
-  required: ["itemDescription", "frontText", "backText", "modelDetails"]
+  required: ["itemDescription", "designDetails", "frontText", "backText", "modelDetails"]
 };
 
 export default clothingPromptSchema; 

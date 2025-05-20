@@ -9,9 +9,10 @@ import { useRouter, usePathname } from "next/navigation";
  *
  *  • Public paths:
  *    The following paths are publicly accessible and do NOT require authentication:
- *    • The Home page ( “/” ), Discover ( “/discover” ), and Clothing pages ( “/clothing/[id]” ) are public.
- *    • Auth pages ( “/login”, “/signup”, “/forgot-password”, etc... ) are public.
- *    • API routes ( “/api/*” ) are public by default, but are individually protected as needed.
+ *    • The Home page ( "/" ), Discover ( "/discover" ), and Clothing pages ( "/clothing/[id]" ) are public.
+ *    • Profile pages ( "/profile/[username]" ) are public.
+ *    • Auth pages ( "/login", "/signup", "/forgot-password", etc... ) are public.
+ *    • API routes ( "/api/*" ) are public by default, but are individually protected as needed.
  *  • All other routes require sign-in and appropriate roles.
  */
 export default function AuthGuard({ children }) {
@@ -27,7 +28,8 @@ export default function AuthGuard({ children }) {
       pathname === "/" ||
       pathname.startsWith("/discover") ||
       pathname.startsWith("/clothing") ||
-      pathname.startsWith("/api");
+      pathname.startsWith("/api") ||
+      (pathname.startsWith("/profile/") && pathname !== "/profile"); // Allow public profiles but not /profile
 
     if (!session && isPublic) {
       return; // allow visitors to access public routes
@@ -48,7 +50,7 @@ export default function AuthGuard({ children }) {
     /* ───────── 4) ONBOARDING (displayName) ───────── */
     if (
       session.user.role !== "ADMIN" &&
-      !session.user.name &&
+      !session.user.displayName &&
       pathname !== "/complete-profile"
     ) {
       router.replace("/complete-profile");

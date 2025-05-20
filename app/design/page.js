@@ -38,8 +38,7 @@ export default function DesignPage() {
   
   // New structured prompt fields
   const [itemDescription, setItemDescription] = useState('');
-  const [frontDesign, setFrontDesign] = useState('');
-  const [backDesign, setBackDesign] = useState('');
+  const [designDetails, setDesignDetails] = useState('');
   const [modelDetails, setModelDetails] = useState('');
 
   // Data from AI
@@ -154,8 +153,7 @@ export default function DesignPage() {
       // Prepare the structured prompt data
       const promptData = {
         itemDescription: itemDescription.trim(),
-        frontDesign: frontDesign.trim(),
-        backDesign: backDesign.trim(),
+        designDetails: designDetails.trim(),
         modelDetails: modelDetails.trim()
       };
 
@@ -242,8 +240,8 @@ export default function DesignPage() {
       itemType: itemType.trim(),
       imageUrls: generatedImageUrls,
       tempItemId,
-      promptRaw: frontDesign + backDesign + modelDetails,
-      promptSanitized: promptJsonData ? generateCompositePromptFromJSON(promptJsonData) : sanitizePrompt(frontDesign + backDesign + modelDetails),
+      promptRaw: designDetails + modelDetails,
+      promptSanitized: promptJsonData ? generateCompositePromptFromJSON(promptJsonData) : sanitizePrompt(designDetails + modelDetails),
       promptJsonData: promptJsonData ? JSON.stringify(promptJsonData) : null,
       cost: estimatedCost !== null && !isNaN(estimatedCost) ? Number(estimatedCost) : undefined,
       price: suggestedPrice !== null && !isNaN(suggestedPrice) ? Number(suggestedPrice) : undefined,
@@ -297,49 +295,61 @@ export default function DesignPage() {
                 {/* Main Item Description */}
                 <div className="mb-6">
                   <label className="block text-sm font-medium text-gray-700 mb-1">Main Clothing Item</label>
-                  <input
-                    type="text"
-                    value={itemDescription}
-                    onChange={(e) => setItemDescription(e.target.value)}
-                    placeholder="e.g., oversized hoodie in charcoal grey"
-                    className="w-full p-3 border border-slate-300 rounded-lg text-slate-700 placeholder-slate-400 text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 shadow-sm transition-all"
-                  />
+                  <div className="relative">
+                    <input
+                      type="text"
+                      value={itemDescription}
+                      onChange={(e) => setItemDescription(e.target.value)}
+                      placeholder="e.g., lavender puff-sleeve midi dress"
+                      className="w-full p-3 border border-slate-300 rounded-lg text-slate-700 placeholder-slate-400 text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 shadow-sm transition-all"
+                    />
+                    <div className="absolute right-2 top-2 text-xs text-gray-400 cursor-help group">
+                      <span>ℹ️</span>
+                      <div className="hidden group-hover:block absolute right-0 top-6 w-64 p-2 bg-gray-800 text-white text-xs rounded shadow-lg z-10">
+                        Describe the basic clothing item type and its main color or style
+                      </div>
+                    </div>
+                  </div>
                 </div>
 
-                {/* Front Design Details */}
+                {/* Combined Design Details */}
                 <div className="mb-6">
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Front Design Details</label>
-                  <textarea
-                    value={frontDesign}
-                    onChange={(e) => setFrontDesign(e.target.value)}
-                    placeholder="Describe what should appear on the front of the item"
-                    rows={3}
-                    className="w-full p-3 border border-slate-300 rounded-lg text-slate-700 placeholder-slate-400 text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 shadow-sm transition-all"
-                  />
-                </div>
-
-                {/* Back Design Details */}
-                <div className="mb-6">
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Back Design Details</label>
-                  <textarea
-                    value={backDesign}
-                    onChange={(e) => setBackDesign(e.target.value)}
-                    placeholder="Describe what should appear on the back of the item"
-                    rows={3}
-                    className="w-full p-3 border border-slate-300 rounded-lg text-slate-700 placeholder-slate-400 text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 shadow-sm transition-all"
-                  />
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Design Details</label>
+                  <div className="relative">
+                    <textarea
+                      value={designDetails}
+                      onChange={(e) => setDesignDetails(e.target.value)}
+                      placeholder="e.g., Embroidered floral vines on the chest, lace-up corset back, ruffled hem"
+                      rows={4}
+                      className="w-full p-3 border border-slate-300 rounded-lg text-slate-700 placeholder-slate-400 text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 shadow-sm transition-all"
+                    />
+                    <div className="absolute right-2 top-2 text-xs text-gray-400 cursor-help group">
+                      <span>ℹ️</span>
+                      <div className="hidden group-hover:block absolute right-0 top-6 w-64 p-2 bg-gray-800 text-white text-xs rounded shadow-lg z-10">
+                        Describe all design elements - we'll automatically determine what goes on front and back
+                      </div>
+                    </div>
+                  </div>
                 </div>
 
                 {/* Model Description */}
                 <div className="mb-6">
                   <label className="block text-sm font-medium text-gray-700 mb-1">Model Description</label>
-                  <input
-                    type="text"
-                    value={modelDetails}
-                    onChange={(e) => setModelDetails(e.target.value)}
-                    placeholder="e.g., tall male model with curly hair, neutral expression"
-                    className="w-full p-3 border border-slate-300 rounded-lg text-slate-700 placeholder-slate-400 text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 shadow-sm transition-all"
-                  />
+                  <div className="relative">
+                    <input
+                      type="text"
+                      value={modelDetails}
+                      onChange={(e) => setModelDetails(e.target.value)}
+                      placeholder="e.g., Tall woman with auburn braid, soft expression"
+                      className="w-full p-3 border border-slate-300 rounded-lg text-slate-700 placeholder-slate-400 text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 shadow-sm transition-all"
+                    />
+                    <div className="absolute right-2 top-2 text-xs text-gray-400 cursor-help group">
+                      <span>ℹ️</span>
+                      <div className="hidden group-hover:block absolute right-0 top-6 w-64 p-2 bg-gray-800 text-white text-xs rounded shadow-lg z-10">
+                        Describe how you want the model to look
+                      </div>
+                    </div>
+                  </div>
                 </div>
               </div>
 

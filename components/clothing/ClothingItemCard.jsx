@@ -24,7 +24,8 @@ export default function ClothingItemCard({ clothingItem, onItemSoftDeleted }) {
   const [daysLeft, setDaysLeft] = useState(calculateTimeLeft(clothingItem.expiresAt));
   const [isDeleting, setIsDeleting] = useState(false);
 
-  const author = creator?.displayName || creator?.name || 'Anonymous';
+  // Get the creator's display name, falling back to their name or Anonymous
+  const creatorName = creator?.displayName || creator?.name || 'Anonymous';
   const initialPledged = pledged || 0;
   const progress = goal && goal > 0 ? Math.round((initialPledged / goal) * 100) : 0;
   const hasReachedGoal = initialPledged >= goal;
@@ -41,7 +42,7 @@ export default function ClothingItemCard({ clothingItem, onItemSoftDeleted }) {
   useEffect(() => {
     if (!session?.user?.uid) return;
     setHas(clothingItem.likes?.some(l => l.userId === session.user.uid));
-  }, [clothingItem.likes, session?.user?.uid]);
+  }, [session?.user?.uid, clothingItem.likes]);
 
   useEffect(() => {
     if (!clothingItem.expiresAt) return;
@@ -99,7 +100,7 @@ export default function ClothingItemCard({ clothingItem, onItemSoftDeleted }) {
 
   return (
     <div
-      className="relative w-full overflow-hidden rounded-lg group cursor-pointer"
+      className="relative w-full overflow-hidden rounded-lg bg-white shadow-lg group cursor-pointer transform transition-all duration-300 hover:shadow-2xl"
       onClick={() => router.push(`/clothing/${id}`)}
     >
       {canDelete && (
@@ -119,7 +120,8 @@ export default function ClothingItemCard({ clothingItem, onItemSoftDeleted }) {
           )}
         </button>
       )}
-      <div className="relative w-full aspect-[3/4] overflow-hidden">
+      
+      <div className="relative w-full aspect-[3/4] overflow-hidden rounded-lg">
         <Image
           src={displayImage}
           alt={name}
@@ -138,22 +140,38 @@ export default function ClothingItemCard({ clothingItem, onItemSoftDeleted }) {
             />
           </div>
         )}
-      </div>
-
-      <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/70 to-transparent p-3 text-white">
-        <p className="font-semibold text-sm truncate">{name}</p>
-        <div className="flex justify-between items-center mt-1">
-          <p className="text-xs opacity-90">{author}</p>
-          {goal > 0 && <p className="text-xs opacity-90">{progress}% Funded</p>}
+        
+        {/* Item Info */}
+        <div className="absolute bottom-0 left-0 right-0 bg-white/95 backdrop-blur-sm p-3">
+          <p className="font-semibold text-gray-800 truncate">{name}</p>
+          <div className="flex justify-between items-center mt-1">
+            <p className="text-sm text-gray-600">by {creatorName}</p>
+            {goal > 0 && (
+              <div className="flex items-center">
+                <div className="w-20 h-1.5 bg-gray-100 rounded-full overflow-hidden">
+                  <div 
+                    className="h-full bg-indigo-600 rounded-full" 
+                    style={{ width: `${Math.min(100, progress)}%` }} 
+                  />
+                </div>
+                <span className="text-xs text-gray-600 ml-1">{progress}%</span>
+              </div>
+            )}
+          </div>
+          {price && (
+            <p className="text-sm font-semibold mt-1 text-indigo-600">
+              ${Number(price).toFixed(2)}
+            </p>
+          )}
         </div>
-        {price && <p className="text-sm font-semibold mt-1">${Number(price).toFixed(2)}</p>}
       </div>
 
       <button
         onClick={handleLike}
-        className="absolute top-2 right-2 bg-white bg-opacity-75 p-1 rounded-full"
+        className="absolute top-2 right-2 bg-white/90 backdrop-blur-sm p-2 rounded-full shadow-md transform transition-transform hover:scale-110"
       >
-        {has ? '❤️' : '🤍'} {likes}
+        <span className="text-sm">{has ? '❤️' : '🤍'}</span>
+        <span className="ml-1 text-gray-600 font-medium">{likes}</span>
       </button>
     </div>
   );

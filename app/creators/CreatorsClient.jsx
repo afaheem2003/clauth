@@ -29,7 +29,7 @@ export default function CreatorsClient({ initialCreators }) {
                 {/* Creator Info */}
                 <div 
                   className="flex items-center space-x-4 cursor-pointer"
-                  onClick={() => router.push(`/user/${creator.displayName}`)}
+                  onClick={() => router.push(`/profile/${creator.displayName}`)}
                 >
                   <div className="relative h-16 w-16 flex-shrink-0">
                     <Image
@@ -51,18 +51,16 @@ export default function CreatorsClient({ initialCreators }) {
                 {/* Creator Stats */}
                 <div className="mt-6 grid grid-cols-2 gap-4 border-t border-gray-100 pt-4">
                   <div className="text-center">
-                    <div className="text-sm text-gray-500">
-                      Creations
-                    </div>
-                    <div className="text-xl font-bold text-gray-900">
-                      {formatCompactNumber(creator.stats.clothingItems || creator.stats.clothingItems)}
-                    </div>
+                    <span className="block text-3xl font-bold text-gray-900">
+                      {formatCompactNumber(creator.stats.clothingItems)}
+                    </span>
+                    <span className="block text-sm text-gray-500 mt-1">Creations</span>
                   </div>
                   <div className="text-center">
-                    <span className="block text-2xl font-bold text-gray-900">
+                    <span className="block text-3xl font-bold text-gray-900">
                       {formatCompactNumber(creator.stats.likes)}
                     </span>
-                    <span className="block text-sm text-gray-500">Likes</span>
+                    <span className="block text-sm text-gray-500 mt-1">Likes</span>
                   </div>
                 </div>
 
