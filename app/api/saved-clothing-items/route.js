@@ -3,6 +3,7 @@ import { getServerSession } from 'next-auth/next';
 import { authOptions } from '@/lib/authOptions';
 import { prisma } from '@/lib/prisma';
 import { Filter } from 'bad-words';
+import { ANGLES } from '@/utils/imageProcessing';
 
 export async function POST(req) {
   const session = await getServerSession(authOptions);
@@ -22,7 +23,7 @@ export async function POST(req) {
     name,
     description = '',
     itemType,
-    imageUrl,
+    imageUrls,
     promptRaw,
     promptSanitized = '',
     texture,
@@ -34,8 +35,12 @@ export async function POST(req) {
     cost,
   } = body;
 
-  if (!name || !itemType || !imageUrl || !promptRaw) {
-    return NextResponse.json({ error: 'Missing required fields (name, itemType, imageUrl, or promptRaw).' }, { status: 400 });
+  if (!name || !itemType || !imageUrls || !promptRaw) {
+    return NextResponse.json({ error: 'Missing required fields (name, itemType, imageUrls, or promptRaw).' }, { status: 400 });
+  }
+
+  if (!imageUrls[ANGLES.FRONT]) {
+    return NextResponse.json({ error: 'Missing front image URL.' }, { status: 400 });
   }
 
   const filter = new Filter();
@@ -60,7 +65,11 @@ export async function POST(req) {
             name,
             description,
             itemType,
-            imageUrl,
+            imageUrl: imageUrls[ANGLES.FRONT],
+            frontImage: imageUrls[ANGLES.FRONT],
+            rightImage: imageUrls[ANGLES.RIGHT_SIDE],
+            leftImage: imageUrls[ANGLES.LEFT_SIDE],
+            backImage: imageUrls[ANGLES.BACK],
             promptRaw,
             promptSanitized,
             texture,
@@ -78,7 +87,11 @@ export async function POST(req) {
             name,
             description,
             itemType,
-            imageUrl,
+            imageUrl: imageUrls[ANGLES.FRONT],
+            frontImage: imageUrls[ANGLES.FRONT],
+            rightImage: imageUrls[ANGLES.RIGHT_SIDE],
+            leftImage: imageUrls[ANGLES.LEFT_SIDE],
+            backImage: imageUrls[ANGLES.BACK],
             promptRaw,
             promptSanitized,
             texture,
@@ -90,7 +103,7 @@ export async function POST(req) {
             price: numericPrice,
             cost: numericCost,
             creator: {
-              connect: { id: session.user.uid }, // ✅ ensure this matches your DB User ID format
+              connect: { id: session.user.uid },
             },
           },
         });

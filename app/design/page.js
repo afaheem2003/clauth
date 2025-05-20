@@ -11,6 +11,8 @@ import { generateCompositePromptFromJSON } from '@/utils/clothingPromptUtils';
 import Input from '@/components/common/Input';
 // import ButtonGroup from '@/components/common/ButtonGroup'; // Commented out as not directly used
 import BigSpinner from '@/components/common/BigSpinner';
+import { ITEM_TYPES } from "@/app/constants/options";
+import { ANGLES } from '@/utils/imageProcessing';
 
 const placeholderPrompts = [
   "A cozy oversized hoodie, charcoal grey, minimalist logo on chest...",
@@ -41,11 +43,12 @@ export default function DesignPage() {
   const [promptJsonData, setPromptJsonData] = useState(null); // Stores the structured JSON for visuals & details
   const [estimatedCost, setEstimatedCost] = useState(null);
   const [suggestedPrice, setSuggestedPrice] = useState(null);
-  const [generatedImageUrl, setGeneratedImageUrl] = useState(null);
+  const [generatedImageUrls, setGeneratedImageUrls] = useState(null);
   const [imageService, setImageService] = useState('stability');
   const [imageOptions, setImageOptions] = useState({
     size: "1024x1024",
-    background: "auto"
+    background: "auto",
+    quality: process.env.NEXT_PUBLIC_OPENAI_IMAGE_QUALITY || "low" // Use env variable with fallback
   });
   
   const [loadingState, setLoadingState] = useState(null); // 'generate', 'save', 'publish'
@@ -62,6 +65,69 @@ export default function DesignPage() {
     return () => clearInterval(intervalId);
   }, []);
 
+  useEffect(() => {
+    // Auto-populate fields when promptJsonData is received
+    if (promptJsonData) {
+      console.log("[DesignPage] Auto-populating fields from promptJsonData:", promptJsonData);
+      
+      // Handle name field
+      if (promptJsonData.name) {
+        console.log("[DesignPage] Setting name to:", promptJsonData.name);
+        setItemName(promptJsonData.name);
+      }
+
+      // Handle description field
+      if (promptJsonData.description) {
+        console.log("[DesignPage] Setting description to:", promptJsonData.description);
+        setDescription(promptJsonData.description);
+      }
+
+      // Handle item type field
+      if (promptJsonData.itemType) {
+        console.log("[DesignPage] Finding matching item type for:", promptJsonData.itemType);
+        // First try exact match
+        let matchingType = ITEM_TYPES.find(type => 
+          type.value.toLowerCase() === promptJsonData.itemType.toLowerCase()
+        );
+        
+        // If no exact match, try matching by label
+        if (!matchingType) {
+          matchingType = ITEM_TYPES.find(type => 
+            type.label.toLowerCase() === promptJsonData.itemType.toLowerCase()
+          );
+        }
+        
+        // If still no match, try partial matches
+        if (!matchingType) {
+          matchingType = ITEM_TYPES.find(type => 
+            promptJsonData.itemType.toLowerCase().includes(type.value.toLowerCase()) ||
+            promptJsonData.itemType.toLowerCase().includes(type.label.toLowerCase())
+          );
+        }
+        
+        if (matchingType) {
+          console.log("[DesignPage] Setting item type to:", matchingType.value);
+          setItemType(matchingType.value);
+        } else {
+          console.warn("[DesignPage] No matching item type found for:", promptJsonData.itemType);
+        }
+      }
+    }
+  }, [promptJsonData]);
+
+  const [currentAngle, setCurrentAngle] = useState(ANGLES.FRONT);
+  const [tempItemId, setTempItemId] = useState(null);
+
+  // Replace generatedImageUrl state with generatedImageUrls handling
+  const currentImageUrl = generatedImageUrls?.[currentAngle];
+
+  // Function to cycle through angles
+  const cycleAngle = () => {
+    const angles = Object.values(ANGLES);
+    const currentIndex = angles.indexOf(currentAngle);
+    const nextIndex = (currentIndex + 1) % angles.length;
+    setCurrentAngle(angles[nextIndex]);
+  };
 
   async function generateAIInsightsAndImage() {
     if (status !== 'authenticated') {
@@ -74,16 +140,13 @@ export default function DesignPage() {
     }
     setLoadingState('generate');
     setErrorMessage('');
-    setGeneratedImageUrl(null);
+    setGeneratedImageUrls(null);
+    setTempItemId(null);
     setPromptJsonData(null);
     setEstimatedCost(null);
     setSuggestedPrice(null);
-    setItemName(''); // Reset item name for new generation
-    setDescription(''); // Reset description
-    setItemType(''); // Reset item type
 
     try {
-      // Step 1: Get structured JSON, estimated cost, and suggested price from our backend API
       console.log("[DesignPage] Calling /api/generate-clothing-json with:", creativePrompt.trim());
       const insightsRes = await fetch('/api/generate-clothing-json', {
         method: 'POST',
@@ -97,26 +160,18 @@ export default function DesignPage() {
       }
       const insightsData = await insightsRes.json();
       console.log("[DesignPage] Received insights:", insightsData);
-      console.log("[DesignPage] promptJsonData from insights:", insightsData.promptJsonData);
 
       if (!insightsData.promptJsonData) {
         throw new Error('AI did not return valid structured data (promptJsonData missing).');
       }
       
+      // Set the promptJsonData - this will trigger the useEffect hook for auto-population
       setPromptJsonData(insightsData.promptJsonData);
       setEstimatedCost(insightsData.estimatedCost);
       setSuggestedPrice(insightsData.suggestedPrice);
 
-      // Pre-fill form fields from promptJsonData if available
-      if (insightsData.promptJsonData.name) {
-        setItemName(insightsData.promptJsonData.name);
-      }
-      if (insightsData.promptJsonData.description) {
-        setDescription(insightsData.promptJsonData.description);
-      }
-      if (insightsData.promptJsonData.itemType) {
-        setItemType(insightsData.promptJsonData.itemType);
-      }
+      // Remove direct field setting here since useEffect will handle it
+      // This prevents duplicate state updates
 
       // Step 2: Prepare prompt for image generation.
       // For image generation, use the user's original creative prompt to capture the full outfit context if provided.
@@ -136,7 +191,7 @@ export default function DesignPage() {
           userId: session.user.uid,
           service: imageService,
           imageOptions: imageService === 'openai' ? imageOptions : undefined,
-          promptJsonData: insightsData.promptJsonData // Pass the JSON data for graphics positioning
+          promptJsonData: insightsData.promptJsonData
         }),
       });
 
@@ -145,13 +200,16 @@ export default function DesignPage() {
         throw new Error(errorData.error || 'Image generation failed. Please try a different prompt.');
       }
       const imageData = await imageRes.json();
-      setGeneratedImageUrl(imageData.imageUrl);
-      console.log("[DesignPage] Image generated successfully:", imageData.imageUrl);
+      setGeneratedImageUrls(imageData.angleUrls);
+      setTempItemId(imageData.tempItemId);
+      setCurrentAngle(ANGLES.FRONT); // Reset to front view
+      console.log("[DesignPage] Images generated successfully:", imageData.angleUrls);
 
     } catch (err) {
       console.error("[DesignPage] Error in generation process:", err);
       setErrorMessage(err.message || 'An unexpected error occurred during generation.');
-      // Reset potentially sensitive AI data on error
+      setGeneratedImageUrls(null);
+      setTempItemId(null);
       setPromptJsonData(null);
       setEstimatedCost(null);
       setSuggestedPrice(null);
@@ -165,7 +223,7 @@ export default function DesignPage() {
       setErrorMessage('Please log in to save or publish.');
       return;
     }
-    if (!generatedImageUrl) {
+    if (!generatedImageUrls) {
       setErrorMessage('Please generate an image first.');
       return;
     }
@@ -185,16 +243,14 @@ export default function DesignPage() {
       name: itemName.trim(),
       description: description.trim(),
       itemType: itemType.trim(),
-      imageUrl: generatedImageUrl,
-      promptRaw: creativePrompt.trim(), 
-      // promptSanitized will represent the main item's details, derived from promptJsonData
+      imageUrls: generatedImageUrls,
+      tempItemId,
+      promptRaw: creativePrompt.trim(),
       promptSanitized: promptJsonData ? generateCompositePromptFromJSON(promptJsonData) : sanitizePrompt(creativePrompt.trim()),
       promptJsonData: promptJsonData ? JSON.stringify(promptJsonData) : null,
-      // ADDING COST AND PRICE - ensure they are numbers or null/undefined as expected by API
       cost: estimatedCost !== null && !isNaN(estimatedCost) ? Number(estimatedCost) : undefined,
       price: suggestedPrice !== null && !isNaN(suggestedPrice) ? Number(suggestedPrice) : undefined,
       isPublished: publishAction,
-      // creatorId is handled by the backend using the session
     };
     console.log("[DesignPage] Saving/Publishing with payload:", payload);
 
@@ -235,12 +291,12 @@ export default function DesignPage() {
         </header>
 
         <div className="bg-white p-8 rounded-xl shadow-2xl">
-          {!generatedImageUrl ? (
+          {!currentImageUrl ? (
             // STAGE 1: Creative Prompt Input
             <div className="space-y-6">
               <div>
                 <h2 className="text-2xl font-semibold text-gray-800 mb-1">1. Describe Your Vision</h2>
-                <p className="text-sm text-gray-500 mb-2">Describe your clothing concept or full outfit, including model appearance. Please clearly indicate your main clothing item for sale (e.g., 'The main item is the jacket.'). We'll visualize the full scene and use this main item for its specific details and financial estimates.</p>
+                <p className="text-sm text-gray-500 mb-2">Describe your clothing concept or full outfit, including model appearance. Please clearly indicate your main clothing item for sale (e.g., &apos;The main item is the jacket.&apos;). We&apos;ll visualize the full scene and use this main item for its specific details and financial estimates.</p>
                 <textarea
                   value={creativePrompt}
                   onChange={(e) => setCreativePrompt(e.target.value)}
@@ -315,17 +371,18 @@ export default function DesignPage() {
                     <BigSpinner />
                     <p className="text-sm text-gray-500 mt-2">Generating your design...</p>
                   </div>
-                ) : generatedImageUrl ? (
+                ) : currentImageUrl ? (
                   <>
-                    {/* Regular img tag for better compatibility with both URLs and base64 */}
                     <img 
-                      src={generatedImageUrl.startsWith('http') ? generatedImageUrl : `data:image/png;base64,${generatedImageUrl}`}
-                      alt="Generated clothing item"
+                      src={currentImageUrl}
+                      alt={`Generated clothing item - ${currentAngle} view`}
                       className="object-contain w-full h-full"
+                      onClick={cycleAngle}
+                      style={{ cursor: 'pointer' }}
                       onError={(e) => {
                         console.error("[Design Page] Image load error:", {
                           error: e,
-                          src: generatedImageUrl.substring(0, 100) + '...'
+                          src: currentImageUrl.substring(0, 100) + '...'
                         });
                         setErrorMessage("Failed to load the generated image. Please try again.");
                       }}
@@ -335,6 +392,9 @@ export default function DesignPage() {
                         setLoadingState(null);
                       }}
                     />
+                    <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 bg-black/50 text-white px-3 py-1 rounded-full text-sm">
+                      Click to view {currentAngle.replace('_', ' ')}
+                    </div>
                     {errorMessage && (
                       <div className="absolute inset-0 flex items-center justify-center bg-black/50">
                         <p className="text-white text-center p-4">{errorMessage}</p>
@@ -346,7 +406,13 @@ export default function DesignPage() {
                 )}
               </div>
               
-              <Input label="Item Name" value={itemName} onChange={setItemName} placeholder={promptJsonData?.name || "e.g., 'Sunset Vibes Hoodie'"} required />
+              <Input 
+                label="Item Name" 
+                value={itemName} 
+                onChange={setItemName} 
+                placeholder="e.g., 'Sunset Vibes Hoodie'" 
+                required 
+              />
               
               <div>
                 <label htmlFor="description" className="font-medium block text-xs mb-1 text-gray-800">Description (Optional)</label>
@@ -354,15 +420,31 @@ export default function DesignPage() {
                   id="description"
                   value={description}
                   onChange={(e) => setDescription(e.target.value)}
-                  placeholder={promptJsonData?.description || "Key features, style notes, story..."}
+                  placeholder="Key features, style notes, story..."
                   rows={3}
                   className="w-full px-2 py-1.5 border rounded-md text-gray-800 placeholder-gray-500 text-sm focus:ring-purple-500 focus:border-purple-500 shadow-sm"
                 />
               </div>
 
-              <Input label="Item Type (e.g., Hoodie, T-Shirt)" value={itemType} onChange={setItemType} placeholder={promptJsonData?.itemType || "e.g., Hoodie, T-Shirt, Hat"} required disabled={!!generatedImageUrl} />
-              
-              {/* Texture, Size, Color inputs were previously removed for simplification - can be re-added if AI provides them in promptJsonData and they are desired */}
+              <div>
+                <label htmlFor="itemType" className="font-medium block text-xs mb-1 text-gray-800">
+                  Item Type<span className="text-red-500">*</span>
+                </label>
+                <select
+                  id="itemType"
+                  value={itemType}
+                  onChange={(e) => setItemType(e.target.value)}
+                  className="w-full px-2 py-1.5 border rounded-md text-gray-800 bg-white text-sm focus:ring-purple-500 focus:border-purple-500 shadow-sm"
+                  required
+                >
+                  <option value="">Select Item Type</option>
+                  {ITEM_TYPES.map((type) => (
+                    <option key={type.value} value={type.value}>
+                      {type.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
 
               <div className="w-full grid grid-cols-1 md:grid-cols-2 gap-3 pt-2">
                 <button
@@ -382,7 +464,7 @@ export default function DesignPage() {
               </div>
                <button
                   onClick={() => { 
-                    setGeneratedImageUrl(null); 
+                    setGeneratedImageUrls(null); 
                     setPromptJsonData(null);
                     setEstimatedCost(null);
                     setSuggestedPrice(null);

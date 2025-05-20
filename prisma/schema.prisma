@@ -83,7 +83,11 @@ model ClothingItem {
   name             String
   itemType         String
   description      String?
-  imageUrl         String?
+  imageUrl         String?    // Keep for backward compatibility
+  frontImage       String?    // Front view (optional for now)
+  rightImage       String?    // Right side view
+  leftImage        String?    // Left side view
+  backImage        String?    // Back view
   promptRaw        String?
   promptSanitized  String?
   texture          String?

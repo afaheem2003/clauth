@@ -7,13 +7,15 @@ import Image from 'next/image';
 import Link from 'next/link';
 import sanitizeHtml from 'sanitize-html';
 // import ClothingSuggestions from '@/components/clothing/ClothingSuggestions'; // Assuming this component will be or is refactored
-import CommentSection from '@/components/comments/CommentSection'; // Assuming this component is generic or refactored
+import CommentSection from '@/components/comments/CommentSection';
 import Button from '@/components/common/Button';
 import { HeartIcon as HeartIconSolid } from '@heroicons/react/24/solid';
 import { HeartIcon as HeartIconOutline, ArrowUturnLeftIcon, TrashIcon, PencilIcon, XMarkIcon } from '@heroicons/react/24/outline';
 import NotFound from '@/app/not-found'; // Assuming a generic not-found page
 import BigSpinner from '@/components/common/BigSpinner';
 import CountdownGoalStatus from '@/components/clothing/CountdownGoalStatus';
+import ImageGallery from '@/components/clothing/ImageGallery';
+import ImageModal from '@/components/clothing/ImageModal';
 
 export default function ClothingItemDetailPage() {
   const router = useRouter();
@@ -29,6 +31,7 @@ export default function ClothingItemDetailPage() {
   const [error, setError] = useState(null);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [isImageModalOpen, setIsImageModalOpen] = useState(false);
+  const [modalImageIndex, setModalImageIndex] = useState(0);
 
   const fetchClothingItemDetails = useCallback(async () => {
     if (!clothingItemId) return;
@@ -151,7 +154,11 @@ export default function ClothingItemDetailPage() {
 
   const { 
     name, 
-    imageUrl, 
+    imageUrl,
+    frontImage,
+    rightImage,
+    leftImage,
+    backImage,
     description, 
     itemType, 
     texture, 
@@ -171,23 +178,22 @@ export default function ClothingItemDetailPage() {
   const canPreorder = isPublished && (!goal || pledged < goal);
   const cleanDescription = sanitizeHtml(description || '', { allowedTags: [], allowedAttributes: {} });
 
-  const openImageModal = () => setIsImageModalOpen(true);
+  const openImageModal = (index = 0) => {
+    setModalImageIndex(index);
+    setIsImageModalOpen(true);
+  };
   const closeImageModal = () => setIsImageModalOpen(false);
 
   return (
     <div className="bg-gray-50 min-h-screen py-8 px-4 md:px-8">
       <div className="max-w-6xl mx-auto">
         <div className="bg-white shadow-xl rounded-lg overflow-hidden md:flex">
-          {/* Image Section */} 
-          <div className="md:w-1/2 relative aspect-[4/3] cursor-pointer" onClick={openImageModal}>
-            <Image 
-                src={imageUrl || '/images/clothing-item-placeholder.png'} 
-                alt={name || 'Clothing item image'} 
-                fill 
-                className="object-cover" 
-                priority 
-                unoptimized
-             />
+          {/* Image Gallery Section */} 
+          <div className="md:w-1/2">
+            <ImageGallery 
+              images={{ imageUrl, frontImage, rightImage, leftImage, backImage }}
+              onImageClick={openImageModal}
+            />
           </div>
 
           {/* Details Section */} 
@@ -278,31 +284,11 @@ export default function ClothingItemDetailPage() {
 
         {/* Image Modal */}
         {isImageModalOpen && (
-          <div 
-            className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50 p-4"
-            onClick={closeImageModal}
-          >
-            <div 
-              className="relative max-w-3xl max-h-[80vh] bg-white p-4 rounded-lg shadow-xl" 
-              onClick={(e) => e.stopPropagation()}
-            >
-              <button 
-                onClick={closeImageModal} 
-                className="absolute -top-3 -right-3 bg-white rounded-full p-1 text-gray-700 hover:text-black focus:outline-none z-10"
-                aria-label="Close image modal"
-              >
-                <XMarkIcon className="h-6 w-6" />
-              </button>
-              <Image 
-                src={imageUrl || '/images/clothing-item-placeholder.png'} 
-                alt={name || 'Clothing item image'} 
-                width={1200}
-                height={900}
-                className="object-contain max-h-[calc(80vh-2rem)] w-auto"
-                unoptimized
-              />
-            </div>
-          </div>
+          <ImageModal
+            images={{ imageUrl, frontImage, rightImage, leftImage, backImage }}
+            initialIndex={modalImageIndex}
+            onClose={closeImageModal}
+          />
         )}
 
         {/* Comments Section */} 

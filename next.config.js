@@ -24,6 +24,13 @@ const nextConfig = {
     ignoreBuildErrors: false,
   },
   pageExtensions: ['ts', 'tsx', 'js', 'jsx'],
+  webpack: (config) => {
+    config.resolve.alias = {
+      ...config.resolve.alias,
+      '@': '.',
+    };
+    return config;
+  },
 }
 
 module.exports = nextConfig

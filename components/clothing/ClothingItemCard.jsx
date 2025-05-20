@@ -67,7 +67,7 @@ export default function ClothingItemCard({ clothingItem }) {
 
   return (
     <div
-      className="relative group cursor-pointer w-full h-auto overflow-hidden rounded-lg"
+      className="relative w-full h-auto overflow-hidden rounded-lg"
       onClick={() => router.push(`/clothing/${id}`)}
     >
       <div className="relative w-full aspect-square">
@@ -76,7 +76,7 @@ export default function ClothingItemCard({ clothingItem }) {
           alt={name}
           fill
           unoptimized
-          className="object-cover transition-transform duration-300 group-hover:scale-105"
+          className="object-cover"
         />
       </div>
 

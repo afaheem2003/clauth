@@ -4,23 +4,20 @@ import Link from "next/link";
 
 export default function CompetitionSection() {
   return (
-    <section className="bg-gray-50 py-16 text-center">
-      <div className="container mx-auto px-6">
-        <h2 className="text-4xl md:text-5xl font-bold text-gray-800 mb-4">
-          Join the Clauth Competition
+    <div className="bg-gradient-to-r from-purple-600 to-pink-500 text-white py-16">
+      <div className="container mx-auto px-4">
+        <h2 className="text-3xl font-bold mb-6 text-center">
+          Monthly Design Competition
         </h2>
-        <p className="text-xl md:text-2xl text-gray-700 max-w-2xl mx-auto mb-8">
-          Submit your clothing design ideas, vote on your favorites, and see which
-          designs rise to the top. When a design reaches enough votes, we'll
-          bring it to life!
+        <p className="text-lg text-center mb-8">
+          Win up to $1,000 in prizes! Submit your best designs and let the community vote.
         </p>
-        <Link
-          href="/competition"
-          className="inline-block px-10 py-4 bg-gray-900 text-white text-xl font-semibold rounded-full shadow-lg hover:bg-gray-700 transition-colors"
-        >
-          View Competition
-        </Link>
+        <div className="flex justify-center">
+          <button className="bg-white text-purple-600 px-8 py-3 rounded-lg font-semibold hover:bg-gray-100 transition">
+            Learn More
+          </button>
+        </div>
       </div>
-    </section>
+    </div>
   );
 }

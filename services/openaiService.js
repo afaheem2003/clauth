@@ -2,6 +2,7 @@
 
 import OpenAI from 'openai';
 import clothingPromptSchema from '../schemas/clothingPromptSchema.js';
+import { ITEM_TYPES } from '@/app/constants/options';
 
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY, // Ensure this is in your .env file
@@ -83,40 +84,65 @@ export async function getAIDesignerInsights(creativePrompt, goalQuantity = 100) 
 
   let promptJsonData;
 
-  // Step 1: Get Structured Item Details (adapted from getStructuredClothingJSON)
+  // Step 1: Get Structured Item Details
   try {
     console.log("[AI Insights] Step 1: Getting structured item details...");
     const itemDetailsMessages = [
       {
         role: "system",
-        content: "You are an AI fashion designer and prompt architect. Based on the user's creative idea, generate a structured JSON object describing a single clothing item using the provided schema. \n\nIMPORTANT: If the user describes an entire outfit or multiple items, your primary task is to identify the single most prominent or 'main' clothing item from that description. Then, all the details you provide (itemName, itemType, description, visualDetails, suggestedMaterials, etc.) must pertain *only* to that single main item. Do not describe the entire outfit; focus exclusively on the chosen main piece. \n\nInfer details like item name, type, and description for this main item. Also, provide its visual characteristics (colors, patterns, textures, graphics, key features) and suggest 1-2 high-quality, realistic materials suitable for it. Ensure all details are suitable for a unique, high-quality clothing item. The user is building an AI native fashion house."
+        content: `You are an AI fashion designer and prompt architect. Based on the user's creative idea, generate a structured JSON object describing a single clothing item. Your response should include:
+        1. A catchy, marketable name for the item
+        2. A clear, concise description
+        3. The type of clothing item (matching one of these exact values: ${ITEM_TYPES.map(t => t.value).join(', ')})
+        4. Visual details like colors, patterns, graphics
+        5. Suggested materials
+
+        If the user describes multiple items, focus on the main/primary item only.`
       },
       {
         role: "user",
         content: `Creative Idea: "${creativePrompt}"`
       }
     ];
-    const itemDetailsFunctions = [
-      {
-        name: "generateClothingItemDetails", // Function name for clarity
-        description: "Generates structured JSON for a clothing design based on a creative idea, including item name, type, description, visual details, and suggested materials.",
-        parameters: clothingPromptSchema // Using existing schema
-      }
-    ];
 
-    const itemDetailsResponse = await openai.chat.completions.create({
-      model: "gpt-4-0613", 
+    const response = await openai.chat.completions.create({
+      model: "gpt-4-0613",
       messages: itemDetailsMessages,
-      functions: itemDetailsFunctions,
+      functions: [{
+        name: "generateClothingItemDetails",
+        description: "Generates structured details for a clothing item",
+        parameters: {
+          type: "object",
+          properties: {
+            name: { type: "string", description: "Catchy, marketable name for the item" },
+            description: { type: "string", description: "Clear, concise description of the item" },
+            itemType: { type: "string", description: "Type of clothing item" },
+            productType: { type: "string", description: "The type of clothing item (for image generation)" },
+            baseColor: { type: "string", description: "Primary color of the item" },
+            graphics: {
+              type: "array",
+              items: {
+                type: "object",
+                properties: {
+                  placement: { type: "string" },
+                  description: { type: "string" },
+                  visibility: { type: "array", items: { type: "string" } }
+                }
+              }
+            }
+          },
+          required: ["name", "description", "itemType", "productType", "baseColor", "graphics"]
+        }
+      }],
       function_call: { name: "generateClothingItemDetails" }
     });
 
-    const itemMessage = itemDetailsResponse.choices[0].message;
+    const itemMessage = response.choices[0].message;
     if (itemMessage.function_call && itemMessage.function_call.arguments) {
       promptJsonData = JSON.parse(itemMessage.function_call.arguments);
-      console.log("[AI Insights] Step 1 successful. promptJsonData obtained.");
+      console.log("[AI Insights] Step 1 successful. promptJsonData obtained:", promptJsonData);
     } else {
-      console.error("[AI Insights] Step 1 Failed: OpenAI response did not include expected function call for item details.", itemDetailsResponse);
+      console.error("[AI Insights] Step 1 Failed: OpenAI response did not include expected function call for item details.", response);
       throw new Error("AI did not return structured item details.");
     }
   } catch (error) {
@@ -124,7 +150,7 @@ export async function getAIDesignerInsights(creativePrompt, goalQuantity = 100) 
     if (error instanceof OpenAI.APIError) {
       throw new Error(`OpenAI API Error (Item Details): ${error.status} ${error.name} - ${error.message}`);
     }
-    throw error; // Re-throw original error or a new one
+    throw error;
   }
 
   // Step 2: Estimate Cost
@@ -272,38 +298,53 @@ export async function generateImageWithOpenAI(prompt, options = {}) {
       model = "gpt-image-1",
       size = "1024x1024",
       promptJsonData = null,
-      background = "auto" // 'auto', 'transparent', or 'opaque'
+      background = "auto", // 'auto', 'transparent', or 'opaque'
+      quality = process.env.OPENAI_IMAGE_QUALITY || "low" // Use env variable with fallback
     } = options;
+
+    // Log the quality being used
+    console.log("[OpenAI Service] Using image quality:", quality);
 
     // Validate options
     if (size !== "1024x1024") {
       throw new Error("gpt-image-1 only supports 1024x1024 size");
     }
 
-    // Create a composite prompt that shows all angles in a 2x2 grid
-    const compositePrompt = `Create a professional multi-angle fashion catalog image in a 2x2 layout showing a single clothing item being worn by the same **human runway model** in each quadrant.
+    // Validate quality
+    if (!["low", "high", "medium"].includes(quality)) {
+      console.warn("[OpenAI Service] Invalid quality setting:", quality, "defaulting to low");
+      quality = "low";
+    }
 
-    Views to show:
-    - Top Left: Front view
-    - Top Right: Right 3/4 view
-    - Bottom Left: Left 3/4 view
-    - Bottom Right: Back view
+    // Create a composite prompt that shows all angles in a 2x2 grid
+    const compositePrompt = `Create a professional multi-angle fashion catalog image in a 2x2 layout. Each quadrant should show the same human **runway model** wearing the clothing item in a different angle, captured in a **full-body shot**.
+
+    Views to display:
+    - Top Left: Front view (full body)
+    - Top Right: Right 3/4 view (full body)
+    - Bottom Left: Left 3/4 view (full body)
+    - Bottom Right: Back view (full body)
     
-    Each quadrant should show the model wearing the clothing from the specified angle, under consistent studio lighting, with subtle changes in pose to reflect the angle.
+    All views should:
+    - Use consistent studio lighting and a minimal background
+    - Feature the same model in subtle pose variations that match the angle
+    - Keep the clothing clearly visible and centered
+    - Show full-body proportions (head to toe), not cropped
     
-    Do not add labels, borders, or text — just the four views in a clean 2x2 image.
+    Do not add labels, borders, or text — only the four clean, evenly spaced full-body shots in a 2x2 layout.
     
     Clothing description: ${prompt}
     
-    ${promptJsonData ? `- Emphasize these specific visual details in all views: ${JSON.stringify(promptJsonData.graphics || [])}` : ''}
-    `;
+    ${promptJsonData ? `Please incorporate these specific design elements into the item shown: ${JSON.stringify(promptJsonData.graphics || [])}` : ''}
+    `;   
 
     const response = await openai.images.generate({
       model,
       prompt: compositePrompt,
       n: 1,
       size,
-      background
+      background,
+      quality // Add the quality parameter
     });
 
     // Check for either URL or base64 data in the response
