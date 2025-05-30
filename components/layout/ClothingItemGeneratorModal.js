@@ -3,9 +3,10 @@
 import { useState, useEffect, useRef } from 'react';
 import Image from 'next/image';
 import { useSession } from 'next-auth/react';
-// Removed useRouter as it might not be needed if onClose handles navigation
-
-import { TEXTURES, SIZES } from '@/app/constants/options';
+import { useRouter } from 'next/navigation';
+import { toast } from 'react-hot-toast';
+import Modal from 'react-modal';
+import { MATERIALS, SIZES } from '@/app/constants/options';
 import sanitizePrompt from '@/utils/sanitizePrompt';
 import { generateClothingPromptJSON, generateCompositePromptFromJSON } from '@/utils/clothingPromptUtils';
 
@@ -36,7 +37,7 @@ export default function ClothingItemGeneratorModal({ isOpen, onClose, onSave }) 
 
   // Details to be filled/confirmed after generation, for DB
   const [itemType, setItemType] = useState('');
-  const [texture, setTexture] = useState(TEXTURES[0] || '');
+  const [texture, setTexture] = useState(MATERIALS[0] || '');
   const [color, setColor] = useState('Rainbow'); // Default or empty
   const [size, setSize] = useState(SIZES[0] || '');
 
@@ -66,7 +67,7 @@ export default function ClothingItemGeneratorModal({ isOpen, onClose, onSave }) 
         setDescription('');
         setCreativePrompt('');
         setItemType('');
-        setTexture(TEXTURES[0] || '');
+        setTexture(MATERIALS[0] || '');
         setColor('Rainbow');
         setSize(SIZES[0] || '');
         setGeneratedImageUrl(null);
@@ -236,7 +237,7 @@ export default function ClothingItemGeneratorModal({ isOpen, onClose, onSave }) 
                 />
             </div>
             <Input label="Item Type" value={itemType} onChange={setItemType} placeholder="e.g., Hoodie, T-Shirt" required />
-            <ButtonGroup label="Texture" options={TEXTURES} selected={texture} setSelected={setTexture} required />
+            <ButtonGroup label="Texture" options={MATERIALS} selected={texture} setSelected={setTexture} required />
             <Input label="Color / Pattern" value={color} onChange={setColor} placeholder="e.g., Galaxy Print" required />
             <ButtonGroup label="Size Category" options={SIZES} selected={size} setSelected={setSize} required />
               

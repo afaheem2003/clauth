@@ -47,7 +47,13 @@ export default function AuthGuard({ children }) {
       return;
     }
 
-    /* ───────── 4) ONBOARDING (displayName) ───────── */
+    /* ───────── 4) WARDROBE ACCESS ───────── */
+    if (pathname.startsWith("/wardrobes") && !session) {
+      router.replace("/login");
+      return;
+    }
+
+    /* ───────── 5) ONBOARDING (displayName) ───────── */
     if (
       session.user.role !== "ADMIN" &&
       !session.user.displayName &&

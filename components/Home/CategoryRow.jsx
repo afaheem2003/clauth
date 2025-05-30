@@ -13,13 +13,13 @@ export default function CategoryRow ({ title, items = [] }) {
 
       <div
         className={clsx(
-          'flex gap-4 overflow-x-auto scroll-smooth',
+          'flex gap-8 overflow-x-auto scroll-smooth',
           'snap-x snap-mandatory',
           'scrollbar-none [-ms-overflow-style:none] [scrollbar-width:none]'
         )}
       >
         {items.map(p => (
-          <div key={p.id} className="flex-[0_0_auto] w-72 h-auto mr-5 last:mr-0">
+          <div key={p.id} className="flex-[0_0_auto] w-80 h-auto mr-8 last:mr-0">
             <ClothingItemCard clothingItem={p} />
           </div>
         ))}

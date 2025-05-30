@@ -10,6 +10,7 @@ import Link from "next/link";
 import { PencilIcon } from "@heroicons/react/24/solid";
 import { HangerIcon } from "@/components/icons/HangerIcon";
 import { DrawerIcon } from "@/components/icons/DrawerIcon";
+import AnimatedCard from "@/components/common/AnimatedCard";
 
 export default function ProfilePage() {
   const router = useRouter();
@@ -182,7 +183,7 @@ export default function ProfilePage() {
         </div>
 
         {/* Content Grid */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-8">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4 gap-12">
           {loading ? (
             <div className="col-span-full flex justify-center items-center py-12">
               <div className="animate-spin rounded-full h-12 w-12 border-4 border-indigo-200 border-t-indigo-600"></div>
@@ -190,18 +191,18 @@ export default function ProfilePage() {
           ) : filteredClothingItems.length > 0 ? (
             filteredClothingItems.map((item) =>
               activeTab === "saved" ? (
-                <div key={item.id} className="transform transition-transform hover:scale-105 hover:-rotate-1">
+                <AnimatedCard key={item.id}>
                   <SavedClothingItemCard
                     clothingItem={item}
                     setClothingItems={setClothingItems}
                   />
-                </div>
+                </AnimatedCard>
               ) : (
-                <div key={item.id} className="transform transition-transform hover:scale-105 hover:rotate-1">
+                <AnimatedCard key={item.id}>
                   <ClothingItemCard
                     clothingItem={item}
                   />
-                </div>
+                </AnimatedCard>
               )
             )
           ) : (

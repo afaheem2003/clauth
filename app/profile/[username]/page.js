@@ -5,6 +5,7 @@ import { useParams } from "next/navigation";
 import Image from "next/image";
 import ClothingItemCard from "@/components/clothing/ClothingItemCard";
 import { formatCompactNumber } from "@/utils/formatters";
+import AnimatedCard from "@/components/common/AnimatedCard";
 
 export default function PublicProfilePage() {
   const { username } = useParams();
@@ -112,9 +113,9 @@ export default function PublicProfilePage() {
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-8">
             {clothingItems.length > 0 ? (
               clothingItems.map((item) => (
-                <div key={item.id} className="transform transition-transform hover:scale-105 hover:rotate-1 duration-300">
+                <AnimatedCard key={item.id}>
                   <ClothingItemCard clothingItem={item} />
-                </div>
+                </AnimatedCard>
               ))
             ) : (
               <div className="col-span-full text-center py-12">

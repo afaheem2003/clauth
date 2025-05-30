@@ -2,10 +2,11 @@
 
 import { useEffect, useState } from 'react';
 import ClothingItemCard from '@/components/clothing/ClothingItemCard';
-import { TEXTURES, SIZES } from '@/app/constants/options';
+import { ITEM_TYPES, MATERIALS, SIZES, COLORS, FITS, PRICE_RANGES } from '@/app/constants/options';
 import FilterBar from '@/components/discover/FilterBar';
 // import SearchBar from '@/components/discover/SearchBar'; // Removed as component not found
 import Footer from '@/components/common/Footer';
+import AnimatedCard from '@/components/common/AnimatedCard';
 
 const PER_PAGE = 20;
 
@@ -14,9 +15,14 @@ export default function DiscoverPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
+  // Filter states
   const [searchTerm, setSearchTerm] = useState('');
-  const [selectedTexture, setSelectedTexture] = useState('All');
+  const [selectedItemType, setSelectedItemType] = useState('All');
+  const [selectedMaterial, setSelectedMaterial] = useState('All');
   const [selectedSize, setSelectedSize] = useState('All');
+  const [selectedColor, setSelectedColor] = useState('All');
+  const [selectedFit, setSelectedFit] = useState('All');
+  const [selectedPriceRange, setSelectedPriceRange] = useState('All');
 
   const [page, setPage] = useState(1);
 
@@ -40,11 +46,28 @@ export default function DiscoverPage() {
   }, []);
 
   const filteredItems = clothingItems.filter(item => {
-    return (
-      (selectedTexture === 'All' || item.texture === selectedTexture) &&
-      (selectedSize === 'All' || item.size === selectedSize) &&
-      (searchTerm === '' || item.name.toLowerCase().includes(searchTerm.toLowerCase()) || item.itemType.toLowerCase().includes(searchTerm.toLowerCase()) || item.description.toLowerCase().includes(searchTerm.toLowerCase()))
-    );
+    const matchesSearch = searchTerm === '' || 
+      item.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
+      item.itemType.toLowerCase().includes(searchTerm.toLowerCase()) || 
+      (item.description?.toLowerCase() || '').includes(searchTerm.toLowerCase());
+
+    const matchesItemType = selectedItemType === 'All' || item.itemType === selectedItemType;
+    const matchesMaterial = selectedMaterial === 'All' || item.material === selectedMaterial;
+    const matchesSize = selectedSize === 'All' || item.size === selectedSize;
+    const matchesColor = selectedColor === 'All' || item.color === selectedColor;
+    const matchesFit = selectedFit === 'All' || item.fit === selectedFit;
+    
+    const matchesPrice = selectedPriceRange === 'All' || (() => {
+      const price = Number(item.price);
+      if (selectedPriceRange === 'All') return true;
+      const range = PRICE_RANGES.find(r => r.label === selectedPriceRange);
+      if (!range) return true;
+      if (range.max === null) return price >= range.min;
+      return price >= range.min && price < range.max;
+    })();
+
+    return matchesSearch && matchesItemType && matchesMaterial && 
+           matchesSize && matchesColor && matchesFit && matchesPrice;
   });
 
   const totalPages = Math.max(1, Math.ceil(filteredItems.length / PER_PAGE));
@@ -101,30 +124,92 @@ export default function DiscoverPage() {
         <section className="container mx-auto px-6 pb-20 flex flex-col lg:flex-row gap-10">
           {/* sidebar */}
           <aside className="lg:w-64 space-y-6 lg:sticky lg:top-24">
+            {/* Category/Type Filter */}
             <div>
-              <h3 className="font-semibold text-gray-700 mb-1">Texture</h3>
+              <h3 className="font-semibold text-gray-900 mb-1">Category</h3>
               <select
-                value={selectedTexture}
-                onChange={e => setSelectedTexture(e.target.value)}
-                className="w-full bg-white border border-gray-300 rounded-md px-3 py-2"
+                value={selectedItemType}
+                onChange={e => setSelectedItemType(e.target.value)}
+                className="w-full bg-white border border-gray-300 rounded-md px-3 py-2 text-gray-900"
               >
-                <option value="All">All Textures</option>
-                {TEXTURES.map(t => (
-                  <option key={t} value={t}>{t}</option>
+                <option value="All" className="text-gray-800">All Categories</option>
+                {ITEM_TYPES.map(t => (
+                  <option key={t} value={t} className="text-gray-900">{t}</option>
                 ))}
               </select>
             </div>
 
+            {/* Material Filter */}
             <div>
-              <h3 className="font-semibold text-gray-700 mb-1">Size</h3>
+              <h3 className="font-semibold text-gray-900 mb-1">Material</h3>
+              <select
+                value={selectedMaterial}
+                onChange={e => setSelectedMaterial(e.target.value)}
+                className="w-full bg-white border border-gray-300 rounded-md px-3 py-2 text-gray-900"
+              >
+                <option value="All" className="text-gray-800">All Materials</option>
+                {MATERIALS.map(m => (
+                  <option key={m} value={m} className="text-gray-900">{m}</option>
+                ))}
+              </select>
+            </div>
+
+            {/* Size Filter */}
+            <div>
+              <h3 className="font-semibold text-gray-900 mb-1">Size</h3>
               <select
                 value={selectedSize}
                 onChange={e => setSelectedSize(e.target.value)}
-                className="w-full bg-white border border-gray-300 rounded-md px-3 py-2"
+                className="w-full bg-white border border-gray-300 rounded-md px-3 py-2 text-gray-900"
               >
-                <option value="All">All Sizes</option>
+                <option value="All" className="text-gray-800">All Sizes</option>
                 {SIZES.map(s => (
-                  <option key={s} value={s}>{s}</option>
+                  <option key={s} value={s} className="text-gray-900">{s}</option>
+                ))}
+              </select>
+            </div>
+
+            {/* Color Filter */}
+            <div>
+              <h3 className="font-semibold text-gray-900 mb-1">Color</h3>
+              <select
+                value={selectedColor}
+                onChange={e => setSelectedColor(e.target.value)}
+                className="w-full bg-white border border-gray-300 rounded-md px-3 py-2 text-gray-900"
+              >
+                <option value="All" className="text-gray-800">All Colors</option>
+                {COLORS.map(c => (
+                  <option key={c} value={c} className="text-gray-900">{c}</option>
+                ))}
+              </select>
+            </div>
+
+            {/* Fit Filter */}
+            <div>
+              <h3 className="font-semibold text-gray-900 mb-1">Fit</h3>
+              <select
+                value={selectedFit}
+                onChange={e => setSelectedFit(e.target.value)}
+                className="w-full bg-white border border-gray-300 rounded-md px-3 py-2 text-gray-900"
+              >
+                <option value="All" className="text-gray-800">All Fits</option>
+                {FITS.map(f => (
+                  <option key={f} value={f} className="text-gray-900">{f}</option>
+                ))}
+              </select>
+            </div>
+
+            {/* Price Range Filter */}
+            <div>
+              <h3 className="font-semibold text-gray-900 mb-1">Price Range</h3>
+              <select
+                value={selectedPriceRange}
+                onChange={e => setSelectedPriceRange(e.target.value)}
+                className="w-full bg-white border border-gray-300 rounded-md px-3 py-2 text-gray-900"
+              >
+                <option value="All" className="text-gray-800">All Prices</option>
+                {PRICE_RANGES.map(range => (
+                  <option key={range.label} value={range.label} className="text-gray-900">{range.label}</option>
                 ))}
               </select>
             </div>
@@ -138,13 +223,14 @@ export default function DiscoverPage() {
               </p>
             ) : (
               <>
-                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-5 gap-8">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4 gap-12">
                   {pagedItems.map(item => (
-                    <ClothingItemCard 
-                      key={item.id} 
-                      clothingItem={item} 
-                      onItemSoftDeleted={handleItemSoftDeleted}
-                    />
+                    <AnimatedCard key={item.id}>
+                      <ClothingItemCard 
+                        clothingItem={item} 
+                        onItemSoftDeleted={handleItemSoftDeleted}
+                      />
+                    </AnimatedCard>
                   ))}
                 </div>
 

@@ -104,11 +104,25 @@ export default function Nav() {
               {drop && (
                 <div className="absolute right-0 mt-2 w-44 rounded-md shadow-lg bg-white ring-1 ring-gray-200 py-2 text-sm">
                   <Link
+                    href="/my-likes"
+                    onClick={() => setDrop(false)}
+                    className="block px-4 py-2 text-gray-700 hover:bg-gray-50"
+                  >
+                    My Likes
+                  </Link>
+                  <Link
                     href="/my-preorders"
                     onClick={() => setDrop(false)}
                     className="block px-4 py-2 text-gray-700 hover:bg-gray-50"
                   >
                     My Pre-orders
+                  </Link>
+                  <Link
+                    href="/wardrobes"
+                    onClick={() => setDrop(false)}
+                    className="block px-4 py-2 text-gray-700 hover:bg-gray-50"
+                  >
+                    My Wardrobes
                   </Link>
                   <Link
                     href="/profile"
@@ -220,6 +234,13 @@ export default function Nav() {
                 My Pre-orders
               </Link>
               <Link
+                href="/wardrobes"
+                onClick={close}
+                className="bm-item text-xl text-white hover:text-gray-300"
+              >
+                My Wardrobes
+              </Link>
+              <Link
                 href="/profile"
                 onClick={close}
                 className="bm-item text-xl text-white hover:text-gray-300"
@@ -232,6 +253,13 @@ export default function Nav() {
                 className="bm-item text-xl text-white hover:text-gray-300"
               >
                 Settings
+              </Link>
+              <Link
+                href="/my-likes"
+                onClick={close}
+                className="bm-item text-xl text-white hover:text-gray-300"
+              >
+                My Likes
               </Link>
               <button
                 onClick={logout}

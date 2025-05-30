@@ -4,10 +4,14 @@ import { useState, useEffect } from "react";
 import Image from "next/image";
 import Modal from "react-modal";
 import { useSession } from "next-auth/react";
-import { TEXTURES, SIZES } from "@/app/constants/options";
+import { TEXTURES, SIZES, MATERIALS } from "@/app/constants/options";
 import sanitizePrompt from "@/utils/sanitizePrompt";
 import supabase from "@/lib/supabaseClient";
 import { CANCELLATION_QUOTES } from "@/utils/cancellationQuotes";
+import { useRouter } from "next/navigation";
+import { toast } from "react-hot-toast";
+import ButtonGroup from "@/components/common/ButtonGroup";
+import { ANGLES } from "@/utils/imageProcessing";
 
 function BigSpinner() {
   return (
@@ -36,34 +40,9 @@ function Input({ label, value, setValue, type = "text", required = false, placeh
   );
 }
 
-function ButtonGroup({ label, options, selected, setSelected, required = false }) {
-  return (
-    <div className="w-full">
-      <label className="font-medium block text-sm mb-1.5 text-gray-700">
-        {label} {required && <span className="text-red-500">*</span>}
-      </label>
-      <div className="flex flex-wrap gap-2">
-        {options.map((opt) => (
-          <button
-            type="button"
-            key={opt}
-            onClick={() => setSelected(opt)}
-            className={`px-4 py-2 rounded-lg border-2 text-sm transition-all ${
-              selected === opt 
-                ? "bg-indigo-600 text-white border-indigo-600" 
-                : "bg-white/50 text-gray-600 border-gray-200 hover:border-indigo-300 hover:bg-indigo-50"
-            }`}
-          >
-            {opt}
-          </button>
-        ))}
-      </div>
-    </div>
-  );
-}
-
 export default function SavedClothingItemCard({ clothingItem, setClothingItems }) {
   const { data: session } = useSession();
+  const router = useRouter();
   const [itemName, setItemName] = useState(clothingItem.name);
   const [itemType, setItemType] = useState(clothingItem.itemType || '');
   const [description, setDescription] = useState(clothingItem.description || '');
@@ -77,6 +56,9 @@ export default function SavedClothingItemCard({ clothingItem, setClothingItems }
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [deleteQuote, setDeleteQuote] = useState("");
+
+  const [isLoading, setIsLoading] = useState(false);
+  const [isEditing, setIsEditing] = useState(false);
 
   const generatePrompt = () => `${size} ${texture} clothing item of a ${color} ${itemType}. ${description}`;
   
@@ -140,75 +122,104 @@ export default function SavedClothingItemCard({ clothingItem, setClothingItems }
     }
   }
 
-  async function updateClothingItem(publish = false) {
-    setLoadingButton(publish ? "publish" : "update");
+  const handlePublish = async () => {
+    setIsLoading(true);
     setErrorMessage("");
+
     try {
-      if (!itemName.trim()) throw new Error("Item name is required.");
-      if (!itemType.trim()) throw new Error("Item type is required.");
-      if (!imageUrl) throw new Error("Image is missing. Please regenerate if needed.");
-
-      const currentPrompt = generatePrompt();
-      const currentSanitizedPrompt = sanitizePrompt(currentPrompt);
-
-      const payload = {
-        name: itemName.trim(),
-        description: description.trim(),
-        itemType: itemType.trim(),
-        imageUrl, // This should be the public Supabase URL
-        promptRaw: currentPrompt,
-        promptSanitized: currentSanitizedPrompt,
-        texture,
-        size,
-        color,
-        isPublished: publish,
-        // No need to send userId, backend should get it from session
-      };
-
-      const res = await fetch(`/api/saved-clothing-items/${clothingItem.id}`, {
+      const response = await fetch(`/api/saved-clothing-items/${clothingItem.id}`, {
         method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        // credentials: "include", // Typically not needed with NextAuth.js if using its session
-        body: JSON.stringify(payload),
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          name: itemName,
+          description,
+          itemType,
+          material: texture,
+          size,
+          color,
+          isPublished: true,
+        }),
       });
 
-      if (!res.ok) {
-        const errorData = await res.json().catch(() => ({}));
-        throw new Error(errorData.error || "Update failed. Please try again.");
+      if (!response.ok) {
+        throw new Error("Failed to publish clothing item");
       }
 
-      const { clothingItem: updatedItem } = await res.json();
-      setClothingItems((prev) => prev.map((ci) => (ci.id === updatedItem.id ? updatedItem : ci)));
-      setIsModalOpen(false);
-    } catch (err) {
-      setErrorMessage(err.message || "An error occurred while saving.");
-    } finally {
-      setLoadingButton(null);
+      toast.success("Successfully published!");
+      router.push("/discover");
+    } catch (error) {
+      console.error("Error publishing clothing item:", error);
+      setErrorMessage("Failed to publish. Please try again.");
+      toast.error("Failed to publish");
     }
-  }
 
-  async function deleteClothingItem() {
-    setLoadingButton("delete"); // Indicate delete operation is in progress
+    setIsLoading(false);
+  };
+
+  const handleSave = async () => {
+    setIsLoading(true);
     setErrorMessage("");
+
     try {
-      const res = await fetch(`/api/saved-clothing-items/${clothingItem.id}`, {
-        method: "PUT", 
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ isDeleted: true }), // Soft delete
+      const response = await fetch(`/api/saved-clothing-items/${clothingItem.id}`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          name: itemName,
+          description,
+          itemType,
+          material: texture,
+          size,
+          color,
+        }),
       });
-      if (!res.ok) {
-        const errorData = await res.json().catch(() => ({}));
-        throw new Error(errorData.error || "Delete failed. Please try again.");
+
+      if (!response.ok) {
+        throw new Error("Failed to save changes");
       }
-      setClothingItems((prev) => prev.filter((ci) => ci.id !== clothingItem.id));
-      setIsModalOpen(false);
-    } catch (err) {
-      setErrorMessage(err.message || "An error occurred while deleting.");
-    } finally {
-      setLoadingButton(null);
-      setShowDeleteConfirm(false); // Close confirmation on completion
+
+      setIsEditing(false);
+      toast.success("Changes saved!");
+    } catch (error) {
+      console.error("Error saving changes:", error);
+      setErrorMessage("Failed to save changes. Please try again.");
+      toast.error("Failed to save changes");
     }
-  }
+
+    setIsLoading(false);
+  };
+
+  const handleDelete = async () => {
+    if (!window.confirm("Are you sure you want to delete this item?")) {
+      return;
+    }
+
+    setIsLoading(true);
+    setErrorMessage("");
+
+    try {
+      const response = await fetch(`/api/saved-clothing-items/${clothingItem.id}`, {
+        method: "DELETE",
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to delete clothing item");
+      }
+
+      toast.success("Item deleted!");
+      setClothingItems((prev) => prev.filter((ci) => ci.id !== clothingItem.id));
+    } catch (error) {
+      console.error("Error deleting clothing item:", error);
+      setErrorMessage("Failed to delete. Please try again.");
+      toast.error("Failed to delete");
+    }
+
+    setIsLoading(false);
+  };
 
   const initiateDelete = () => {
     const q = CANCELLATION_QUOTES[Math.floor(Math.random() * CANCELLATION_QUOTES.length)];
@@ -359,7 +370,7 @@ export default function SavedClothingItemCard({ clothingItem, setClothingItems }
                   Cancel
                 </button>
                 <button
-                  onClick={deleteClothingItem}
+                  onClick={handleDelete}
                   disabled={!!loadingButton}
                   className="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 transition disabled:opacity-50"
                 >
@@ -380,7 +391,7 @@ export default function SavedClothingItemCard({ clothingItem, setClothingItems }
               <div className="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-3 w-full sm:w-auto">
                 <button
                   type="button"
-                  onClick={() => updateClothingItem(false)}
+                  onClick={() => setIsEditing(true)}
                   disabled={!!loadingButton || !itemName.trim() || !itemType.trim() || !imageUrl}
                   className="px-5 py-2.5 rounded-md bg-indigo-600 text-white hover:bg-indigo-700 transition disabled:opacity-50 w-full flex items-center justify-center"
                 >
@@ -388,7 +399,7 @@ export default function SavedClothingItemCard({ clothingItem, setClothingItems }
                 </button>
                 <button
                   type="button"
-                  onClick={() => updateClothingItem(true)}
+                  onClick={handlePublish}
                   disabled={!!loadingButton || !itemName.trim() || !itemType.trim() || !imageUrl}
                   className="px-5 py-2.5 rounded-md bg-green-600 text-white hover:bg-green-700 transition disabled:opacity-50 w-full flex items-center justify-center"
                 >

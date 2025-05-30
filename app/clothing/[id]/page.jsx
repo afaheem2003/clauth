@@ -291,11 +291,49 @@ export default function ClothingItemDetailPage() {
             
             {/* Actions & Preorder */} 
             <div className="mt-auto">
-              <div className="flex items-center space-x-3 mb-4">
-                <button onClick={handleLike} className={`p-2 rounded-full transition-colors ${hasLiked ? 'text-red-500 bg-red-100' : 'text-gray-500 hover:bg-gray-100'}`} disabled={status === 'unauthenticated' && loading}>
-                  {hasLiked ? <HeartIconSolid className="h-6 w-6" /> : <HeartIconOutline className="h-6 w-6" />}
+              <div className="flex flex-wrap gap-4 mt-6">
+                {/* Like Button */}
+                <button
+                  onClick={handleLike}
+                  disabled={status === 'unauthenticated' && loading}
+                  className="flex items-center gap-2 px-4 py-2 text-gray-700 hover:text-gray-900 border border-gray-300 rounded-full transition-colors"
+                >
+                  {hasLiked ? <HeartIconSolid className="w-5 h-5 text-red-500" /> : <HeartIconOutline className="w-5 h-5" />}
+                  <span>{likes} {likes === 1 ? 'Like' : 'Likes'}</span>
                 </button>
-                <span className="text-gray-600">{likes} Likes</span>
+
+                {/* Add to Wardrobe Button */}
+                {session?.user && (
+                  <button
+                    onClick={() => router.push(`/wardrobes?addItem=${clothingItemId}`)}
+                    className="flex items-center gap-2 px-4 py-2 text-gray-700 hover:text-gray-900 border border-gray-300 rounded-full transition-colors"
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+                    </svg>
+                    Add to Wardrobe
+                  </button>
+                )}
+
+                {/* Edit/Delete Buttons */}
+                {canDelete && (
+                  <div className="flex gap-2">
+                    <Link
+                      href={`/clothing/${clothingItemId}/edit`}
+                      className="flex items-center gap-2 px-4 py-2 text-gray-700 hover:text-gray-900 border border-gray-300 rounded-full transition-colors"
+                    >
+                      <PencilIcon className="w-5 h-5" />
+                      Edit
+                    </Link>
+                    <button
+                      onClick={() => setShowDeleteConfirm(true)}
+                      className="flex items-center gap-2 px-4 py-2 text-red-600 hover:text-red-700 border border-red-300 rounded-full transition-colors"
+                    >
+                      <TrashIcon className="w-5 h-5" />
+                      Delete
+                    </button>
+                  </div>
+                )}
               </div>
 
               {canPreorder && (
@@ -308,18 +346,6 @@ export default function ClothingItemDetailPage() {
               )}
               {!canPreorder && isPublished && goal > 0 && pledged >= goal && (
                   <p className="text-sm text-center text-green-600 bg-green-50 p-2 rounded mb-2">This item has been fully funded! Production will begin soon.</p>
-              )}
-
-              {canDelete && (
-                <div className="mt-4 pt-4 border-t">
-                  <button 
-                    onClick={() => setShowDeleteConfirm(true)} 
-                    className="w-full flex items-center justify-center px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700 transition-colors"
-                    disabled={loading}
-                  >
-                    <TrashIcon className="h-5 w-5 mr-2"/> Delete Item
-                  </button>
-                </div>
               )}
             </div>
           </div>

@@ -31,6 +31,7 @@ model User {
   preorders     Preorder[]
   comments      Comment[]
   likes         Like[]
+  wardrobes     Wardrobe[]
 
   shippingInfo  ShippingInfo?  @relation("UserShipping")
   billingInfo   BillingInfo?   @relation("UserBilling")
@@ -81,7 +82,7 @@ model VerificationToken {
 model ClothingItem {
   id               String         @id @default(cuid())
   name             String
-  itemType         String
+  itemType         String        // Category/Type (e.g. Tops, Bottoms, Outerwear)
   description      String?
   imageUrl         String?    // Keep for backward compatibility
   frontImage       String?    // Front view (optional for now)
@@ -90,9 +91,13 @@ model ClothingItem {
   backImage        String?    // Back view
   promptRaw        String?
   promptSanitized  String?
-  texture          String?
-  size             String?
-  color            String?
+  material         String?    // Material (e.g. Cotton, Linen, Silk)
+  size             String?    // Standard sizes (XS, S, M, L, XL, XXL)
+  color            String?    // Color of the item
+  pattern          String?    // Pattern/Print (e.g. Solid, Striped, Plaid)
+  style            String?    // Style/Occasion (e.g. Casual, Formal, Business)
+  fit              String?    // Fit/Cut (e.g. Slim, Regular, Relaxed)
+  brand            String?    // Brand/Designer name
   promptJsonData   String?
   price            Decimal?       // Price of the item
   cost             Decimal?       // AI-estimated cost of the item
@@ -112,6 +117,9 @@ model ClothingItem {
   minimumGoal      Int            @default(25)
   pledged          Int            @default(0)  // Number of items pledged/pre-ordered
   status           ClothingItemStatus @default(PENDING)
+  customerRating   Float?         // Customer Rating (1-5 stars)
+  inStock          Boolean        @default(true) // Availability
+  wardrobeItems    WardrobeItem[]
 }
 
 model Vote {
@@ -259,4 +267,36 @@ enum PaymentIntentStatus {
 enum Role {
   USER
   ADMIN
+}
+
+/* ────────────────────────────────────────────────────────────
+   Wardrobe models
+────────────────────────────────────────────────────────────── */
+model Wardrobe {
+  id          String         @id @default(cuid())
+  name        String
+  description String?
+  isPublic    Boolean       @default(false)
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+  style       String?       // e.g., "Casual", "Formal", "Streetwear"
+  season      String?       // e.g., "Summer", "Winter", "All Season"
+  occasion    String?       // e.g., "Work", "Party", "Everyday"
+  
+  creator     User          @relation(fields: [creatorId], references: [id])
+  creatorId   String
+  
+  items       WardrobeItem[]
+}
+
+model WardrobeItem {
+  id          String       @id @default(cuid())
+  wardrobe    Wardrobe     @relation(fields: [wardrobeId], references: [id])
+  wardrobeId  String
+  clothingItem ClothingItem @relation(fields: [clothingItemId], references: [id])
+  clothingItemId String
+  addedAt     DateTime    @default(now())
+  notes       String?     // Optional notes about how this item fits in the wardrobe
+  
+  @@unique([wardrobeId, clothingItemId]) // Prevent duplicate items in a wardrobe
 }
