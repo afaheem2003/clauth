@@ -9,7 +9,7 @@ import Pagination from '@/components/common/Pagination';
 
 const PER_PAGE = 20;
 
-export default function DiscoverPage() {
+export default function ShopPage() {
   const [clothingItems, setClothingItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -18,8 +18,9 @@ export default function DiscoverPage() {
   // Filter states
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedItemType, setSelectedItemType] = useState('All');
-  const [selectedStatus, setSelectedStatus] = useState('All');
-  const [sortBy, setSortBy] = useState('newest'); // newest, likes
+  const [priceRange, setPriceRange] = useState([0, 1000]); // Default price range
+  const [sortBy, setSortBy] = useState('newest'); // newest, price-asc, price-desc
+  const [view, setView] = useState('available'); // available or dropping-soon
 
   const [page, setPage] = useState(1);
 
@@ -35,11 +36,11 @@ export default function DiscoverPage() {
   }, [isFilterOpen]);
 
   useEffect(() => {
-    async function fetchDiscoverData() {
+    async function fetchShopData() {
       setLoading(true);
       setError(null);
       try {
-        const res = await fetch('/api/discover');
+        const res = await fetch(`/api/shop?view=${view}`);
         if (!res.ok) throw new Error('Failed to fetch clothing items');
         const data = await res.json();
         setClothingItems(data.clothingItems || []);
@@ -50,8 +51,8 @@ export default function DiscoverPage() {
       }
       setLoading(false);
     }
-    fetchDiscoverData();
-  }, []);
+    fetchShopData();
+  }, [view]);
 
   const filteredItems = clothingItems.filter(item => {
     const matchesSearch = searchTerm === '' || 
@@ -60,11 +61,16 @@ export default function DiscoverPage() {
       (item.description?.toLowerCase() || '').includes(searchTerm.toLowerCase());
 
     const matchesItemType = selectedItemType === 'All' || item.itemType === selectedItemType;
-    const matchesStatus = selectedStatus === 'All' || item.status === selectedStatus;
+    
+    const matchesPrice = (() => {
+      const price = Number(item.price);
+      return price >= priceRange[0] && price <= priceRange[1];
+    })();
 
-    return matchesSearch && matchesItemType && matchesStatus;
+    return matchesSearch && matchesItemType && matchesPrice;
   }).sort((a, b) => {
-    if (sortBy === 'likes') return (b.likes?.length || 0) - (a.likes?.length || 0);
+    if (sortBy === 'price-asc') return Number(a.price) - Number(b.price);
+    if (sortBy === 'price-desc') return Number(b.price) - Number(a.price);
     return new Date(b.createdAt) - new Date(a.createdAt); // newest by default
   });
 
@@ -90,18 +96,44 @@ export default function DiscoverPage() {
         {/* banner */}
         <section
           className="relative py-20 md:py-24 bg-center bg-cover shadow-sm"
-          style={{ backgroundImage: "url('/images/discover/banner.png')" }}
+          style={{ backgroundImage: "url('/images/shop/banner.png')" }}
         >
           <div className="absolute inset-0 bg-black/30" />
           <div className="relative container mx-auto px-6 text-center">
             <h1 className="text-4xl font-extrabold text-white mb-2">
-              Discover New Designs
+              Shop Unique Designs
             </h1>
             <p className="text-lg text-white/90">
-              Explore unique clothing concepts from our community of creators.
+              Discover and purchase amazing community-created clothing.
             </p>
           </div>
         </section>
+
+        {/* View Toggle */}
+        <div className="container mx-auto px-6 py-6">
+          <div className="flex justify-center space-x-4 mb-6">
+            <button
+              onClick={() => setView('available')}
+              className={`px-6 py-2.5 text-sm font-medium tracking-wider transition-colors rounded-md ${
+                view === 'available'
+                  ? 'bg-black text-white'
+                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+              }`}
+            >
+              AVAILABLE NOW
+            </button>
+            <button
+              onClick={() => setView('dropping-soon')}
+              className={`px-6 py-2.5 text-sm font-medium tracking-wider transition-colors rounded-md ${
+                view === 'dropping-soon'
+                  ? 'bg-black text-white'
+                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+              }`}
+            >
+              DROPPING SOON
+            </button>
+          </div>
+        </div>
 
         {/* global search bar */}
         <section className="bg-gray-50 py-6">
@@ -165,50 +197,28 @@ export default function DiscoverPage() {
                             : 'text-gray-700 hover:text-gray-900'
                         }`}
                       >
-                        Newest First
+                        Newest
                       </button>
                       <button
-                        onClick={() => setSortBy('likes')}
+                        onClick={() => setSortBy('price-asc')}
                         className={`w-full text-left py-2 text-sm tracking-wide transition-colors ${
-                          sortBy === 'likes'
+                          sortBy === 'price-asc'
                             ? 'text-gray-900 font-medium'
                             : 'text-gray-700 hover:text-gray-900'
                         }`}
                       >
-                        Most Liked
+                        Price: Low to High
                       </button>
-                    </div>
-                  </div>
-
-                  {/* Status Filter */}
-                  <div className="mb-10">
-                    <h3 className="text-sm font-semibold text-gray-900 mb-4">STATUS</h3>
-                    <div className="space-y-3">
                       <button
-                        onClick={() => setSelectedStatus('All')}
+                        onClick={() => setSortBy('price-desc')}
                         className={`w-full text-left py-2 text-sm tracking-wide transition-colors ${
-                          selectedStatus === 'All'
+                          sortBy === 'price-desc'
                             ? 'text-gray-900 font-medium'
                             : 'text-gray-700 hover:text-gray-900'
                         }`}
                       >
-                        All Statuses
+                        Price: High to Low
                       </button>
-                      {['CONCEPT', 'SELECTED', 'AVAILABLE'].map(status => (
-                        <button
-                          key={status}
-                          onClick={() => setSelectedStatus(status)}
-                          className={`w-full text-left py-2 text-sm tracking-wide transition-colors ${
-                            selectedStatus === status
-                              ? 'text-gray-900 font-medium'
-                              : 'text-gray-700 hover:text-gray-900'
-                          }`}
-                        >
-                          {status === 'CONCEPT' && 'Coming Soon'}
-                          {status === 'SELECTED' && 'Dropping Soon'}
-                          {status === 'AVAILABLE' && 'Available Now'}
-                        </button>
-                      ))}
                     </div>
                   </div>
 
@@ -242,6 +252,45 @@ export default function DiscoverPage() {
                     </div>
                   </div>
 
+                  {/* Price Range Filter */}
+                  <div className="mb-10">
+                    <h3 className="text-sm font-semibold text-gray-900 mb-6">PRICE</h3>
+                    <div className="px-1">
+                      <div className="flex justify-between text-sm text-gray-900 mb-4">
+                        <span>${priceRange[0]}</span>
+                        <span>${priceRange[1]}</span>
+                      </div>
+                      <div className="relative mb-6">
+                        <div className="absolute h-[2px] inset-x-0 top-1/2 -translate-y-1/2 bg-gray-200"></div>
+                        <div 
+                          className="absolute h-[2px] inset-y-1/2 -translate-y-1/2 bg-gray-900"
+                          style={{
+                            left: `${(priceRange[0] / 1000) * 100}%`,
+                            right: `${100 - (priceRange[1] / 1000) * 100}%`
+                          }}
+                        />
+                        <input
+                          type="range"
+                          min="0"
+                          max="1000"
+                          step="10"
+                          value={priceRange[0]}
+                          onChange={e => setPriceRange([parseInt(e.target.value), priceRange[1]])}
+                          className="absolute w-full top-1/2 -translate-y-1/2 appearance-none bg-transparent pointer-events-none [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:pointer-events-auto [&::-webkit-slider-thumb]:h-5 [&::-webkit-slider-thumb]:w-5 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-gray-900 [&::-webkit-slider-thumb]:border-2 [&::-webkit-slider-thumb]:border-white [&::-webkit-slider-thumb]:shadow-md hover:[&::-webkit-slider-thumb]:bg-gray-800"
+                        />
+                        <input
+                          type="range"
+                          min="0"
+                          max="1000"
+                          step="10"
+                          value={priceRange[1]}
+                          onChange={e => setPriceRange([priceRange[0], parseInt(e.target.value)])}
+                          className="absolute w-full top-1/2 -translate-y-1/2 appearance-none bg-transparent pointer-events-none [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:pointer-events-auto [&::-webkit-slider-thumb]:h-5 [&::-webkit-slider-thumb]:w-5 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-gray-900 [&::-webkit-slider-thumb]:border-2 [&::-webkit-slider-thumb]:border-white [&::-webkit-slider-thumb]:shadow-md hover:[&::-webkit-slider-thumb]:bg-gray-800"
+                        />
+                      </div>
+                    </div>
+                  </div>
+
                   {/* Done Button */}
                   <button
                     onClick={() => setIsFilterOpen(false)}
@@ -269,10 +318,10 @@ export default function DiscoverPage() {
                     <AnimatedCard key={item.id}>
                       <ClothingItemCard 
                         clothingItem={item}
-                        showPrice={item.status !== 'CONCEPT'}
-                        showProgress={item.status === 'AVAILABLE'}
-                        showWaitlist={item.status === 'SELECTED'}
-                        linkToShop={item.status === 'AVAILABLE'}
+                        showPrice={true}
+                        showProgress={true}
+                        showWaitlist={false}
+                        linkToShop={true}
                       />
                     </AnimatedCard>
                   ))}
@@ -294,5 +343,4 @@ export default function DiscoverPage() {
       <Footer />
     </div>
   );
-}
-
+} 

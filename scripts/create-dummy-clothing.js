@@ -17,7 +17,11 @@ function getRandomElement(array) {
 }
 
 function generateRandomPrice() {
-  return Math.floor(Math.random() * (8000 - 2000) + 2000) / 100; // Random price between $20 and $80
+  return Math.floor(Math.random() * (150 - 30) + 30);
+}
+
+function generateRandomDate(start, end) {
+  return new Date(start.getTime() + Math.random() * (end.getTime() - start.getTime()));
 }
 
 async function createDummyClothingItems() {
@@ -34,39 +38,31 @@ async function createDummyClothingItems() {
       return;
     }
 
-    // Create 10 dummy clothing items
-    for (let i = 0; i < 10; i++) {
+    // Create items with CONCEPT status (just ideas, no price or quantities)
+    for (let i = 0; i < 5; i++) {
       const itemType = getRandomElement(itemTypes);
       const color = getRandomElement(colors);
       const material = getRandomElement(materials);
-      const size = getRandomElement(sizes);
       const pattern = getRandomElement(patterns);
       const style = getRandomElement(styles);
       const fit = getRandomElement(fits);
-      const price = generateRandomPrice();
 
-      const clothingItem = await prisma.clothingItem.create({
+      await prisma.clothingItem.create({
         data: {
           name: `${color} ${pattern} ${itemType}`,
           itemType,
           description: `A beautiful ${fit} fit ${itemType.toLowerCase()} made with premium ${material.toLowerCase()}. Perfect for ${style.toLowerCase()} wear.`,
           frontImage,
           backImage,
-          imageUrl: frontImage, // For backward compatibility
+          imageUrl: frontImage,
           material,
-          size,
           color,
           pattern,
           style,
           fit,
-          price,
-          cost: price * 0.6, // 60% of price as cost
           isPublished: true,
           isDeleted: false,
-          goal: 100,
-          minimumGoal: 25,
-          pledged: Math.floor(Math.random() * 50), // Random number of pledges
-          status: 'PENDING',
+          status: 'CONCEPT',
           creator: {
             connect: {
               id: user.id
@@ -74,8 +70,88 @@ async function createDummyClothingItems() {
           }
         }
       });
+    }
 
-      console.log(`Created clothing item: ${clothingItem.name}`);
+    // Create items with SELECTED status (upcoming drops)
+    for (let i = 0; i < 5; i++) {
+      const itemType = getRandomElement(itemTypes);
+      const color = getRandomElement(colors);
+      const material = getRandomElement(materials);
+      const pattern = getRandomElement(patterns);
+      const style = getRandomElement(styles);
+      const fit = getRandomElement(fits);
+      const price = generateRandomPrice();
+      const totalQuantity = Math.floor(Math.random() * (200 - 50) + 50);
+      const dropDate = generateRandomDate(new Date(), new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)); // Next 30 days
+
+      await prisma.clothingItem.create({
+        data: {
+          name: `${color} ${pattern} ${itemType}`,
+          itemType,
+          description: `A beautiful ${fit} fit ${itemType.toLowerCase()} made with premium ${material.toLowerCase()}. Perfect for ${style.toLowerCase()} wear.`,
+          frontImage,
+          backImage,
+          imageUrl: frontImage,
+          material,
+          color,
+          pattern,
+          style,
+          fit,
+          price,
+          isPublished: true,
+          isDeleted: false,
+          status: 'SELECTED',
+          totalQuantity,
+          dropDate,
+          creator: {
+            connect: {
+              id: user.id
+            }
+          }
+        }
+      });
+    }
+
+    // Create items with AVAILABLE status (currently for sale)
+    for (let i = 0; i < 5; i++) {
+      const itemType = getRandomElement(itemTypes);
+      const color = getRandomElement(colors);
+      const material = getRandomElement(materials);
+      const pattern = getRandomElement(patterns);
+      const style = getRandomElement(styles);
+      const fit = getRandomElement(fits);
+      const price = generateRandomPrice();
+      const totalQuantity = Math.floor(Math.random() * (200 - 50) + 50);
+      const soldQuantity = Math.floor(Math.random() * totalQuantity);
+      const batchNumber = Math.floor(Math.random() * 5) + 1;
+
+      await prisma.clothingItem.create({
+        data: {
+          name: `${color} ${pattern} ${itemType}`,
+          itemType,
+          description: `A beautiful ${fit} fit ${itemType.toLowerCase()} made with premium ${material.toLowerCase()}. Perfect for ${style.toLowerCase()} wear.`,
+          frontImage,
+          backImage,
+          imageUrl: frontImage,
+          material,
+          color,
+          pattern,
+          style,
+          fit,
+          price,
+          isPublished: true,
+          isDeleted: false,
+          status: 'AVAILABLE',
+          totalQuantity,
+          soldQuantity,
+          batchNumber,
+          creator: {
+            connect: {
+              id: user.id
+            }
+          }
+        }
+      });
     }
 
     console.log('Successfully created dummy clothing items');

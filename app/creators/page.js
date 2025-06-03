@@ -17,7 +17,9 @@ export default async function CreatorsPage() {
         some: {
           isPublished: true,
           isDeleted: false,
-          status: 'PENDING'
+          status: {
+            in: ['AVAILABLE', 'SELECTED', 'CONCEPT']
+          }
         }
       }
     },
@@ -32,27 +34,39 @@ export default async function CreatorsPage() {
             where: {
               isPublished: true,
               isDeleted: false,
-              status: 'PENDING'
+              status: {
+                in: ['AVAILABLE', 'SELECTED', 'CONCEPT']
+              }
             }
           }
         }
       },
       clothingItems: {
         where: {
-          AND: [
-            { isPublished: true },
-            { isDeleted: false },
-            { status: 'PENDING' }
-          ]
+          isPublished: true,
+          isDeleted: false,
+          status: {
+            in: ['AVAILABLE', 'SELECTED', 'CONCEPT']
+          }
         },
         select: {
           id: true,
           name: true,
           imageUrl: true,
           likes: true,
-          goal: true,
-          pledged: true,
+          status: true,
+          preorders: {
+            select: {
+              id: true,
           status: true
+            },
+            where: {
+              status: {
+                in: ['CONFIRMED', 'COLLECTED']
+              }
+            }
+          },
+          totalQuantity: true
         },
         orderBy: {
           createdAt: 'desc'
@@ -78,7 +92,8 @@ export default async function CreatorsPage() {
       name: item.name,
       imageUrl: item.imageUrl || '/images/clothing-item-placeholder.png',
       likes: item.likes?.length || 0,
-      progress: Math.min(100, Math.round((item.pledged / item.goal) * 100))
+      status: item.status,
+      progress: item.totalQuantity ? Math.min(100, Math.round((item.preorders.length / item.totalQuantity) * 100)) : 0
     }));
 
     return {

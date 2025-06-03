@@ -13,16 +13,18 @@ export async function POST(req) {
   const body = await req.json();
   const {
     name,
-    imageUrl,
-    promptRaw,
-    promptSanitized,
-    texture,
-    size,
+    itemType,
+    description,
     color,
+    material,
     isPublished,
+    price,
+    goal,
+    minimumGoal,
+    status
   } = body;
 
-  if (!name || !imageUrl || !promptRaw || !texture || !size) {
+  if (!name || !itemType) {
     return NextResponse.json(
       { error: "Missing required fields" },
       { status: 400 }
@@ -34,14 +36,17 @@ export async function POST(req) {
     const clothingItem = await prisma.clothingItem.create({
       data: {
         name,
-        imageUrl,
-        promptRaw,
-        promptSanitized: promptSanitized || "",
-        texture,
-        size,
+        itemType,
+        description,
         color,
+        material,
         isPublished: !!isPublished,
         isDeleted: false, // ✅ ensure it's explicitly set
+        price: price || 0,
+        goal: goal || 100,
+        minimumGoal: minimumGoal || 25,
+        status: status || 'PENDING',
+        pledged: 0,
         creator: {
           connect: {
             id: session.user.uid,
@@ -50,10 +55,10 @@ export async function POST(req) {
       },
     });
 
-    console.log("✅ Clothing item published:", clothingItem.id);
+    console.log("✅ Clothing item created:", clothingItem.id);
     return NextResponse.json({ clothingItem });
   } catch (err) {
-    console.error("❌ Failed to publish clothing item:", err);
+    console.error("❌ Failed to create clothing item:", err);
     return NextResponse.json(
       { error: "Failed to create clothing item" },
       { status: 500 }

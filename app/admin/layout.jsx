@@ -20,35 +20,26 @@ export default function AdminLayout({ children }) {
             <h2 className="text-2xl font-bold mb-8 text-gray-100">Clauth&nbsp;Admin</h2>
 
             <nav className="space-y-4 text-lg">
-  <Link href="/admin"                  className="block font-medium text-gray-200 hover:text-gray-100">
-    Dashboard
-  </Link>
+              <Link href="/admin" className="block font-medium text-gray-200 hover:text-gray-100">
+                Dashboard
+              </Link>
 
-  <Link href="/admin/clothing"         className="block font-medium text-gray-200 hover:text-gray-100">
-    Clothing Items
-  </Link>
+              <Link href="/admin/clothing" className="block font-medium text-gray-200 hover:text-gray-100">
+                Clothing Items
+              </Link>
 
-  <Link href="/admin/preorders"        className="block font-medium text-gray-200 hover:text-gray-100">
-    Pre-orders
-  </Link>
+              <Link href="/admin/preorders" className="block font-medium text-gray-200 hover:text-gray-100">
+                Pre-orders
+              </Link>
 
-  {/* Production section */}
-  <div className="space-y-2">
-    <p className="text-sm uppercase tracking-wide text-gray-400">Production</p>
+              <Link href="/admin/production" className="block font-medium text-gray-200 hover:text-gray-100">
+                Production
+              </Link>
 
-    <Link href="/admin/production"              className="block ml-3 font-medium text-gray-200 hover:text-gray-100">
-      Queue&nbsp;(ready)
-    </Link>
-
-    <Link href="/admin/production/in-progress"  className="block ml-3 font-medium text-gray-200 hover:text-gray-100">
-      In&nbsp;Progress
-    </Link>
-  </div>
-
-  <Link href="/admin/users"            className="block font-medium text-gray-200 hover:text-gray-100">
-    Users
-  </Link>
-</nav>
+              <Link href="/admin/users" className="block font-medium text-gray-200 hover:text-gray-100">
+                Users
+              </Link>
+            </nav>
 
             <button
               onClick={async () => {

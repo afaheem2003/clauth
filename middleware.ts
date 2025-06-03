@@ -5,6 +5,7 @@ import { getToken } from 'next-auth/jwt'
 
 export async function middleware(req: NextRequest) {
   const isMaintenance = process.env.MAINTENANCE_MODE === 'true'
+  const isShopEnabled = process.env.ENABLE_SHOP === 'true'
   const token = await getToken({ req })
   const isAdmin = token?.role === 'ADMIN'
   const path = req.nextUrl.pathname
@@ -20,8 +21,32 @@ export async function middleware(req: NextRequest) {
     '/images',
   ].some((prefix) => path.startsWith(prefix))
 
+  // Handle maintenance mode
   if (isMaintenance && !isAdmin && !isBypassed) {
     return NextResponse.rewrite(new URL('/maintenance', req.url))
+  }
+
+  // Handle shop routes when shop is disabled
+  if (!isShopEnabled && !isAdmin) {
+    // List of shop-related routes that should be redirected
+    const shopRoutes = [
+      '/shop',
+      '/clothing',
+      '/api/checkout',
+      '/api/clothing',
+    ]
+
+    // Check if current path starts with any shop route
+    const isShopRoute = shopRoutes.some((route) => path.startsWith(route))
+
+    if (isShopRoute) {
+      // If it's the main shop page, redirect to coming soon
+      if (path === '/shop') {
+        return NextResponse.rewrite(new URL('/shop/coming-soon', req.url))
+      }
+      // For other shop routes, redirect to home
+      return NextResponse.redirect(new URL('/', req.url))
+    }
   }
 
   return NextResponse.next()

@@ -79,6 +79,14 @@ model VerificationToken {
 /* ────────────────────────────────────────────────────────────
    Application models
 ────────────────────────────────────────────────────────────── */
+enum ItemStatus {
+  CONCEPT     // Initial stage - just an idea
+  SELECTED    // Hand-picked for next drop
+  AVAILABLE   // Currently available for purchase
+  SOLD_OUT    // No longer available
+  ARCHIVED    // Removed from shop but kept for reference
+}
+
 model ClothingItem {
   id               String         @id @default(cuid())
   name             String
@@ -99,27 +107,35 @@ model ClothingItem {
   fit              String?    // Fit/Cut (e.g. Slim, Regular, Relaxed)
   brand            String?    // Brand/Designer name
   promptJsonData   String?
-  price            Decimal?       // Price of the item
-  cost             Decimal?       // AI-estimated cost of the item
-  isPublished      Boolean        @default(false)
-  isFeatured       Boolean        @default(false)
-  isDeleted        Boolean        @default(false)
-  createdAt        DateTime       @default(now())
+  price            Decimal?   // Price of the item (only set when status becomes SELECTED)
+  cost             Decimal?   // AI-estimated cost of the item
+  isPublished      Boolean    @default(false)
+  isFeatured       Boolean    @default(false)
+  isDeleted        Boolean    @default(false)
+  createdAt        DateTime   @default(now())
   expiresAt        DateTime?
-  estimatedShipDate DateTime?     // When the item is expected to ship if goal is reached
-  creator          User           @relation(fields: [creatorId], references: [id])
+  estimatedShipDate DateTime? // When the item is expected to ship if goal is reached
+  creator          User       @relation(fields: [creatorId], references: [id])
   creatorId        String
   votes            Vote[]
   preorders        Preorder[]
   comments         Comment[]
   likes            Like[]
-  goal             Int            @default(100) // Minimum order quantity
-  minimumGoal      Int            @default(25)
-  pledged          Int            @default(0)  // Number of items pledged/pre-ordered
-  status           ClothingItemStatus @default(PENDING)
-  customerRating   Float?         // Customer Rating (1-5 stars)
-  inStock          Boolean        @default(true) // Availability
+  customerRating   Float?     // Customer Rating (1-5 stars)
+  inStock          Boolean    @default(true) // Availability
   wardrobeItems    WardrobeItem[]
+  
+  // Drop-based system fields
+  status           ItemStatus @default(CONCEPT)
+  totalQuantity    Int?      // Only set when status becomes SELECTED
+  soldQuantity     Int       @default(0)
+  batchNumber      Int?      // Which drop/batch this belongs to
+  dropDate         DateTime? // When this will be/was dropped
+  selectionDate    DateTime? // When this was selected for production
+  releaseDate      DateTime? // When this was released to the shop
+
+  // Remove legacy fields that are no longer needed
+  @@map("ClothingItem")
 }
 
 model Vote {

@@ -29,7 +29,7 @@ export default function CreatorsClient({ initialCreators }) {
                 {/* Creator Info */}
                 <div 
                   className="flex items-center space-x-4 cursor-pointer"
-                  onClick={() => router.push(`/profile/${creator.displayName}`)}
+                  onClick={() => router.push(`/profile/${creator.id}`)}
                 >
                   <div className="relative h-16 w-16 flex-shrink-0">
                     <Image
@@ -65,13 +65,13 @@ export default function CreatorsClient({ initialCreators }) {
                 </div>
 
                 {/* Available Clothing Items */}
-                {(creator.availableClothingItems || creator.availableClothingItems)?.length > 0 && (
+                {creator.availableClothingItems?.length > 0 && (
                   <div className="mt-6 border-t border-gray-100 pt-4">
                     <h3 className="text-sm font-medium text-gray-900 mb-4">
                       Available Designs
                     </h3>
                     <div className="space-y-4">
-                      {(creator.availableClothingItems || creator.availableClothingItems).map((item) => (
+                      {creator.availableClothingItems.map((item) => (
                         <div
                           key={item.id}
                           onClick={() => {
@@ -93,12 +93,14 @@ export default function CreatorsClient({ initialCreators }) {
                             <p className="text-sm font-medium text-gray-900 truncate">
                               {item.name}
                             </p>
+                            {item.status === 'AVAILABLE' && (
                             <div className="mt-1 w-full bg-gray-200 rounded-full h-1.5">
                               <div
                                 className="bg-green-500 h-1.5 rounded-full"
                                 style={{ width: `${item.progress}%` }}
                               />
                             </div>
+                            )}
                           </div>
                           <div className="flex items-center text-sm text-gray-500">
                             <svg

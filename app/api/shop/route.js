@@ -1,12 +1,16 @@
-import { NextResponse } from "next/server";
-import prisma from "@/lib/prisma";
+import { NextResponse } from 'next/server';
+import prisma from '@/lib/prisma';
 
-export async function GET() {
+export async function GET(request) {
   try {
+    const { searchParams } = new URL(request.url);
+    const view = searchParams.get('view') || 'available';
+
     const clothingItems = await prisma.clothingItem.findMany({
       where: {
         isPublished: true,
         isDeleted: false,
+        status: view === 'available' ? 'AVAILABLE' : 'SELECTED',
       },
       include: {
         creator: {
@@ -25,8 +29,8 @@ export async function GET() {
         },
       },
       orderBy: {
-        createdAt: 'desc'
-      }
+        createdAt: 'desc',
+      },
     });
 
     return NextResponse.json({ clothingItems });
@@ -37,4 +41,4 @@ export async function GET() {
       { status: 500 }
     );
   }
-}
+} 

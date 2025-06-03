@@ -32,16 +32,16 @@ async function getAdminDashboardData() {
   const clothingItemStatus = clothingItemStatusRaw.map((d) => ({ status: d.status, count: d._count.status }));
   const preorderStatus = preorderStatusRaw.map((d) => ({ status: d.status, count: d._count.status }));
 
-  // 3) Top clothing items
+  // 3) Top clothing items (now sorted by soldQuantity instead of pledged)
   const topClothingItems = await prisma.clothingItem.findMany({
-    orderBy: { pledged: 'desc' },
+    orderBy: { soldQuantity: 'desc' },
     take: 5,
     select: {
       id: true,
       name: true,
-      pledged: true,
-      goal: true,
-      texture: true,
+      soldQuantity: true,
+      totalQuantity: true,
+      material: true,
       size: true,
       status: true,
       creator: {
@@ -148,15 +148,15 @@ export default async function AdminDashboard() {
       </div>
 
       <div className="space-y-4">
-        <h2 className="text-2xl font-semibold text-gray-900">Top 5 Clothing Items by Pledges</h2>
+        <h2 className="text-2xl font-semibold text-gray-900">Top 5 Clothing Items by Sales</h2>
         <table className="w-full bg-white rounded-lg shadow overflow-hidden">
           <thead className="bg-gray-100">
             <tr>
               <th className="px-4 py-3 text-left font-medium text-gray-800">Name</th>
               <th className="px-4 py-3 text-left font-medium text-gray-800">Artist</th>
-              <th className="px-4 py-3 text-left font-medium text-gray-800">Pledged</th>
-              <th className="px-4 py-3 text-left font-medium text-gray-800">Goal</th>
-              <th className="px-4 py-3 text-left font-medium text-gray-800">Texture</th>
+              <th className="px-4 py-3 text-left font-medium text-gray-800">Sold</th>
+              <th className="px-4 py-3 text-left font-medium text-gray-800">Total</th>
+              <th className="px-4 py-3 text-left font-medium text-gray-800">Material</th>
               <th className="px-4 py-3 text-left font-medium text-gray-800">Size</th>
               <th className="px-4 py-3 text-left font-medium text-gray-800">Status</th>
             </tr>
@@ -170,9 +170,9 @@ export default async function AdminDashboard() {
                   </Link>
                 </td>
                 <td className="px-4 py-3 text-gray-900">{item.creator?.displayName ?? 'Unknown Artist'}</td>
-                <td className="px-4 py-3 text-gray-900">{item.pledged}</td>
-                <td className="px-4 py-3 text-gray-900">{item.goal}</td>
-                <td className="px-4 py-3 text-gray-900">{item.texture}</td>
+                <td className="px-4 py-3 text-gray-900">{item.soldQuantity}</td>
+                <td className="px-4 py-3 text-gray-900">{item.totalQuantity}</td>
+                <td className="px-4 py-3 text-gray-900">{item.material}</td>
                 <td className="px-4 py-3 text-gray-900">{item.size}</td>
                 <td className="px-4 py-3 text-gray-900">{item.status}</td>
               </tr>

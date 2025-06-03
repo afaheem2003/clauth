@@ -8,48 +8,13 @@ export const ITEM_TYPES = [
   'Accessories'
 ];
 
-export const MATERIALS = [
-  'Cotton',
-  'Polyester',
-  'Blend',
-  'Denim',
-  'Knit',
-  'Fleece',
-  'Canvas',
-  'Wool',
-  'Linen'
-];
-
 export const SIZES = [
-  'XS',
-  'S',
-  'M',
-  'L',
-  'XL',
-  'XXL',
-  'One Size'
-];
-
-export const COLORS = [
-  'Black',
-  'White',
-  'Navy',
-  'Red',
-  'Green',
-  'Blue',
-  'Yellow',
-  'Purple',
-  'Pink',
-  'Gray',
-  'Brown',
-  'Multi'
-];
-
-export const FITS = [
-  'Slim',
-  'Regular',
-  'Relaxed',
-  'Oversized'
+  { value: 'XS', label: 'XS' },
+  { value: 'S', label: 'S' },
+  { value: 'M', label: 'M' },
+  { value: 'L', label: 'L' },
+  { value: 'XL', label: 'XL' },
+  { value: 'XXL', label: 'XXL' }
 ];
 
 export const PRICE_RANGES = [

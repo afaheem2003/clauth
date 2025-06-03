@@ -6,6 +6,8 @@ import Link from "next/link";
 import { slide as Menu } from "react-burger-menu";
 import { useRouter } from "next/navigation";
 import { useSession, signOut } from "next-auth/react";
+import { useCart } from "@/lib/CartContext";
+import { ShoppingBagIcon } from "@heroicons/react/24/outline";
 
 /* react-burger-menu styles ----------------------------------------- */
 const menuStyles = {
@@ -37,6 +39,13 @@ export default function Nav() {
   const dropRef = useRef(null);
   const { data: session } = useSession();
   const router = useRouter();
+  const { getCartCount, setIsOpen: setCartOpen } = useCart();
+  const [isShopEnabled, setIsShopEnabled] = useState(false);
+
+  useEffect(() => {
+    // Get ENABLE_SHOP value from environment variable
+    setIsShopEnabled(process.env.NEXT_PUBLIC_ENABLE_SHOP === 'true');
+  }, []);
 
   useOutside(dropRef, () => setDrop(false));
 
@@ -50,9 +59,12 @@ export default function Nav() {
   const links = [
     { href: '/', label: 'Home' },
     { href: '/discover', label: 'Discover' },
+    { href: '/shop', label: 'Shop' },
     { href: '/creators', label: 'Creators' },
     { href: '/design', label: 'Design' },
   ];
+
+  const cartCount = getCartCount();
 
   return (
     <header className="bg-white border-b sticky top-0 z-50">
@@ -80,6 +92,21 @@ export default function Nav() {
             >
               Admin
             </Link>
+          )}
+
+          {/* Cart Icon - Only show if shop is enabled */}
+          {isShopEnabled && (
+            <button
+              onClick={() => setCartOpen(true)}
+              className="relative p-2 text-gray-700 hover:text-gray-900"
+            >
+              <ShoppingBagIcon className="w-6 h-6" />
+              {cartCount > 0 && (
+                <span className="absolute -top-1 -right-1 bg-black text-white text-xs w-5 h-5 flex items-center justify-center rounded-full">
+                  {cartCount}
+                </span>
+              )}
+            </button>
           )}
 
           {!session?.user ? (
@@ -151,19 +178,36 @@ export default function Nav() {
         </nav>
 
         {/* MOBILE BURGER */}
-        <button
-          onClick={() => setOpen(true)}
-          className="md:hidden text-gray-700 hover:text-gray-500 focus:outline-none"
-        >
-          <svg
-            className="w-8 h-8"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
+        <div className="md:hidden flex items-center gap-4">
+          {/* Cart Icon - Only show if shop is enabled */}
+          {isShopEnabled && (
+            <button
+              onClick={() => setCartOpen(true)}
+              className="relative p-2 text-gray-700 hover:text-gray-900"
+            >
+              <ShoppingBagIcon className="w-6 h-6" />
+              {cartCount > 0 && (
+                <span className="absolute -top-1 -right-1 bg-black text-white text-xs w-5 h-5 flex items-center justify-center rounded-full">
+                  {cartCount}
+                </span>
+              )}
+            </button>
+          )}
+
+          <button
+            onClick={() => setOpen(true)}
+            className="text-gray-700 hover:text-gray-500 focus:outline-none"
           >
-            <path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h16M4 18h16" />
-          </svg>
-        </button>
+            <svg
+              className="w-8 h-8"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+            >
+              <path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h16M4 18h16" />
+            </svg>
+          </button>
+        </div>
       </div>
 
       {/* MOBILE SLIDE-OUT MENU */}

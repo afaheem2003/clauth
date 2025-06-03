@@ -6,7 +6,7 @@ import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import { toast } from 'react-hot-toast';
 import Modal from 'react-modal';
-import { MATERIALS, SIZES } from '@/app/constants/options';
+import { ITEM_TYPES_DETAILS, SIZES } from '@/app/constants/options';
 import sanitizePrompt from '@/utils/sanitizePrompt';
 import { generateClothingPromptJSON, generateCompositePromptFromJSON } from '@/utils/clothingPromptUtils';
 
@@ -37,7 +37,7 @@ export default function ClothingItemGeneratorModal({ isOpen, onClose, onSave }) 
 
   // Details to be filled/confirmed after generation, for DB
   const [itemType, setItemType] = useState('');
-  const [texture, setTexture] = useState(MATERIALS[0] || '');
+  const [texture, setTexture] = useState(ITEM_TYPES_DETAILS[0] || '');
   const [color, setColor] = useState('Rainbow'); // Default or empty
   const [size, setSize] = useState(SIZES[0] || '');
 
@@ -67,7 +67,7 @@ export default function ClothingItemGeneratorModal({ isOpen, onClose, onSave }) 
         setDescription('');
         setCreativePrompt('');
         setItemType('');
-        setTexture(MATERIALS[0] || '');
+        setTexture(ITEM_TYPES_DETAILS[0] || '');
         setColor('Rainbow');
         setSize(SIZES[0] || '');
         setGeneratedImageUrl(null);
@@ -237,7 +237,7 @@ export default function ClothingItemGeneratorModal({ isOpen, onClose, onSave }) 
                 />
             </div>
             <Input label="Item Type" value={itemType} onChange={setItemType} placeholder="e.g., Hoodie, T-Shirt" required />
-            <ButtonGroup label="Texture" options={MATERIALS} selected={texture} setSelected={setTexture} required />
+            <ButtonGroup label="Texture" options={ITEM_TYPES_DETAILS} selected={texture} setSelected={setTexture} required />
             <Input label="Color / Pattern" value={color} onChange={setColor} placeholder="e.g., Galaxy Print" required />
             <ButtonGroup label="Size Category" options={SIZES} selected={size} setSelected={setSize} required />
               

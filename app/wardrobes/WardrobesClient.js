@@ -102,12 +102,12 @@ export default function WardrobesClient({ initialWardrobes }) {
                     <select
                       value={selectedWardrobe}
                       onChange={(e) => setSelectedWardrobe(e.target.value)}
-                      className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-gray-300 focus:ring focus:ring-gray-200 focus:ring-opacity-50 transition-colors bg-gray-50"
+                      className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-gray-300 focus:ring focus:ring-gray-200 focus:ring-opacity-50 transition-colors bg-gray-50 text-gray-900 placeholder-gray-500"
                       required
                     >
-                      <option value="">Choose a wardrobe</option>
+                      <option value="" className="text-gray-500">Choose a wardrobe</option>
                       {wardrobes.map((wardrobe) => (
-                        <option key={wardrobe.id} value={wardrobe.id}>
+                        <option key={wardrobe.id} value={wardrobe.id} className="text-gray-900">
                           {wardrobe.name}
                         </option>
                       ))}
@@ -120,7 +120,7 @@ export default function WardrobesClient({ initialWardrobes }) {
                     <textarea
                       value={itemNotes}
                       onChange={(e) => setItemNotes(e.target.value)}
-                      className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-gray-300 focus:ring focus:ring-gray-200 focus:ring-opacity-50 transition-colors bg-gray-50 min-h-[100px] resize-none"
+                      className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-gray-300 focus:ring focus:ring-gray-200 focus:ring-opacity-50 transition-colors bg-gray-50 min-h-[100px] resize-none text-gray-900 placeholder-gray-500"
                       placeholder="Add any notes about this item in your wardrobe..."
                     />
                   </div>

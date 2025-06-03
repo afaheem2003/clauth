@@ -58,54 +58,27 @@ export async function DELETE(req, { params }) {
 
 // GET /api/clothing/[id]
 export async function GET(req, { params }) {
-  const { id } = params;
-
   try {
     const clothingItem = await prisma.clothingItem.findUnique({
-      where: { id },
+      where: { id: params.id },
       include: {
         creator: true,
-        preorders: true,
         likes: true,
-        comments: {
-          include: {
-            author: true,
-          },
-        },
       },
     });
 
     if (!clothingItem) {
-      return NextResponse.json({ error: "Clothing item not found" }, { status: 404 });
-    }
-
-    // Check if item has expired
-    const isExpired = clothingItem.expiresAt && new Date(clothingItem.expiresAt) < new Date();
-    const hasReachedGoal = clothingItem.pledged >= clothingItem.goal;
-
-    // If expired and hasn't reached goal, update status
-    if (isExpired && !hasReachedGoal && clothingItem.status === 'PENDING') {
-      await prisma.clothingItem.update({
-        where: { id },
-        data: { status: 'CANCELED' }
-      });
-      clothingItem.status = 'CANCELED';
-    }
-    
-    // If reached goal and still pending, update to production
-    if (hasReachedGoal && clothingItem.status === 'PENDING') {
-      await prisma.clothingItem.update({
-        where: { id },
-        data: { status: 'IN_PRODUCTION' }
-      });
-      clothingItem.status = 'IN_PRODUCTION';
+      return NextResponse.json(
+        { error: 'Clothing item not found' },
+        { status: 404 }
+      );
     }
 
     return NextResponse.json({ clothingItem });
-  } catch (err) {
-    console.error("Error fetching clothing item:", err);
+  } catch (error) {
+    console.error('Failed to fetch clothing item:', error);
     return NextResponse.json(
-      { error: "Failed to fetch clothing item" },
+      { error: 'Failed to fetch clothing item' },
       { status: 500 }
     );
   }

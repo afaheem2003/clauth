@@ -12,67 +12,59 @@ const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, {
 
 export async function POST(req) {
   const session = await getServerSession(authOptions);
-  const {
-    clothingItemId,
-    imageUrl,
-    quantity = 1,
-    size,
-    returnTo = "/discover",
-    guestEmail,
-  } = await req.json();
+  const { items = [], returnTo = "/discover", guestEmail } = await req.json();
 
-  if (!clothingItemId) {
-    return NextResponse.json({ error: 'Missing clothingItemId' }, { status: 400 });
-  }
-
-  if (!size) {
-    return NextResponse.json({ error: 'Size is required' }, { status: 400 });
+  if (!items.length) {
+    return NextResponse.json({ error: 'No items provided' }, { status: 400 });
   }
 
   const userId = session?.user?.uid || null;
-  const qty = Math.max(1, parseInt(quantity, 10));
-  const priceInCents = 5499;
   const origin = req.headers.get("origin");
 
-  // --- Fetch Clothing Item Name ---
-  let clothingItemName = 'Clothing Item'; // Default name
-  if (clothingItemId) {
-    try {
-      const item = await prisma.clothingItem.findUnique({
-        where: { id: clothingItemId },
-        select: { name: true, price: true },
-      });
-      if (item && item.name) {
-        clothingItemName = item.name;
-      }
-    } catch (dbError) {
-      console.error("Error fetching clothing item details:", dbError);
-    }
-  }
-  // --- End Fetch Clothing Item Name ---
+  // Fetch all clothing items at once
+  const clothingItemIds = items.map(item => item.clothingItemId);
+  const clothingItems = await prisma.clothingItem.findMany({
+    where: { id: { in: clothingItemIds } },
+    select: { id: true, name: true, price: true, imageUrl: true },
+  });
+
+  // Create a map for quick lookup
+  const clothingItemMap = clothingItems.reduce((acc, item) => {
+    acc[item.id] = item;
+    return acc;
+  }, {});
+
+  // Create line items for Stripe
+  const lineItems = items.map(item => {
+    const clothingItem = clothingItemMap[item.clothingItemId];
+    if (!clothingItem) return null;
+
+    const fullImage = item.imageUrl && item.imageUrl.startsWith("http") 
+      ? item.imageUrl 
+      : `${origin}${clothingItem.imageUrl || ''}`;
+
+    return {
+      price_data: {
+        currency: "usd",
+        unit_amount: Math.round(clothingItem.price * 100), // Convert to cents
+        product_data: {
+          name: `${clothingItem.name} (${item.size})`,
+          images: [fullImage].filter(Boolean),
+        },
+      },
+      quantity: item.quantity,
+    };
+  }).filter(Boolean);
 
   const base = origin + returnTo;
-  const successUrl = `${base}?success=true&clothingItemId=${clothingItemId}`;
-  const cancelUrl = `${base}?canceled=true&clothingItemId=${clothingItemId}`;
-  const fullImage = imageUrl && imageUrl.startsWith("http") ? imageUrl : `${origin}${imageUrl || ''}`;
+  const successUrl = `${base}?success=true`;
+  const cancelUrl = `${base}?canceled=true`;
 
   try {
     const checkoutSession = await stripe.checkout.sessions.create({
       payment_method_types: ["card"],
       customer_email: guestEmail || undefined,
-      line_items: [
-        {
-          price_data: {
-            currency: "usd",
-            unit_amount: priceInCents,
-            product_data: {
-              name: clothingItemName,
-              images: [fullImage].filter(Boolean),
-            },
-          },
-          quantity: qty,
-        },
-      ],
+      line_items: lineItems,
       mode: "payment",
       payment_intent_data: {
         capture_method: "manual",
@@ -85,9 +77,11 @@ export async function POST(req) {
       cancel_url: cancelUrl,
       client_reference_id: userId || undefined,
       metadata: {
-        clothingItemId,
-        quantity: qty.toString(),
-        size,
+        items: JSON.stringify(items.map(item => ({
+          clothingItemId: item.clothingItemId,
+          quantity: item.quantity,
+          size: item.size,
+        }))),
         guestEmail: guestEmail || "",
       },
     });

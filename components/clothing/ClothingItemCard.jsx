@@ -21,8 +21,8 @@ export default function ClothingItemCard({ clothingItem, onItemSoftDeleted }) {
   const router = useRouter();
   const { data: session } = useSession();
   const { id, name, imageUrl, frontImage, backImage, creator, goal, pledged, price } = clothingItem;
-  const [has, setHas] = useState(false);
-  const [likes, setLikes] = useState(0);
+  const [isLiked, setIsLiked] = useState(false);
+  const [likesCount, setLikesCount] = useState(clothingItem.likes?.length || 0);
   const [daysLeft, setDaysLeft] = useState(calculateTimeLeft(clothingItem.expiresAt));
   const [isDeleting, setIsDeleting] = useState(false);
   const [isLiking, setIsLiking] = useState(false);
@@ -43,8 +43,8 @@ export default function ClothingItemCard({ clothingItem, onItemSoftDeleted }) {
   const displayImage = frontImage || imageUrl || '/images/clothing-item-placeholder.png';
 
   useEffect(() => {
-    setLikes(clothingItem.likes?.length || 0);
-    setHas(session?.user?.uid ? clothingItem.likes?.some(l => l.userId === session.user.uid) || false : false);
+    setLikesCount(clothingItem.likes?.length || 0);
+    setIsLiked(clothingItem.likes?.some(like => like.userId === session?.user?.uid) || false);
   }, [clothingItem.likes, session?.user?.uid]);
 
   useEffect(() => {
@@ -67,8 +67,8 @@ export default function ClothingItemCard({ clothingItem, onItemSoftDeleted }) {
       setIsLiking(true);
       
       // Optimistically update UI immediately
-      setHas(prevHas => !prevHas);
-      setLikes(prevLikes => !has ? prevLikes + 1 : Math.max(0, prevLikes - 1));
+      setIsLiked(prevLiked => !prevLiked);
+      setLikesCount(prevCount => prevCount + (isLiked ? -1 : 1));
       
       const res = await fetch(`/api/clothing/${id}/like`, {
         method: 'POST',
@@ -78,13 +78,11 @@ export default function ClothingItemCard({ clothingItem, onItemSoftDeleted }) {
 
       if (!res.ok) {
         // Revert optimistic update on error
-        setHas(prevHas => !prevHas);
-        setLikes(prevLikes => has ? prevLikes + 1 : Math.max(0, prevLikes - 1));
+        setIsLiked(prevLiked => !prevLiked);
+        setLikesCount(prevCount => prevCount + (isLiked ? 1 : -1));
         throw new Error('Failed to update like');
       }
 
-      // No need to update state again since we already did optimistic update
-      // and the API response matches our optimistic update
     } catch (err) {
       console.error('Error updating like:', err);
     } finally {
@@ -226,7 +224,7 @@ export default function ClothingItemCard({ clothingItem, onItemSoftDeleted }) {
           disabled={isLiking}
           className="bg-white/90 backdrop-blur-sm p-2 rounded-full shadow-md transform transition-all duration-200 hover:scale-110"
         >
-          {has ? (
+          {isLiked ? (
             <HeartSolid className="w-5 h-5 text-red-500" />
           ) : (
             <HeartOutline className="w-5 h-5 text-gray-500" />
