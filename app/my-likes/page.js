@@ -35,7 +35,14 @@ export default async function MyLikesPage() {
           image: true,
         }
       },
-      likes: true,
+      likes: {
+        select: {
+          id: true,
+          userId: true,
+          clothingItemId: true,
+          createdAt: true
+        }
+      },
       _count: {
         select: {
           likes: true
@@ -51,6 +58,8 @@ export default async function MyLikesPage() {
     id: item.id,
     name: item.name,
     imageUrl: item.imageUrl,
+    frontImage: item.frontImage,
+    backImage: item.backImage,
     itemType: item.itemType,
     creator: {
       id: item.creator.id,
@@ -58,8 +67,13 @@ export default async function MyLikesPage() {
       image: item.creator.image
     },
     createdAt: item.createdAt,
+    likes: item.likes,
     likesCount: item._count.likes,
-    progress: Math.min(100, Math.round((item.pledged / item.goal) * 100))
+    pledged: item.pledged,
+    goal: item.goal,
+    expiresAt: item.expiresAt,
+    price: item.price,
+    status: item.status
   }));
 
   return <MyLikesClient initialLikedItems={enrichedItems} />;

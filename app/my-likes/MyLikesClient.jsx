@@ -2,11 +2,13 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { useSession } from 'next-auth/react';
 import ClothingItemCard from '@/components/clothing/ClothingItemCard';
 import AnimatedCard from '@/components/common/AnimatedCard';
 
 export default function MyLikesClient({ initialLikedItems }) {
   const router = useRouter();
+  const { data: session } = useSession();
   const [likedItems] = useState(initialLikedItems);
 
   if (likedItems.length === 0) {
@@ -50,8 +52,7 @@ export default function MyLikesClient({ initialLikedItems }) {
             <AnimatedCard key={item.id}>
               <ClothingItemCard clothingItem={{
                 ...item,
-                likes: new Array(item.likesCount).fill({ userId: 'placeholder' }), // Convert likesCount to likes array
-                hasLiked: true, // Since these are liked items
+                likes: item.likes || [], // Use the likes array from the server
                 creator: {
                   ...item.creator,
                   id: item.creator.id

@@ -1,3 +1,5 @@
+'use server';
+
 import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth/next";
 import Stripe from "stripe";
@@ -14,9 +16,18 @@ export async function POST(req) {
     clothingItemId,
     imageUrl,
     quantity = 1,
+    size,
     returnTo = "/discover",
     guestEmail,
   } = await req.json();
+
+  if (!clothingItemId) {
+    return NextResponse.json({ error: 'Missing clothingItemId' }, { status: 400 });
+  }
+
+  if (!size) {
+    return NextResponse.json({ error: 'Size is required' }, { status: 400 });
+  }
 
   const userId = session?.user?.uid || null;
   const qty = Math.max(1, parseInt(quantity, 10));
@@ -76,6 +87,7 @@ export async function POST(req) {
       metadata: {
         clothingItemId,
         quantity: qty.toString(),
+        size,
         guestEmail: guestEmail || "",
       },
     });

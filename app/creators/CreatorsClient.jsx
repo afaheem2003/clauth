@@ -74,7 +74,9 @@ export default function CreatorsClient({ initialCreators }) {
                       {(creator.availableClothingItems || creator.availableClothingItems).map((item) => (
                         <div
                           key={item.id}
-                          onClick={() => router.push(`/clothing/${item.id}`)}
+                          onClick={() => {
+                            router.push(`/clothing/${item.id}?from=creators`);
+                          }}
                           className="flex items-center space-x-3 cursor-pointer hover:bg-gray-50 p-2 rounded-lg transition-colors"
                         >
                           <div className="relative h-12 w-12 flex-shrink-0">

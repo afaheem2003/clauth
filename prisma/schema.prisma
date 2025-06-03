@@ -143,7 +143,7 @@ model Preorder {
   price           Float
   quantity        Int            @default(1)
   status          PreorderStatus @default(PENDING)
-
+  size            String         // Add size field
   guestEmail String? // optional email field for guest users
 
   shippingInfo    ShippingInfo?  @relation("PreorderShipping", fields: [shippingInfoId], references: [id])

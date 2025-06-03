@@ -58,12 +58,13 @@ export async function POST(request) {
     const userId = session.client_reference_id;
     const clothingItemId = meta.clothingItemId;
     const qty = parseInt(meta.quantity || "1", 10);
+    const size = meta.size;
     const cents = session.amount_total || 0;
     const email = session.customer_details?.email;
     const name = session.customer_details?.name || "friend";
     const address = session.customer_details?.address;
 
-    console.log("📌 Session metadata:", { userId, clothingItemId, qty, cents, email });
+    console.log("📌 Session metadata:", { userId, clothingItemId, qty, size, cents, email });
 
     try {
       console.log("💳 Recording payment intent...");
@@ -90,6 +91,7 @@ export async function POST(request) {
           clothingItemId: clothingItemId,
           price: cents / 100,
           quantity: qty,
+          size: size,
           status: "CONFIRMED",
           paymentIntentId: payment.id,
         },

@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState, useCallback } from 'react';
-import { useParams, useRouter } from 'next/navigation';
+import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 import Image from 'next/image';
 import Link from 'next/link';
@@ -26,6 +26,9 @@ const stripePromise = loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY)
 export default function ClothingItemDetailPage() {
   const router = useRouter();
   const params = useParams();
+  const searchParams = new URLSearchParams(window.location.search);
+  const fromPage = searchParams.get('from');
+  const creatorName = searchParams.get('creator');
   const { id: clothingItemId } = params;
   const { data: session, status } = useSession();
 
@@ -39,6 +42,28 @@ export default function ClothingItemDetailPage() {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [isImageModalOpen, setIsImageModalOpen] = useState(false);
   const [modalImageIndex, setModalImageIndex] = useState(0);
+  const [currentAngle, setCurrentAngle] = useState(ANGLES.FRONT);
+  const [isDescriptionOpen, setIsDescriptionOpen] = useState(false);
+  const [selectedSize, setSelectedSize] = useState('');
+
+  // Add available sizes - we can make this dynamic later from the database
+  const availableSizes = ['XS', 'S', 'M', 'L', 'XL', 'XXL'];
+
+  const getBreadcrumbLabel = () => {
+    if (fromPage === 'creators') return 'Creators';
+    if (fromPage === 'profile') return creatorName || 'Creator Profile';
+    if (fromPage === 'wardrobes') return 'Wardrobes';
+    if (fromPage === 'my-likes') return 'My Likes';
+    return 'Discover';
+  };
+
+  const getBreadcrumbPath = () => {
+    if (fromPage === 'creators') return '/creators';
+    if (fromPage === 'profile') return creatorName ? `/profile/${creatorName}` : '/profile';
+    if (fromPage === 'wardrobes') return '/wardrobes';
+    if (fromPage === 'my-likes') return '/my-likes';
+    return '/discover';
+  };
 
   const fetchClothingItemDetails = useCallback(async () => {
     if (!clothingItemId) return;
@@ -119,13 +144,14 @@ export default function ClothingItemDetailPage() {
 
   const handlePreorder = async () => {
     if (!clothingItem) return;
+    if (!selectedSize) {
+      alert('Please select a size before proceeding');
+      return;
+    }
 
     setCheckoutLoading(true);
-    setError(null); // Clear previous errors
+    setError(null);
 
-    // For guest checkouts, you might want to collect email on this page
-    // or rely on Stripe to do it. For now, we'll pass null or an empty string.
-    // If session exists and you want to prefill email for logged-in users:
     const userEmail = session?.user?.email || null;
 
     try {
@@ -134,10 +160,11 @@ export default function ClothingItemDetailPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           clothingItemId: clothingItem.id,
-          imageUrl: clothingItem.frontImage || clothingItem.imageUrl, // Send an appropriate image
-          quantity: 1, // Or allow quantity selection
-          returnTo: `/clothing/${clothingItem.id}`, // Return to the current page
-          guestEmail: userEmail, // Pass user's email if logged in, or null/undefined for guest
+          imageUrl: clothingItem.frontImage || clothingItem.imageUrl,
+          quantity: 1,
+          size: selectedSize,
+          returnTo: `/clothing/${clothingItem.id}`,
+          guestEmail: userEmail,
         }),
       });
 
@@ -235,168 +262,300 @@ export default function ClothingItemDetailPage() {
   };
   const closeImageModal = () => setIsImageModalOpen(false);
 
+  // Update the currentImageUrl logic to handle fallbacks properly
+  const getCurrentImage = () => {
+    if (currentAngle === ANGLES.FRONT) {
+      return frontImage || imageUrl;
+    }
+    return backImage || imageUrl;
+  };
+
+  // Remove the old currentImageUrl declaration and use the function
+  const currentImageUrl = getCurrentImage();
+
   return (
-    <div className="bg-gray-50 min-h-screen py-8 px-4 md:px-8">
-      <div className="max-w-6xl mx-auto">
-        <div className="bg-white shadow-xl rounded-lg overflow-hidden md:flex">
-          {/* Image Gallery Section */} 
-          <div className="md:w-1/2">
-            <ImageGallery 
-              images={{ 
-                imageUrl: imageUrl, // Keep for legacy fallback in ImageGallery
-                [ANGLES.FRONT]: frontImage, 
-                [ANGLES.BACK]: backImage, 
-                // You could also add rightImage and leftImage here if the gallery supported them
-                // e.g., right: rightImage, left: leftImage 
-              }}
-              onImageClick={openImageModal}
+    <div className="min-h-screen bg-white">
+      {/* Main Content */}
+      <div className="max-w-screen-2xl mx-auto grid grid-cols-1 md:grid-cols-2 gap-8">
+        {/* Left: Image Gallery */}
+        <div className="relative h-[90vh] overflow-hidden bg-gray-50">
+          <div 
+            className="w-full h-full relative group"
+            onClick={() => openImageModal()}
+          >
+            {/* Main Image */}
+            <img 
+              src={currentImageUrl}
+              alt={`${name} - ${currentAngle} view`}
+              className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
             />
+
+            {/* Image Navigation Dots - Only show if we have both front and back images */}
+            {(frontImage || imageUrl) && backImage && (
+              <div className="absolute bottom-6 left-1/2 transform -translate-x-1/2 flex space-x-4">
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setCurrentAngle(ANGLES.FRONT);
+                  }}
+                  className={`w-3 h-3 rounded-full transition-colors ${
+                    currentAngle === ANGLES.FRONT ? 'bg-black' : 'bg-gray-400'
+                  } hover:bg-black`}
+                  aria-label="View front"
+                />
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setCurrentAngle(ANGLES.BACK);
+                  }}
+                  className={`w-3 h-3 rounded-full transition-colors ${
+                    currentAngle === ANGLES.BACK ? 'bg-black' : 'bg-gray-400'
+                  } hover:bg-black`}
+                  aria-label="View back"
+                />
+              </div>
+            )}
+
+            {/* Add image switch buttons on the sides for easier switching */}
+            {(frontImage || imageUrl) && backImage && (
+              <>
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setCurrentAngle(ANGLES.FRONT);
+                  }}
+                  className={`absolute left-4 top-1/2 transform -translate-y-1/2 bg-white/80 p-2 rounded-full shadow-lg transition-opacity ${
+                    currentAngle === ANGLES.FRONT ? 'opacity-0' : 'opacity-100'
+                  } hover:bg-white`}
+                  aria-label="Previous image"
+                >
+                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                  </svg>
+                </button>
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setCurrentAngle(ANGLES.BACK);
+                  }}
+                  className={`absolute right-4 top-1/2 transform -translate-y-1/2 bg-white/80 p-2 rounded-full shadow-lg transition-opacity ${
+                    currentAngle === ANGLES.BACK ? 'opacity-0' : 'opacity-100'
+                  } hover:bg-white`}
+                  aria-label="Next image"
+                >
+                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                  </svg>
+                </button>
+              </>
+            )}
           </div>
+        </div>
 
-          {/* Details Section */} 
-          <div className="md:w-1/2 p-6 md:p-8 flex flex-col justify-between">
-            <div>
-              <h1 className="text-3xl md:text-4xl font-bold text-gray-800 mb-2">{name}</h1>
-              {price && <p className="text-2xl text-purple-600 font-semibold mb-3">${Number(price).toFixed(2)}</p>}
-              <Link href={`/profile/${creator?.displayName || creator?.id}`} className="text-lg text-purple-500 hover:text-purple-700 mb-4 block">
-                By {creator?.displayName || creator?.name || 'Anonymous Creator'}
+        {/* Right: Product Details */}
+        <div className="p-8 md:p-12 lg:p-16 flex flex-col h-[90vh] sticky top-0">
+          <div className="flex-grow">
+            {/* Breadcrumb */}
+            <nav className="text-sm mb-8">
+              <Link 
+                href={getBreadcrumbPath()}
+                className="text-gray-600 hover:text-black"
+              >
+                {getBreadcrumbLabel()}
               </Link>
+              <span className="mx-2 text-gray-400">/</span>
+              <span className="text-gray-900">{name}</span>
+            </nav>
 
-              {/* Countdown Status */}
-              {isPublished && (
-                <div className="mb-6">
-                  <CountdownGoalStatus
-                    expiresAt={clothingItem.expiresAt}
-                    goal={clothingItem.goal}
-                    pledged={clothingItem.pledged}
-                    status={clothingItem.status}
-                  />
+            {/* Title and Price */}
+            <h1 className="text-2xl font-normal text-gray-900 mb-4">{name}</h1>
+            {price && (
+              <p className="text-xl text-gray-900 mb-8">${Number(price).toFixed(2)}</p>
+            )}
+
+            {/* Creator Link */}
+            <Link 
+              href={`/profile/${creator?.displayName || creator?.id}`} 
+              className="text-sm text-gray-700 hover:text-black mb-8 inline-block"
+            >
+              By {creator?.displayName || creator?.name || 'Anonymous Creator'}
+            </Link>
+
+            {/* Color and Size */}
+            <div className="space-y-6 mb-8">
+              {size && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-900 mb-2">
+                    SIZE
+                  </label>
+                  <div className="text-sm text-gray-700 uppercase">{size}</div>
                 </div>
               )}
+            </div>
 
-              {cleanDescription && <p className="text-gray-600 mb-4 whitespace-pre-wrap">{cleanDescription}</p>}
-              
-              <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm text-gray-700 mb-4">
-                {itemType && <p><strong>Type:</strong> {itemType}</p>}
-                {texture && <p><strong>Texture:</strong> {texture}</p>}
-                {size && <p><strong>Size:</strong> {size}</p>}
-                {color && <p><strong>Color:</strong> {color}</p>}
-                {estimatedShipDate && (
-                  <p className="col-span-2">
-                    <strong>Estimated Shipping:</strong> {new Date(estimatedShipDate).toLocaleDateString()}
-                  </p>
-                )}
+            {/* Size Selector */}
+            <div className="mb-8">
+              <label className="block text-sm font-medium text-gray-900 mb-2">
+                SIZE
+              </label>
+              <div className="grid grid-cols-3 gap-2">
+                {availableSizes.map((size) => (
+                  <button
+                    key={size}
+                    onClick={() => setSelectedSize(size)}
+                    className={`py-3 text-sm font-medium rounded-lg transition-all duration-200 ${
+                      selectedSize === size
+                        ? 'bg-black text-white'
+                        : 'bg-gray-50 text-gray-900 hover:bg-gray-100'
+                    }`}
+                  >
+                    {size}
+                  </button>
+                ))}
               </div>
             </div>
-            
-            {/* Actions & Preorder */} 
-            <div className="mt-auto">
-              <div className="flex flex-wrap gap-4 mt-6">
-                {/* Like Button */}
-                <button
-                  onClick={handleLike}
-                  disabled={status === 'unauthenticated' && loading}
-                  className="flex items-center gap-2 px-4 py-2 text-gray-700 hover:text-gray-900 border border-gray-300 rounded-full transition-colors"
+
+            {/* Description */}
+            {cleanDescription && (
+              <div className="mb-8">
+                <button 
+                  className="flex items-center justify-between w-full py-4 text-left border-t border-b border-gray-200"
+                  onClick={() => setIsDescriptionOpen(!isDescriptionOpen)}
                 >
-                  {hasLiked ? <HeartIconSolid className="w-5 h-5 text-red-500" /> : <HeartIconOutline className="w-5 h-5" />}
-                  <span>{likes} {likes === 1 ? 'Like' : 'Likes'}</span>
-                </button>
-
-                {/* Add to Wardrobe Button */}
-                {session?.user && (
-                  <button
-                    onClick={() => router.push(`/wardrobes?addItem=${clothingItemId}`)}
-                    className="flex items-center gap-2 px-4 py-2 text-gray-700 hover:text-gray-900 border border-gray-300 rounded-full transition-colors"
+                  <span className="text-sm font-medium text-gray-900">DESCRIPTION</span>
+                  <svg 
+                    className={`w-4 h-4 transition-transform ${isDescriptionOpen ? 'rotate-180' : ''}`}
+                    fill="none" 
+                    stroke="currentColor" 
+                    viewBox="0 0 24 24"
                   >
-                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5">
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
-                    </svg>
-                    Add to Wardrobe
-                  </button>
-                )}
-
-                {/* Edit/Delete Buttons */}
-                {canDelete && (
-                  <div className="flex gap-2">
-                    <Link
-                      href={`/clothing/${clothingItemId}/edit`}
-                      className="flex items-center gap-2 px-4 py-2 text-gray-700 hover:text-gray-900 border border-gray-300 rounded-full transition-colors"
-                    >
-                      <PencilIcon className="w-5 h-5" />
-                      Edit
-                    </Link>
-                    <button
-                      onClick={() => setShowDeleteConfirm(true)}
-                      className="flex items-center gap-2 px-4 py-2 text-red-600 hover:text-red-700 border border-red-300 rounded-full transition-colors"
-                    >
-                      <TrashIcon className="w-5 h-5" />
-                      Delete
-                    </button>
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                  </svg>
+                </button>
+                {isDescriptionOpen && (
+                  <div className="py-4 text-sm text-gray-700 leading-relaxed">
+                    {cleanDescription}
                   </div>
                 )}
               </div>
+            )}
 
+            {/* Actions */}
+            <div className="space-y-4">
               {canPreorder && (
-                <Button onClick={handlePreorder} fullWidth primary disabled={loading || checkoutLoading}>
-                  {checkoutLoading ? 'Processing...' : 'Preorder Now'}
-                </Button>
+                <button
+                  onClick={handlePreorder}
+                  disabled={checkoutLoading || !session?.user || !selectedSize}
+                  className={`w-full py-4 text-sm font-medium transition-colors ${
+                    !selectedSize
+                      ? 'bg-gray-200 text-gray-500 cursor-not-allowed'
+                      : 'bg-black text-white hover:bg-gray-900'
+                  }`}
+                >
+                  {checkoutLoading ? 'Processing...' : !selectedSize ? 'SELECT SIZE' : 'PREORDER NOW'}
+                </button>
               )}
-              {!isPublished && isOwner && (
-                <p className="text-sm text-center text-yellow-600 bg-yellow-50 p-2 rounded mb-2">This is a saved draft. Publish it from your profile.</p>
+
+              <button
+                onClick={handleLike}
+                disabled={status === 'unauthenticated'}
+                className="flex items-center justify-center gap-2 px-4 py-2 text-gray-700 hover:text-gray-900 border border-gray-300 rounded-full transition-colors"
+              >
+                {hasLiked ? (
+                  <HeartIconSolid className="w-5 h-5 text-red-500" />
+                ) : (
+                  <HeartIconOutline className="w-5 h-5" />
+                )}
+                <span>{likes} {likes === 1 ? 'Like' : 'Likes'}</span>
+              </button>
+
+              {/* Add to Wardrobe Button */}
+              {session?.user && (
+                <button
+                  onClick={() => router.push(`/wardrobes?addItem=${clothingItemId}`)}
+                  className="flex items-center justify-center gap-2 px-4 py-2 text-gray-700 hover:text-gray-900 border border-gray-300 rounded-full transition-colors"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+                  </svg>
+                  Add to Wardrobe
+                </button>
               )}
-              {!canPreorder && isPublished && goal > 0 && pledged >= goal && (
-                  <p className="text-sm text-center text-green-600 bg-green-50 p-2 rounded mb-2">This item has been fully funded! Production will begin soon.</p>
+
+              {canDelete && (
+                <button
+                  onClick={() => setShowDeleteConfirm(true)}
+                  className="flex items-center justify-center gap-2 px-4 py-2 text-red-600 hover:text-red-700 border border-red-300 rounded-full transition-colors"
+                >
+                  <TrashIcon className="w-5 h-5" />
+                  Delete Item
+                </button>
               )}
             </div>
           </div>
-        </div>
 
-        {/* Delete Confirmation Modal */} 
-        {showDeleteConfirm && (
-            <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-                <div className="bg-white p-6 rounded-lg shadow-xl max-w-sm w-full">
-                    <h3 className="text-lg font-semibold mb-2">Confirm Deletion</h3>
-                    <p className="text-sm text-gray-600 mb-4">Are you sure you want to delete "{name}"? This action cannot be undone.</p>
-                    <div className="flex justify-end space-x-2">
-                        <Button onClick={() => setShowDeleteConfirm(false)} secondary>Cancel</Button>
-                        <Button onClick={handleDelete} danger loading={loading}>Delete Item</Button>
-                    </div>
-                </div>
+          {/* Countdown Status */}
+          {isPublished && goal > 0 && (
+            <div className="mt-8 pt-8 border-t border-gray-200">
+              <CountdownGoalStatus
+                expiresAt={clothingItem.expiresAt}
+                goal={clothingItem.goal}
+                pledged={clothingItem.pledged}
+                status={clothingItem.status}
+              />
             </div>
-        )}
-
-        {/* Image Modal */}
-        {isImageModalOpen && (
-          <ImageModal
-            images={{ 
-              imageUrl: imageUrl, // For legacy fallback in ImageModal
-              [ANGLES.FRONT]: frontImage, 
-              [ANGLES.BACK]: backImage, 
-              // Pass other angles if ImageModal is ever designed to use them
-              // right: rightImage,
-              // left: leftImage
-            }}
-            initialIndex={modalImageIndex}
-            onClose={closeImageModal}
-          />
-        )}
-
-        {/* Comments Section */} 
-        <div className="mt-8">
-          <CommentSection 
-            itemId={clothingItemId} 
-            itemType="clothingItem"
-            commentsData={comments} 
-            onCommentPosted={fetchComments}
-          /> 
-        </div>
-
-        {/* Suggested Items */} 
-        <div className="mt-12">
-          <h2 className="text-2xl font-semibold text-gray-700 mb-4">You Might Also Like</h2>
-          {/* <ClothingSuggestions currentItemId={clothingItemId} /> */}
+          )}
         </div>
       </div>
+
+      {/* Comments Section */}
+      <div className="max-w-screen-xl mx-auto px-4 py-16">
+        <CommentSection 
+          itemId={clothingItemId} 
+          itemType="clothingItem"
+          commentsData={comments} 
+          onCommentPosted={fetchComments}
+        />
+      </div>
+
+      {/* Delete Confirmation Modal */}
+      {showDeleteConfirm && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white p-8 rounded-lg shadow-xl max-w-sm w-full">
+            <h3 className="text-xl font-normal mb-4">Delete Item</h3>
+            <p className="text-sm text-gray-600 mb-6">
+              Are you sure you want to delete "{name}"? This action cannot be undone.
+            </p>
+            <div className="flex justify-end space-x-4">
+              <button 
+                onClick={() => setShowDeleteConfirm(false)}
+                className="px-4 py-2 text-sm text-gray-600 hover:text-black"
+              >
+                Cancel
+              </button>
+              <button 
+                onClick={handleDelete}
+                disabled={loading}
+                className="px-4 py-2 text-sm bg-red-500 text-white hover:bg-red-600 disabled:bg-gray-300"
+              >
+                {loading ? 'Deleting...' : 'Delete'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Image Modal */}
+      {isImageModalOpen && (
+        <ImageModal
+          images={{ 
+            [ANGLES.FRONT]: frontImage, 
+            [ANGLES.BACK]: backImage
+          }}
+          initialIndex={modalImageIndex}
+          onClose={closeImageModal}
+        />
+      )}
     </div>
   );
 }

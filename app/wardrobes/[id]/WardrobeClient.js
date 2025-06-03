@@ -180,7 +180,14 @@ export default function WardrobeClient({ wardrobe, availableItems, isOwner }) {
                 <XMarkIcon className="h-5 w-5 text-gray-600" />
               </button>
             )}
-            <Link href={`/clothing/${item.clothingItemId}`}>
+            <Link 
+              href={`/clothing/${item.clothingItemId}`}
+              onClick={() => {
+                if (typeof window !== 'undefined') {
+                  sessionStorage.setItem('clothingItemReferrer', window.location.pathname);
+                }
+              }}
+            >
               <div className="aspect-square relative">
                 <Image
                   src={item.clothingItem.frontImage || item.clothingItem.imageUrl}

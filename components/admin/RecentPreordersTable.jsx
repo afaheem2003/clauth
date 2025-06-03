@@ -6,6 +6,7 @@ export function RecentPreordersTable({ preorders }) {
           <th className="px-4 py-3 text-left font-medium text-gray-800">When</th>
           <th className="px-4 py-3 text-left font-medium text-gray-800">User</th>
           <th className="px-4 py-3 text-left font-medium text-gray-800">Clothing Item</th>
+          <th className="px-4 py-3 text-left font-medium text-gray-800">Size</th>
           <th className="px-4 py-3 text-left font-medium text-gray-800">Qty</th>
         </tr>
       </thead>
@@ -17,6 +18,7 @@ export function RecentPreordersTable({ preorders }) {
               {o.user?.email ?? o.guestEmail ?? 'Unknown'}
             </td>
             <td className="px-4 py-3 text-gray-900">{o.clothingItem.name}</td>
+            <td className="px-4 py-3 text-gray-900">{o.size}</td>
             <td className="px-4 py-3 text-gray-900">{o.quantity}</td>
           </tr>
         ))}
@@ -29,5 +31,6 @@ export const PreorderColumns = {
   WHEN: 'When',
   USER: 'User',
   ITEM: 'Clothing Item',
+  SIZE: 'Size',
   QTY: 'Qty'
 }; 

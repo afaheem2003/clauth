@@ -70,11 +70,10 @@ export default function ClothingItemCard({ clothingItem, onItemSoftDeleted }) {
       setHas(prevHas => !prevHas);
       setLikes(prevLikes => !has ? prevLikes + 1 : Math.max(0, prevLikes - 1));
       
-      const res = await fetch('/api/like', {
+      const res = await fetch(`/api/clothing/${id}/like`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify({ clothingItemId: id }),
+        credentials: 'include'
       });
 
       if (!res.ok) {
@@ -84,14 +83,8 @@ export default function ClothingItemCard({ clothingItem, onItemSoftDeleted }) {
         throw new Error('Failed to update like');
       }
 
-      const { liked, likesCount } = await res.json();
-      // Update state to match server response if different from our optimistic update
-      if (liked !== has) {
-        setHas(liked);
-      }
-      if (typeof likesCount === 'number' && likesCount !== likes) {
-        setLikes(likesCount);
-      }
+      // No need to update state again since we already did optimistic update
+      // and the API response matches our optimistic update
     } catch (err) {
       console.error('Error updating like:', err);
     } finally {
@@ -131,10 +124,23 @@ export default function ClothingItemCard({ clothingItem, onItemSoftDeleted }) {
     }
   };
 
+  const handleClick = (e) => {
+    // Store the current path in sessionStorage before navigating
+    if (typeof window !== 'undefined') {
+      const currentPath = window.location.pathname;
+      const isProfilePage = currentPath.includes('/profile');
+      if (isProfilePage) {
+        router.push(`/clothing/${id}?from=profile&creator=${encodeURIComponent(creatorName)}`);
+      } else {
+        router.push(`/clothing/${id}?from=${currentPath.slice(1)}`);
+      }
+    }
+  };
+
   return (
     <div
       className="relative w-full overflow-hidden rounded-lg bg-white shadow-lg group cursor-pointer transform transition-all duration-300 hover:shadow-2xl"
-      onClick={() => router.push(`/clothing/${id}`)}
+      onClick={handleClick}
     >
       {canDelete && (
         <button
