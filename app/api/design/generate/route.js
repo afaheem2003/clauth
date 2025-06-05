@@ -188,7 +188,7 @@ export async function POST(req) {
           inpaintingInsights.inpaintingData,
           {
             size: "1536x1024",
-            quality: "high",
+            quality: process.env.OPENAI_IMAGE_QUALITY || "high",
             originalItemType: itemType,
             originalColor: color
           }
@@ -258,7 +258,7 @@ export async function POST(req) {
           insights.promptJsonData.description,
           {
             size: "1536x1024",
-            quality: "high",
+            quality: process.env.OPENAI_IMAGE_QUALITY || "high",
             itemDescription: `${itemType} in ${color}`,
             frontDesign: insights.promptJsonData.frontDetails,
             backDesign: insights.promptJsonData.backDetails,

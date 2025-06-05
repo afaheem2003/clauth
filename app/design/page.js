@@ -30,6 +30,7 @@ export default function DesignPage() {
   // Inpainting states
   const [isInpaintingMode, setIsInpaintingMode] = useState(false);
   const [inpaintingPrompt, setInpaintingPrompt] = useState('');
+  const [currentView, setCurrentView] = useState('front'); // 'front' or 'back'
 
   const [generatingDesign, setGeneratingDesign] = useState(false);
 
@@ -236,50 +237,54 @@ export default function DesignPage() {
       }
       await handleInpainting();
     } else if (currentStep === 3) {
-      // Final submission
-      try {
-        setLoading(true);
-        setError(null);
-
-        const response = await fetch('/api/saved-clothing-items', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            name: itemName,
-            description: aiDescription,
-            itemType,
-            promptRaw: userPrompt,
-            imageUrls: {
-              front: frontImage,
-              back: backImage
-            },
-            isPublished: true,
-            size: '',
-            color,
-          }),
-        });
-
-        if (!response.ok) {
-          const data = await response.json();
-          throw new Error(data.error || 'Failed to save design');
-        }
-
-        // Redirect to the clothing item page
-        const data = await response.json();
-        router.push(`/clothing/${data.clothingItem.id}`);
-      } catch (err) {
-        console.error('Error saving design:', err);
-        setError(err.message || 'Failed to save design');
-        setLoading(false);
-      }
+      // Final submission - should not happen anymore since publish button handles this directly
+      await handlePublish();
     } else if (currentStep === 2) {
       // Generate design
       await handleGenerateDesign();
     } else {
       // Move to next step
       setCurrentStep(currentStep + 1);
+    }
+  };
+
+  const handlePublish = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+
+      const response = await fetch('/api/saved-clothing-items', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          name: itemName,
+          description: aiDescription,
+          itemType,
+          promptRaw: userPrompt,
+          imageUrls: {
+            front: frontImage,
+            back: backImage
+          },
+          isPublished: true,
+          size: '',
+          color,
+        }),
+      });
+
+      if (!response.ok) {
+        const data = await response.json();
+        throw new Error(data.error || 'Failed to save design');
+      }
+
+      // Redirect to the clothing item page
+      const data = await response.json();
+      router.push(`/clothing/${data.clothingItem.id}`);
+    } catch (err) {
+      console.error('Error saving design:', err);
+      setError(err.message || 'Failed to save design');
+      setLoading(false);
     }
   };
 
@@ -496,70 +501,6 @@ export default function DesignPage() {
                             )}
                           </div>
                         </div>
-
-                        {/* Edit Design Section */}
-                        <div className="border-t border-gray-200 pt-4">
-                          <h4 className="text-sm font-medium text-gray-500 uppercase tracking-wider mb-3">Edit Design</h4>
-                          <div className="space-y-4">
-                            <button
-                              type="button"
-                              onClick={() => setIsInpaintingMode(!isInpaintingMode)}
-                              className={`w-full px-4 py-2 text-sm font-medium rounded-md ${
-                                isInpaintingMode
-                                  ? 'bg-indigo-100 text-indigo-700'
-                                  : 'bg-white text-gray-700 border border-gray-300'
-                              }`}
-                            >
-                              {isInpaintingMode ? 'Exit Edit Mode' : 'Edit Design'}
-                            </button>
-                            
-                            {isInpaintingMode && (
-                              <div className="space-y-4 bg-gray-50 rounded-lg p-6">
-                                <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 mb-4">
-                                  <div className="flex">
-                                    <div className="flex-shrink-0">
-                                      <svg className="h-5 w-5 text-blue-400" viewBox="0 0 20 20" fill="currentColor">
-                                        <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
-                                      </svg>
-                                    </div>
-                                    <div className="ml-3">
-                                      <p className="text-sm text-blue-700">
-                                        <strong>How it works:</strong> Describe the changes you want to make and we'll apply them to the entire design while preserving the model and background.
-                                      </p>
-                                    </div>
-                                  </div>
-                                </div>
-
-                                <div>
-                                  <label className="block text-sm font-medium text-gray-900 mb-2">
-                                    Edit Instructions
-                                  </label>
-                                  <p className="text-xs text-gray-600 mb-2">
-                                    Describe what changes you want to make. Be specific about placement and appearance.
-                                  </p>
-                                  <textarea
-                                    value={inpaintingPrompt}
-                                    onChange={(e) => setInpaintingPrompt(e.target.value)}
-                                    placeholder="e.g., 'Add a small red heart logo to the center of the chest' or 'Change the sleeves to long sleeves'"
-                                    rows={4}
-                                    className="w-full px-4 py-3 border border-gray-300 rounded-md shadow-sm text-gray-900 placeholder-gray-500 text-base focus:ring-indigo-500 focus:border-indigo-500"
-                                  />
-                                </div>
-
-                                <div className="flex gap-3">
-                                  <button
-                                    type="button"
-                                    onClick={handleInpainting}
-                                    disabled={!inpaintingPrompt.trim() || loading}
-                                    className="flex-1 px-4 py-3 text-base font-medium rounded-md bg-indigo-600 text-white hover:bg-indigo-700 disabled:opacity-50"
-                                  >
-                                    Apply Changes
-                                  </button>
-                                </div>
-                              </div>
-                            )}
-                          </div>
-                        </div>
                       </div>
                     </div>
 
@@ -567,48 +508,120 @@ export default function DesignPage() {
                     <div>
                       <h4 className="text-sm font-medium text-gray-500 uppercase tracking-wider mb-4">Generated Design</h4>
                       <div className="relative">
-                        {isInpaintingMode ? (
-                          <div className="relative w-full aspect-[3/2] bg-gray-100 rounded-lg overflow-hidden">
-                            {compositeImage && (
-                              <Image
-                                src={`data:image/png;base64,${compositeImage}`}
-                                alt="Current design"
-                                fill
-                                className="object-contain"
-                                unoptimized
-                              />
-                            )}
+                        <div className="relative">
+                          <div className="relative aspect-[3/4] bg-gray-100 rounded-lg overflow-hidden shadow-md">
+                            <Image
+                              src={currentView === 'front' ? (frontImage || '/images/placeholder-front.png') : (backImage || '/images/placeholder-back.png')}
+                              alt={`${currentView} view`}
+                              fill
+                              className="object-cover"
+                              unoptimized
+                            />
                           </div>
-                        ) : (
-                          <div className="grid grid-cols-2 gap-4">
-                            <div className="relative aspect-[3/4] bg-gray-100 rounded-lg overflow-hidden shadow-md">
-                              <Image
-                                src={frontImage || '/images/placeholder-front.png'}
-                                alt="Front view"
-                                fill
-                                className="object-cover"
-                                unoptimized
-                              />
-                              <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/60 to-transparent p-4">
-                                <span className="text-white text-sm font-medium">Front View</span>
-                              </div>
-                            </div>
-                            <div className="relative aspect-[3/4] bg-gray-100 rounded-lg overflow-hidden shadow-md">
-                              <Image
-                                src={backImage || '/images/placeholder-back.png'}
-                                alt="Back view"
-                                fill
-                                className="object-cover"
-                                unoptimized
-                              />
-                              <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/60 to-transparent p-4">
-                                <span className="text-white text-sm font-medium">Back View</span>
-                              </div>
+                          
+                          {/* Navigation arrows */}
+                          <div className="absolute inset-y-0 left-0 flex items-center">
+                            <button
+                              type="button"
+                              onClick={() => setCurrentView(currentView === 'front' ? 'back' : 'front')}
+                              className="bg-white/80 hover:bg-white rounded-full p-2 shadow-lg transition-all duration-200 ml-2"
+                            >
+                              <svg className="w-5 h-5 text-gray-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                              </svg>
+                            </button>
+                          </div>
+                          
+                          <div className="absolute inset-y-0 right-0 flex items-center">
+                            <button
+                              type="button"
+                              onClick={() => setCurrentView(currentView === 'front' ? 'back' : 'front')}
+                              className="bg-white/80 hover:bg-white rounded-full p-2 shadow-lg transition-all duration-200 mr-2"
+                            >
+                              <svg className="w-5 h-5 text-gray-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                              </svg>
+                            </button>
+                          </div>
+                          
+                          {/* View indicator */}
+                          <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2">
+                            <div className="flex space-x-2">
+                              <div className={`w-2 h-2 rounded-full transition-all duration-200 ${currentView === 'front' ? 'bg-white' : 'bg-white/50'}`}></div>
+                              <div className={`w-2 h-2 rounded-full transition-all duration-200 ${currentView === 'back' ? 'bg-white' : 'bg-white/50'}`}></div>
                             </div>
                           </div>
-                        )}
+                        </div>
                       </div>
                     </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Edit Design Section - Full Width */}
+              <div className="mt-8 bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden">
+                <div className="border-b border-gray-200 bg-gray-50 px-6 py-4">
+                  <h3 className="text-lg font-semibold text-gray-900">Edit Design</h3>
+                </div>
+                <div className="p-6">
+                  <div className="space-y-4">
+                    <button
+                      type="button"
+                      onClick={() => setIsInpaintingMode(!isInpaintingMode)}
+                      className={`w-full px-4 py-2 text-sm font-medium rounded-md ${
+                        isInpaintingMode
+                          ? 'bg-indigo-100 text-indigo-700'
+                          : 'bg-white text-gray-700 border border-gray-300'
+                      }`}
+                    >
+                      {isInpaintingMode ? 'Exit Edit Mode' : 'Edit Design'}
+                    </button>
+                    
+                    {isInpaintingMode && (
+                      <div className="space-y-4 bg-gray-50 rounded-lg p-6">
+                        <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 mb-4">
+                          <div className="flex">
+                            <div className="flex-shrink-0">
+                              <svg className="h-5 w-5 text-blue-400" viewBox="0 0 20 20" fill="currentColor">
+                                <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
+                              </svg>
+                            </div>
+                            <div className="ml-3">
+                              <p className="text-sm text-blue-700">
+                                <strong>How it works:</strong> Describe the changes you want to make and we'll apply them to the entire design while preserving the model and background.
+                              </p>
+                            </div>
+                          </div>
+                        </div>
+
+                        <div>
+                          <label className="block text-sm font-medium text-gray-900 mb-2">
+                            Edit Instructions
+                          </label>
+                          <p className="text-xs text-gray-600 mb-2">
+                            Describe what changes you want to make. Be specific about placement and appearance.
+                          </p>
+                          <textarea
+                            value={inpaintingPrompt}
+                            onChange={(e) => setInpaintingPrompt(e.target.value)}
+                            placeholder="e.g., 'Add a small red heart logo to the center of the chest' or 'Change the sleeves to long sleeves'"
+                            rows={4}
+                            className="w-full px-4 py-3 border border-gray-300 rounded-md shadow-sm text-gray-900 placeholder-gray-500 text-base focus:ring-indigo-500 focus:border-indigo-500"
+                          />
+                        </div>
+
+                        <div className="flex gap-3">
+                          <button
+                            type="button"
+                            onClick={handleInpainting}
+                            disabled={!inpaintingPrompt.trim() || loading}
+                            className="flex-1 px-4 py-3 text-base font-medium rounded-md bg-indigo-600 text-white hover:bg-indigo-700 disabled:opacity-50"
+                          >
+                            Apply Changes
+                          </button>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>
@@ -658,7 +671,8 @@ export default function DesignPage() {
                     Regenerate Design
                   </button>
                   <button
-                    type="submit"
+                    type="button"
+                    onClick={handlePublish}
                     disabled={loading || generatingDesign}
                     className={`inline-flex items-center px-6 py-3 border border-transparent text-base font-medium rounded-md shadow-sm ${
                       loading || generatingDesign
