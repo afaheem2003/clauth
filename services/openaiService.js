@@ -3,10 +3,19 @@
 import OpenAI from 'openai';
 import clothingPromptSchema from '../schemas/clothingPromptSchema.js';
 import { ITEM_TYPES } from '@/app/constants/options';
+import { Readable } from 'stream';
 
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY, // Ensure this is in your .env file
 });
+
+// Helper function to convert buffer to stream for OpenAI API
+function bufferToStream(buffer) {
+  const stream = new Readable();
+  stream.push(buffer);
+  stream.push(null);
+  return stream;
+}
 
 export async function getStructuredClothingJSON(userDescription) {
   if (!userDescription || typeof userDescription !== 'string' || userDescription.trim() === '') {
@@ -126,6 +135,11 @@ IMPORTANT GUIDELINES:
 6. Use consistent terminology between front and back views
 7. Specify sizes of elements where relevant (e.g., "large 6-inch sunflower", "small 2-inch logo")
 
+MODEL DESCRIPTION GUIDELINES:
+- If modelDetails contains "Generate appropriate model description", create a professional model description that complements the clothing style
+- If modelDetails contains a user description, enhance and refine it for image generation
+- Focus on professional modeling appearance, pose, and styling that suits the garment
+
 Your response must include:
 1. A catchy, marketable name (3-5 words)
 2. A clear, factual description
@@ -133,6 +147,7 @@ Your response must include:
 4. Precise front view details
 5. Precise back view details
 6. Base color and materials
+7. Professional model details for image generation
 
 🚫 NO subjective descriptions, artistic interpretations, or non-visual elements.`
       },
@@ -164,9 +179,10 @@ Generate a structured response focusing on CONCRETE, VISIBLE elements only.`
             baseColor: { type: "string", description: "Primary color of the item" },
             frontDetails: { type: "string", description: "Precise description of front design elements and their placement" },
             backDetails: { type: "string", description: "Precise description of back design elements and their placement" },
+            modelDetails: { type: "string", description: "Professional model description for image generation, including appearance, pose, and styling" },
             materials: { type: "array", items: { type: "string" }, description: "Material composition" }
           },
-          required: ["name", "description", "itemType", "productType", "baseColor", "frontDetails", "backDetails"]
+          required: ["name", "description", "itemType", "productType", "baseColor", "frontDetails", "backDetails", "modelDetails"]
         }
       }],
       function_call: { name: "generateClothingItemDetails" }
@@ -274,7 +290,7 @@ A clean, high-quality, side-by-side comparison of the same item viewed from fron
   }
 }
 
-export async function inpaintImageWithOpenAI(prompt, originalImage, maskImage, options = {}) {
+export async function inpaintImageWithOpenAI(originalImage, maskImage, inpaintingData, options = {}) {
   if (!process.env.OPENAI_API_KEY) {
     console.error("OPENAI_API_KEY is not set.");
     throw new Error("OpenAI API key is not configured for image generation.");
@@ -284,42 +300,187 @@ export async function inpaintImageWithOpenAI(prompt, originalImage, maskImage, o
     throw new Error("Both original image and mask are required for inpainting.");
   }
 
+  if (!inpaintingData) {
+    throw new Error("Inpainting data with structured modifications is required.");
+  }
+
   try {
-    console.log("[OpenAI Service] Inpainting image with options:", options);
+    console.log("[OpenAI Service] Inpainting image with structured modifications:", inpaintingData);
     
     // Default options
     const {
       model = "gpt-image-1",
       size = "1536x1024",
       quality = process.env.OPENAI_IMAGE_QUALITY || "high",
+      originalItemType = '',
+      originalColor = ''
     } = options;
 
-    const requestOptions = {
-      model,
-      prompt,
-      image: originalImage,
-      mask: maskImage,
-      n: 1,
-      size,
-      quality,
-      response_format: "b64_json"
-    };
+    // Convert base64 strings to buffers
+    console.log("[OpenAI Service] Converting images to buffers...");
+    const imageBuffer = Buffer.from(originalImage, 'base64');
+    const maskBuffer = Buffer.from(maskImage, 'base64');
+    console.log("[OpenAI Service] Image buffer size:", imageBuffer.length, "Mask buffer size:", maskBuffer.length);
 
-    console.log("[OpenAI Service] Using inpainting mode");
-    const response = await openai.images.edit(requestOptions);
+    // Create a concise inpainting prompt
+    const inpaintingPrompt = `
+Modify this 1536x1024 split-panel studio image of a ${originalItemType} in ${originalColor}.
+
+Left Panel (Front View):
+${inpaintingData.frontModifications}
+
+Right Panel (Back View):
+${inpaintingData.backModifications}
+
+Preserve the original model pose, background, lighting, garment structure, and color. Only modify as described above. Do not change any other details. Avoid real-world brand references.
+`.trim();
+
+    console.log("[OpenAI Service] Making inpainting request to OpenAI...");
+    console.log("[OpenAI Service] Prompt:", inpaintingPrompt);
+    
+    // Create a timeout promise
+    const timeoutPromise = new Promise((_, reject) => {
+      setTimeout(() => reject(new Error('Inpainting request timed out after 2 minutes')), 120000);
+    });
+
+    // Make the API call with proper file objects
+    const response = await Promise.race([
+      openai.images.edit({
+        model,
+        prompt: inpaintingPrompt,
+        image: new File([imageBuffer], 'image.png', { type: 'image/png' }),
+        mask: new File([maskBuffer], 'mask.png', { type: 'image/png' }),
+        n: 1,
+        size,
+        quality
+      }),
+      timeoutPromise
+    ]);
+
+    console.log("[OpenAI Service] Received response from OpenAI inpainting");
 
     if (!response.data || !response.data[0]) {
       throw new Error("No valid response from inpainting");
     }
 
     const imageData = response.data[0];
+    console.log("[OpenAI Service] Successfully completed inpainting");
     return imageData.b64_json;
 
   } catch (error) {
     console.error("[OpenAI Service] Error during inpainting:", error);
+    console.error("[OpenAI Service] Error details:", {
+      name: error.name,
+      message: error.message,
+      status: error.status,
+      code: error.code,
+      type: error.type
+    });
+    
     if (error instanceof OpenAI.APIError) {
+      console.error("[OpenAI Service] Full OpenAI error:", JSON.stringify(error, null, 2));
       throw new Error(`OpenAI API Error: ${error.status} ${error.name} - ${error.message}`);
     }
-    throw new Error("Failed to inpaint image.");
+    if (error.message.includes('timed out')) {
+      throw new Error("The inpainting request took too long to complete. Please try again with a simpler modification or try again later.");
+    }
+    throw new Error(`Failed to inpaint image: ${error.message}`);
+  }
+} 
+
+export async function getAIInpaintingInsights(inpaintingPrompt, originalItemType, originalColor) {
+  if (!inpaintingPrompt || typeof inpaintingPrompt !== 'string') {
+    throw new Error('Inpainting prompt must be a non-empty string.');
+  }
+
+  if (!process.env.OPENAI_API_KEY) {
+    console.error("OPENAI_API_KEY is not set.");
+    throw new Error("OpenAI API key is not configured.");
+  }
+
+  try {
+    console.log("[AI Inpainting Insights] Processing inpainting prompt...");
+    
+    const inpaintingMessages = [
+      {
+        role: "system",
+        content: `You are an AI fashion designer specializing in precise clothing modifications. Your task is to parse user edit requests and create structured inpainting instructions.
+
+CRITICAL GUIDELINES:
+1. PRESERVE the original model appearance - same pose, lighting, background, and model features
+2. ONLY modify elements explicitly mentioned in the user's edit request
+3. Maintain the same ${originalItemType} base garment in ${originalColor}
+4. Focus on CONCRETE, VISUAL modifications only
+5. Specify exact placement and appearance of changes
+6. Keep all unchanged elements exactly as they were
+
+Your response must include:
+1. Clear front view modifications (what changes on the front)
+2. Clear back view modifications (what changes on the back)
+3. A preservation note about maintaining unchanged elements
+
+🚫 DO NOT change the model, background, lighting, or any unmentioned design elements.`
+      },
+      {
+        role: "user",
+        content: `Original item: ${originalItemType} in ${originalColor}
+User's edit request: "${inpaintingPrompt}"
+
+Parse this into structured front and back modifications. If the edit doesn't specify front or back, apply it to the most logical location(s).`
+      }
+    ];
+
+    const response = await openai.chat.completions.create({
+      model: "gpt-4-0613",
+      messages: inpaintingMessages,
+      functions: [{
+        name: "generateInpaintingInstructions",
+        description: "Generates structured inpainting instructions for clothing modifications",
+        parameters: {
+          type: "object",
+          properties: {
+            frontModifications: { 
+              type: "string", 
+              description: "Precise description of changes to make on the front view. If no front changes, say 'No changes to front view.'" 
+            },
+            backModifications: { 
+              type: "string", 
+              description: "Precise description of changes to make on the back view. If no back changes, say 'No changes to back view.'" 
+            },
+            preservationNote: { 
+              type: "string", 
+              description: "Instructions on what to keep unchanged (model, pose, lighting, unmentioned design elements)" 
+            },
+            modificationSummary: { 
+              type: "string", 
+              description: "Brief summary of the overall change being made" 
+            }
+          },
+          required: ["frontModifications", "backModifications", "preservationNote", "modificationSummary"]
+        }
+      }],
+      function_call: { name: "generateInpaintingInstructions" }
+    });
+
+    const inpaintingMessage = response.choices[0].message;
+    if (inpaintingMessage.function_call && inpaintingMessage.function_call.arguments) {
+      try {
+        const inpaintingData = JSON.parse(inpaintingMessage.function_call.arguments);
+        console.log("[AI Inpainting Insights] Successfully obtained inpainting instructions:", inpaintingData);
+        return { inpaintingData };
+      } catch (parseError) {
+        console.error("[AI Inpainting Insights] JSON parse error:", parseError);
+        throw new Error("Failed to parse AI inpainting response into valid JSON");
+      }
+    } else {
+      console.error("[AI Inpainting Insights] Failed: OpenAI response did not include expected function call for inpainting instructions.", response);
+      throw new Error("AI did not return structured inpainting instructions.");
+    }
+  } catch (error) {
+    console.error("[AI Inpainting Insights] Error: Failed to get structured inpainting instructions from OpenAI:", error);
+    if (error instanceof OpenAI.APIError) {
+      throw new Error(`OpenAI API Error (Inpainting Insights): ${error.status} ${error.name} - ${error.message}`);
+    }
+    throw error;
   }
 } 

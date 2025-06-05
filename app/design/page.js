@@ -15,18 +15,13 @@ export default function DesignPage() {
   const [error, setError] = useState(null);
   const [selectedCategory, setSelectedCategory] = useState(null);
 
-  // Canvas and drawing states
-  const canvasRef = useRef(null);
-  const [isDrawing, setIsDrawing] = useState(false);
-  const [brushSize, setBrushSize] = useState(20);
-  const lastPos = useRef({ x: 0, y: 0 });
-
   // Form states
   const [itemName, setItemName] = useState('');
   const [itemType, setItemType] = useState('');
   const [userPrompt, setUserPrompt] = useState(''); // User's original design prompt
   const [aiDescription, setAiDescription] = useState(''); // AI-generated description
   const [color, setColor] = useState('');
+  const [modelDescription, setModelDescription] = useState(''); // User's model description
   const [isEditingDescription, setIsEditingDescription] = useState(false);
   const [frontImage, setFrontImage] = useState(null);
   const [backImage, setBackImage] = useState(null);
@@ -35,7 +30,6 @@ export default function DesignPage() {
   // Inpainting states
   const [isInpaintingMode, setIsInpaintingMode] = useState(false);
   const [inpaintingPrompt, setInpaintingPrompt] = useState('');
-  const [maskImage, setMaskImage] = useState(null);
 
   const [generatingDesign, setGeneratingDesign] = useState(false);
 
@@ -48,12 +42,6 @@ export default function DesignPage() {
   // Initialize canvas when composite image is loaded or inpainting mode changes
   useEffect(() => {
     if (!isInpaintingMode) {
-      // Clear any existing canvas data when exiting inpainting mode
-      if (canvasRef.current) {
-        const ctx = canvasRef.current.getContext('2d');
-        ctx.clearRect(0, 0, canvasRef.current.width, canvasRef.current.height);
-      }
-      setMaskImage(null);
       return;
     }
 
@@ -62,92 +50,7 @@ export default function DesignPage() {
       setIsInpaintingMode(false);
       return;
     }
-
-    if (canvasRef.current) {
-      const canvas = canvasRef.current;
-      const ctx = canvas.getContext('2d');
-      
-      // Set canvas dimensions to match the composite image (1536x1024)
-      canvas.width = 1536;
-      canvas.height = 1024;
-      
-      // Clear canvas with transparent background
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
-    }
   }, [compositeImage, isInpaintingMode]);
-
-  // Drawing functions for creating the mask
-  const startDrawing = (e) => {
-    if (!isInpaintingMode || !canvasRef.current) return;
-    
-    const canvas = canvasRef.current;
-    const rect = canvas.getBoundingClientRect();
-    const scaleX = canvas.width / rect.width;
-    const scaleY = canvas.height / rect.height;
-    
-    const x = (e.clientX - rect.left) * scaleX;
-    const y = (e.clientY - rect.top) * scaleY;
-    
-    setIsDrawing(true);
-    lastPos.current = { x, y };
-  };
-
-  const draw = (e) => {
-    if (!isDrawing || !isInpaintingMode || !canvasRef.current) return;
-    
-    const canvas = canvasRef.current;
-    const ctx = canvas.getContext('2d');
-    const rect = canvas.getBoundingClientRect();
-    const scaleX = canvas.width / rect.width;
-    const scaleY = canvas.height / rect.height;
-    
-    const x = (e.clientX - rect.left) * scaleX;
-    const y = (e.clientY - rect.top) * scaleY;
-    
-    ctx.beginPath();
-    ctx.moveTo(lastPos.current.x, lastPos.current.y);
-    ctx.lineTo(x, y);
-    ctx.strokeStyle = 'white';
-    ctx.lineWidth = brushSize;
-    ctx.lineCap = 'round';
-    ctx.stroke();
-    
-    lastPos.current = { x, y };
-  };
-
-  const stopDrawing = () => {
-    if (isDrawing && canvasRef.current) {
-      setIsDrawing(false);
-      const maskData = generateMaskFromCanvas();
-      if (maskData) {
-        setMaskImage(maskData);
-      }
-    }
-  };
-
-  const clearMask = () => {
-    if (!canvasRef.current) return;
-    const ctx = canvasRef.current.getContext('2d');
-    ctx.clearRect(0, 0, canvasRef.current.width, canvasRef.current.height);
-    setMaskImage(null);
-  };
-
-  const generateMaskFromCanvas = () => {
-    if (!canvasRef.current) return null;
-    
-    // Create a temporary canvas to process the mask
-    const tempCanvas = document.createElement('canvas');
-    tempCanvas.width = canvasRef.current.width;
-    tempCanvas.height = canvasRef.current.height;
-    const tempCtx = tempCanvas.getContext('2d');
-    
-    // Copy the drawing
-    tempCtx.drawImage(canvasRef.current, 0, 0);
-    
-    // Get the mask data
-    const maskData = tempCanvas.toDataURL('image/png').split(',')[1];
-    return maskData;
-  };
 
   const handleGenerateDesign = async () => {
     try {
@@ -178,10 +81,10 @@ export default function DesignPage() {
           itemType: selectedCategory?.name || '',
           color: color || '',
           userPrompt: userPrompt,
+          modelDescription: modelDescription || '',
           userId: session?.user?.id || session?.user?.uid,
           // Only include inpainting data if we're in inpainting mode
-          ...(isInpaintingMode && maskImage && compositeImage ? {
-            inpaintingMask: maskImage,
+          ...(isInpaintingMode && compositeImage ? {
             originalImage: compositeImage
           } : {})
         }),
@@ -222,8 +125,13 @@ export default function DesignPage() {
   };
 
   const handleInpainting = async () => {
-    if (!maskImage || !compositeImage) {
-      setError('Both mask and original image are required for inpainting');
+    if (!compositeImage) {
+      setError('Original image is required for inpainting');
+      return;
+    }
+
+    if (!inpaintingPrompt.trim()) {
+      setError('Please provide edit instructions describing what you want to change');
       return;
     }
 
@@ -231,20 +139,48 @@ export default function DesignPage() {
       setGeneratingDesign(true);
       setError(null);
 
+      // Show inpainting modal
+      const inpaintingModal = document.createElement('div');
+      inpaintingModal.className = 'fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4';
+      inpaintingModal.innerHTML = `
+        <div class="bg-gray-900 rounded-lg p-8 max-w-md w-full text-center shadow-xl">
+          <div class="animate-spin rounded-full h-16 w-16 border-b-2 border-indigo-400 mx-auto mb-4"></div>
+          <h3 class="text-xl font-semibold mb-2 text-white">Applying Your Changes</h3>
+          <p class="text-gray-300 mb-4">We're modifying your design based on your instructions. This will take about a minute. Please don't close or refresh the page.</p>
+          <div class="w-full bg-gray-800 rounded-full h-2">
+            <div class="bg-indigo-400 h-2 rounded-full animate-pulse"></div>
+          </div>
+        </div>
+      `;
+      document.body.appendChild(inpaintingModal);
+
+      // Create AbortController for timeout
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 150000); // 2.5 minute timeout
+
       const response = await fetch('/api/design/generate', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          itemType: selectedCategory?.name || '',
+          itemType: itemType || '',
           color: color || '',
           userPrompt: inpaintingPrompt,
+          modelDescription: modelDescription || '',
           userId: session?.user?.id || session?.user?.uid,
-          inpaintingMask: maskImage,
           originalImage: compositeImage
         }),
+        signal: controller.signal
       });
+
+      // Clear the timeout
+      clearTimeout(timeoutId);
+
+      // Remove inpainting modal
+      if (document.body.contains(inpaintingModal)) {
+        document.body.removeChild(inpaintingModal);
+      }
 
       const data = await response.json();
       
@@ -260,7 +196,6 @@ export default function DesignPage() {
       setBackImage(data.angleUrls.back);
 
       // Clear inpainting state
-      setMaskImage(null);
       setIsInpaintingMode(false);
       setInpaintingPrompt('');
 
@@ -268,8 +203,25 @@ export default function DesignPage() {
 
     } catch (err) {
       console.error('Error in inpainting:', err);
-      setError(err.message || 'Failed to inpaint design');
+      
+      // Handle specific error types
+      let errorMessage = 'Failed to inpaint design';
+      if (err.name === 'AbortError') {
+        errorMessage = 'The inpainting request took too long and was cancelled. Please try again with simpler changes.';
+      } else if (err.message.includes('timed out')) {
+        errorMessage = 'The inpainting request timed out. Please try again with simpler modifications.';
+      } else {
+        errorMessage = err.message || 'Failed to inpaint design';
+      }
+      
+      setError(errorMessage);
       setGeneratingDesign(false);
+      
+      // Make sure to remove modal if there's an error
+      const existingModal = document.querySelector('.fixed.inset-0.bg-black\\/70');
+      if (existingModal) {
+        document.body.removeChild(existingModal);
+      }
     }
   };
 
@@ -277,13 +229,11 @@ export default function DesignPage() {
     e.preventDefault();
     
     if (isInpaintingMode) {
-      // Generate mask from canvas and submit for inpainting
-      const maskData = generateMaskFromCanvas();
-      if (!maskData) {
-        setError('Please draw the area you want to edit');
+      // Submit for inpainting - mask is optional now
+      if (!inpaintingPrompt.trim()) {
+        setError('Please provide edit instructions describing what you want to change');
         return;
       }
-      setMaskImage(maskData);
       await handleInpainting();
     } else if (currentStep === 3) {
       // Final submission
@@ -472,6 +422,22 @@ export default function DesignPage() {
                   required
                 />
               </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-900 mb-2">
+                  Model Description (Optional)
+                </label>
+                <p className="text-xs text-gray-600 mb-2">
+                  Describe the model's appearance, pose, or styling. Leave blank for auto-generated professional model description.
+                </p>
+                <textarea
+                  value={modelDescription}
+                  onChange={(e) => setModelDescription(e.target.value)}
+                  rows={3}
+                  className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-black focus:border-transparent text-gray-900 placeholder-gray-500"
+                  placeholder="e.g., 'Athletic young woman with confident pose' or 'Mature professional with formal styling'"
+                />
+              </div>
             </div>
           )}
 
@@ -549,52 +515,18 @@ export default function DesignPage() {
                             
                             {isInpaintingMode && (
                               <div className="space-y-4 bg-gray-50 rounded-lg p-6">
-                                <div>
-                                  <label className="block text-sm font-medium text-gray-900 mb-2">
-                                    Draw Mask
-                                  </label>
-                                  <div className="relative w-full aspect-[3/2] bg-gray-100 rounded-lg overflow-hidden">
-                                    {compositeImage && (
-                                      <>
-                                        <Image
-                                          src={`data:image/png;base64,${compositeImage}`}
-                                          alt="Composite view"
-                                          fill
-                                          className="object-contain pointer-events-none"
-                                          unoptimized
-                                        />
-                                        <canvas
-                                          ref={canvasRef}
-                                          onMouseDown={startDrawing}
-                                          onMouseMove={draw}
-                                          onMouseUp={stopDrawing}
-                                          onMouseLeave={stopDrawing}
-                                          className="absolute inset-0 w-full h-full cursor-crosshair"
-                                        />
-                                      </>
-                                    )}
-                                  </div>
-                                  <div className="mt-2 flex items-center gap-4">
-                                    <div className="flex-1">
-                                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                                        Brush Size
-                                      </label>
-                                      <input
-                                        type="range"
-                                        min="5"
-                                        max="50"
-                                        value={brushSize}
-                                        onChange={(e) => setBrushSize(Number(e.target.value))}
-                                        className="w-full"
-                                      />
+                                <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 mb-4">
+                                  <div className="flex">
+                                    <div className="flex-shrink-0">
+                                      <svg className="h-5 w-5 text-blue-400" viewBox="0 0 20 20" fill="currentColor">
+                                        <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
+                                      </svg>
                                     </div>
-                                    <button
-                                      type="button"
-                                      onClick={clearMask}
-                                      className="px-3 py-1 text-sm font-medium rounded-md border border-gray-300 bg-white text-gray-700 hover:bg-gray-50"
-                                    >
-                                      Clear
-                                    </button>
+                                    <div className="ml-3">
+                                      <p className="text-sm text-blue-700">
+                                        <strong>How it works:</strong> Describe the changes you want to make and we'll apply them to the entire design while preserving the model and background.
+                                      </p>
+                                    </div>
                                   </div>
                                 </div>
 
@@ -602,11 +534,14 @@ export default function DesignPage() {
                                   <label className="block text-sm font-medium text-gray-900 mb-2">
                                     Edit Instructions
                                   </label>
+                                  <p className="text-xs text-gray-600 mb-2">
+                                    Describe what changes you want to make. Be specific about placement and appearance.
+                                  </p>
                                   <textarea
                                     value={inpaintingPrompt}
                                     onChange={(e) => setInpaintingPrompt(e.target.value)}
-                                    placeholder="Describe the changes you want to make to the areas you've drawn..."
-                                    rows={3}
+                                    placeholder="e.g., 'Add a small red heart logo to the center of the chest' or 'Change the sleeves to long sleeves'"
+                                    rows={4}
                                     className="w-full px-4 py-3 border border-gray-300 rounded-md shadow-sm text-gray-900 placeholder-gray-500 text-base focus:ring-indigo-500 focus:border-indigo-500"
                                   />
                                 </div>
@@ -615,7 +550,7 @@ export default function DesignPage() {
                                   <button
                                     type="button"
                                     onClick={handleInpainting}
-                                    disabled={!maskImage || !inpaintingPrompt.trim() || loading}
+                                    disabled={!inpaintingPrompt.trim() || loading}
                                     className="flex-1 px-4 py-3 text-base font-medium rounded-md bg-indigo-600 text-white hover:bg-indigo-700 disabled:opacity-50"
                                   >
                                     Apply Changes
@@ -633,31 +568,15 @@ export default function DesignPage() {
                       <h4 className="text-sm font-medium text-gray-500 uppercase tracking-wider mb-4">Generated Design</h4>
                       <div className="relative">
                         {isInpaintingMode ? (
-                          <div className="space-y-4">
-                            <div className="relative w-full aspect-[3/2] bg-gray-100 rounded-lg overflow-hidden">
-                              {compositeImage && (
-                                <Image
-                                  src={`data:image/png;base64,${compositeImage}`}
-                                  alt="Composite view"
-                                  fill
-                                  className="object-contain"
-                                  unoptimized
-                                />
-                              )}
-                            </div>
-                            {maskImage && (
-                              <div className="relative w-full aspect-[3/2] bg-gray-100 rounded-lg overflow-hidden">
-                                <Image
-                                  src={`data:image/png;base64,${maskImage}`}
-                                  alt="Mask preview"
-                                  fill
-                                  className="object-contain"
-                                  unoptimized
-                                />
-                                <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/60 to-transparent p-4">
-                                  <span className="text-white text-sm font-medium">Mask Preview (transparent areas will be edited)</span>
-                                </div>
-                              </div>
+                          <div className="relative w-full aspect-[3/2] bg-gray-100 rounded-lg overflow-hidden">
+                            {compositeImage && (
+                              <Image
+                                src={`data:image/png;base64,${compositeImage}`}
+                                alt="Current design"
+                                fill
+                                className="object-contain"
+                                unoptimized
+                              />
                             )}
                           </div>
                         ) : (
@@ -740,9 +659,9 @@ export default function DesignPage() {
                   </button>
                   <button
                     type="submit"
-                    disabled={loading}
+                    disabled={loading || generatingDesign}
                     className={`inline-flex items-center px-6 py-3 border border-transparent text-base font-medium rounded-md shadow-sm ${
-                      loading
+                      loading || generatingDesign
                         ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
                         : 'bg-black text-white hover:bg-gray-900 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-900'
                     }`}

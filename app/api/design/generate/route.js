@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { getAIDesignerInsights, generateImageWithOpenAI, inpaintImageWithOpenAI } from '@/services/openaiService';
+import { getAIDesignerInsights, generateImageWithOpenAI, inpaintImageWithOpenAI, getAIInpaintingInsights } from '@/services/openaiService';
 import { createClient } from "@supabase/supabase-js";
 import { ANGLES, getAngleImagePath } from '@/utils/imageProcessing';
 import sharp from 'sharp';
@@ -9,6 +9,30 @@ const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL,
   process.env.SUPABASE_SERVICE_ROLE_KEY
 );
+
+/**
+ * Creates a full white mask for the entire image (1536x1024)
+ */
+async function createFullMask() {
+  try {
+    // Server-side: create mask using sharp
+    const buffer = await sharp({
+      create: {
+        width: 1536,
+        height: 1024,
+        channels: 4,
+        background: { r: 255, g: 255, b: 255, alpha: 1 }
+      }
+    })
+    .png()
+    .toBuffer();
+    
+    return buffer.toString('base64');
+  } catch (error) {
+    console.error('Error creating full mask:', error);
+    throw new Error('Failed to create full mask');
+  }
+}
 
 /**
  * Splits a landscape image into two vertical panels (front and back views)
@@ -114,44 +138,122 @@ async function uploadPanelsToStorage(angleBuffers, userId) {
 export async function POST(req) {
   try {
     const data = await req.json();
-    const { itemType, color, userPrompt, userId, inpaintingMask, originalImage } = data;
+    const { itemType, color, userPrompt, modelDescription, userId, inpaintingMask, originalImage } = data;
 
     if (!userId) {
       return NextResponse.json({ error: "Missing user ID" }, { status: 401 });
     }
 
-    // Step 1: Get AI insights
-    let insights;
-    try {
-      insights = await getAIDesignerInsights({
-        itemDescription: `${itemType} in ${color}`,
-        frontDesign: userPrompt,
-        backDesign: userPrompt,
-        modelDetails: "Professional model with neutral expression"
-      });
-    } catch (error) {
-      console.error('Error getting AI insights:', error);
-      return NextResponse.json({ 
-        error: `Failed to get AI insights: ${error.message}` 
-      }, { status: 500 });
-    }
+    // Check if this is an inpainting request
+    if (originalImage) {
+      // INPAINTING FLOW
+      console.log("[API] Processing inpainting request");
+      
+      if (!userPrompt) {
+        return NextResponse.json({ error: "Inpainting prompt is required" }, { status: 400 });
+      }
 
-    // Step 2: Generate or inpaint the image
-    let imageData;
-    try {
-      if (inpaintingMask && originalImage) {
-        // Use inpainting if mask and original image are provided
+      // Step 1: Get AI inpainting insights to structure the prompt
+      let inpaintingInsights;
+      try {
+        inpaintingInsights = await getAIInpaintingInsights(userPrompt, itemType, color);
+      } catch (error) {
+        console.error('Error getting AI inpainting insights:', error);
+        return NextResponse.json({ 
+          error: `Failed to process inpainting instructions: ${error.message}` 
+        }, { status: 500 });
+      }
+
+      // Step 2: Create mask - use provided mask or create full mask if none provided
+      let maskToUse = inpaintingMask;
+      if (!maskToUse) {
+        console.log("[API] No mask provided, creating full mask for entire image");
+        try {
+          maskToUse = await createFullMask();
+        } catch (error) {
+          console.error('Error creating full mask:', error);
+          return NextResponse.json({ 
+            error: `Failed to create mask: ${error.message}` 
+          }, { status: 500 });
+        }
+      }
+
+      // Step 3: Perform inpainting with structured data
+      let imageData;
+      try {
+        console.log("[API] Inpainting with itemType:", itemType, "color:", color);
         imageData = await inpaintImageWithOpenAI(
-          userPrompt,
           originalImage,
-          inpaintingMask,
+          maskToUse,
+          inpaintingInsights.inpaintingData,
           {
             size: "1536x1024",
-            quality: "high"
+            quality: "high",
+            originalItemType: itemType,
+            originalColor: color
           }
         );
-      } else {
-        // Use standard generation for new images
+      } catch (error) {
+        console.error('Error in inpainting:', error);
+        return NextResponse.json({ 
+          error: `Failed to inpaint image: ${error.message}` 
+        }, { status: 500 });
+      }
+
+      // Step 4: Split the inpainted image and store the panels
+      let angleBuffers;
+      try {
+        const imageBuffer = Buffer.from(imageData, 'base64');
+        angleBuffers = await splitCompositeImage(imageBuffer);
+      } catch (error) {
+        console.error('Error splitting inpainted image:', error);
+        return NextResponse.json({ 
+          error: `Failed to process inpainted image: ${error.message}` 
+        }, { status: 500 });
+      }
+
+      // Step 5: Upload the inpainted panels
+      let angleUrls;
+      try {
+        angleUrls = await uploadPanelsToStorage(angleBuffers, userId);
+      } catch (error) {
+        console.error('Error uploading inpainted panels:', error);
+        return NextResponse.json({ 
+          error: `Failed to upload inpainted image panels: ${error.message}` 
+        }, { status: 500 });
+      }
+
+      // Return the inpainted result
+      return NextResponse.json({
+        success: true,
+        aiDescription: `Updated design: ${inpaintingInsights.inpaintingData.modificationSummary}`,
+        angleUrls,
+        compositeImage: imageData
+      });
+
+    } else {
+      // ORIGINAL GENERATION FLOW
+      console.log("[API] Processing original design generation");
+      
+      // Step 1: Get AI insights
+      let insights;
+      try {
+        insights = await getAIDesignerInsights({
+          itemDescription: `${itemType} in ${color}`,
+          frontDesign: userPrompt,
+          backDesign: userPrompt,
+          modelDetails: modelDescription || "Generate appropriate model description" // Pass model description or flag for auto-generation
+        });
+      } catch (error) {
+        console.error('Error getting AI insights:', error);
+        return NextResponse.json({ 
+          error: `Failed to get AI insights: ${error.message}` 
+        }, { status: 500 });
+      }
+
+      // Step 2: Generate the image
+      let imageData;
+      try {
         imageData = await generateImageWithOpenAI(
           insights.promptJsonData.description,
           {
@@ -160,48 +262,48 @@ export async function POST(req) {
             itemDescription: `${itemType} in ${color}`,
             frontDesign: insights.promptJsonData.frontDetails,
             backDesign: insights.promptJsonData.backDetails,
-            modelDetails: "Professional model with neutral expression"
+            modelDetails: insights.promptJsonData.modelDetails || "Professional model with neutral expression"
           }
         );
+      } catch (error) {
+        console.error('Error in image generation:', error);
+        return NextResponse.json({ 
+          error: `Failed to generate image: ${error.message}` 
+        }, { status: 500 });
       }
-    } catch (error) {
-      console.error('Error in image generation/inpainting:', error);
-      return NextResponse.json({ 
-        error: `Failed to ${inpaintingMask ? 'inpaint' : 'generate'} image: ${error.message}` 
-      }, { status: 500 });
-    }
 
-    // Step 3: Split the image and store the panels
-    let angleBuffers;
-    try {
-      const imageBuffer = Buffer.from(imageData, 'base64');
-      angleBuffers = await splitCompositeImage(imageBuffer);
-    } catch (error) {
-      console.error('Error splitting image:', error);
-      return NextResponse.json({ 
-        error: `Failed to process generated image: ${error.message}` 
-      }, { status: 500 });
-    }
+      // Step 3: Split the image and store the panels
+      let angleBuffers;
+      try {
+        const imageBuffer = Buffer.from(imageData, 'base64');
+        angleBuffers = await splitCompositeImage(imageBuffer);
+      } catch (error) {
+        console.error('Error splitting image:', error);
+        return NextResponse.json({ 
+          error: `Failed to process generated image: ${error.message}` 
+        }, { status: 500 });
+      }
 
-    // Step 4: Upload the panels
-    let angleUrls;
-    try {
-      angleUrls = await uploadPanelsToStorage(angleBuffers, userId);
-    } catch (error) {
-      console.error('Error uploading panels:', error);
-      return NextResponse.json({ 
-        error: `Failed to upload image panels: ${error.message}` 
-      }, { status: 500 });
-    }
+      // Step 4: Upload the panels
+      let angleUrls;
+      try {
+        angleUrls = await uploadPanelsToStorage(angleBuffers, userId);
+      } catch (error) {
+        console.error('Error uploading panels:', error);
+        return NextResponse.json({ 
+          error: `Failed to upload image panels: ${error.message}` 
+        }, { status: 500 });
+      }
 
-    // Return everything the client needs
-    return NextResponse.json({
-      success: true,
-      aiDescription: insights.promptJsonData.description,
-      suggestedName: insights.promptJsonData.name,
-      angleUrls,
-      compositeImage: imageData // Return the full composite image for potential inpainting
-    });
+      // Return everything the client needs
+      return NextResponse.json({
+        success: true,
+        aiDescription: insights.promptJsonData.description,
+        suggestedName: insights.promptJsonData.name,
+        angleUrls,
+        compositeImage: imageData // Return the full composite image for potential inpainting
+      });
+    }
 
   } catch (error) {
     console.error('Error in design generation:', error);
