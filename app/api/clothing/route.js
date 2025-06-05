@@ -1,67 +1,74 @@
 import { NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
+import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/lib/authOptions";
-import prisma from "@/lib/prisma";
+import { prisma } from "@/lib/prisma";
+import { Filter } from "bad-words";
+import { ANGLES } from "@/utils/imageProcessing";
 
 export async function POST(req) {
-  // In Next.js 13 app router, simply pass authOptions
   const session = await getServerSession(authOptions);
-  if (!session?.user) {
+  if (!session?.user?.uid) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const body = await req.json();
+  let body;
+  try {
+    body = await req.json();
+  } catch {
+    return NextResponse.json({ error: "Invalid JSON input" }, { status: 400 });
+  }
+
   const {
     name,
+    description = "",
     itemType,
-    description,
-    color,
-    material,
-    isPublished,
-    price,
-    goal,
-    minimumGoal,
-    status
+    imageUrls,
+    promptRaw,
+    promptSanitized = "",
+    color = "",
+    isPublished = false,
+    price = 0,
+    status = "CONCEPT"
   } = body;
 
-  if (!name || !itemType) {
-    return NextResponse.json(
-      { error: "Missing required fields" },
-      { status: 400 }
-    );
+  if (!name || !itemType || !imageUrls || !promptRaw) {
+    return NextResponse.json({ error: "Missing required fields (name, itemType, imageUrls, or promptRaw)." }, { status: 400 });
+  }
+
+  if (!imageUrls[ANGLES.FRONT]) {
+    return NextResponse.json({ error: "Missing front image URL." }, { status: 400 });
+  }
+
+  const filter = new Filter();
+  const fieldsToCheck = [name, description, itemType, color];
+  if (fieldsToCheck.some((field) => field && filter.isProfane(field))) {
+    return NextResponse.json({ error: "Inappropriate language detected" }, { status: 400 });
   }
 
   try {
-    // Use session.user.uid as the user's ID
     const clothingItem = await prisma.clothingItem.create({
       data: {
         name,
-        itemType,
         description,
+        itemType,
+        imageUrl: imageUrls[ANGLES.FRONT],
+        frontImage: imageUrls[ANGLES.FRONT],
+        backImage: imageUrls[ANGLES.BACK],
+        promptRaw,
+        promptSanitized,
         color,
-        material,
-        isPublished: !!isPublished,
-        isDeleted: false, // ✅ ensure it's explicitly set
-        price: price || 0,
-        goal: goal || 100,
-        minimumGoal: minimumGoal || 25,
-        status: status || 'PENDING',
-        pledged: 0,
+        isPublished: Boolean(isPublished),
+        price: Number(price),
+        status,
         creator: {
-          connect: {
-            id: session.user.uid,
-          },
+          connect: { id: session.user.uid },
         },
       },
     });
 
-    console.log("✅ Clothing item created:", clothingItem.id);
     return NextResponse.json({ clothingItem });
   } catch (err) {
-    console.error("❌ Failed to create clothing item:", err);
-    return NextResponse.json(
-      { error: "Failed to create clothing item" },
-      { status: 500 }
-    );
+    console.error("❌ Failed to save clothing item:", err);
+    return NextResponse.json({ error: "Failed to save clothing item" }, { status: 500 });
   }
 }

@@ -54,7 +54,7 @@ export default function ClothingItemCard({
 
   const handleCreatorClick = (e) => {
     e.stopPropagation();
-    router.push(`/profile/${clothingItem.creator?.id}`);
+    router.push(`/profile/${clothingItem.creator?.displayName}`);
   };
 
   const handleCardClick = () => {
@@ -70,10 +70,10 @@ export default function ClothingItemCard({
             src={clothingItem.imageUrl || '/images/clothing-placeholder.png'}
             alt={clothingItem.name}
             fill
-            sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
             priority={true}
             className="object-cover transition-transform duration-300 group-hover:scale-105"
             unoptimized
+            sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
           />
         </div>
 

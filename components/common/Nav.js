@@ -64,6 +64,11 @@ export default function Nav() {
     { href: '/design', label: 'Design' },
   ];
 
+  // Add feed link if user is logged in
+  const allLinks = session?.user 
+    ? [...links, { href: '/feed', label: 'Feed' }]
+    : links;
+
   const cartCount = getCartCount();
 
   return (
@@ -75,7 +80,7 @@ export default function Nav() {
 
         {/* DESKTOP NAV */}
         <nav className="hidden md:flex items-center gap-8">
-          {links.map((l) => (
+          {allLinks.map((l) => (
             <Link
               key={l.href}
               href={l.href}
@@ -240,7 +245,7 @@ export default function Nav() {
           </Link>
         )}
 
-        {links.map((l) => (
+        {allLinks.map((l) => (
           <Link
             key={l.href}
             href={l.href}

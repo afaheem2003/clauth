@@ -33,6 +33,10 @@ model User {
   likes         Like[]
   wardrobes     Wardrobe[]
 
+  // Add followers/following relationships
+  followers     Follow[]       @relation("UserFollowers")
+  following     Follow[]       @relation("UserFollowing")
+
   shippingInfo  ShippingInfo?  @relation("UserShipping")
   billingInfo   BillingInfo?   @relation("UserBilling")
 
@@ -315,4 +319,20 @@ model WardrobeItem {
   notes       String?     // Optional notes about how this item fits in the wardrobe
   
   @@unique([wardrobeId, clothingItemId]) // Prevent duplicate items in a wardrobe
+}
+
+/* ────────────────────────────────────────────────────────────
+   Follow model
+────────────────────────────────────────────────────────────── */
+model Follow {
+  id          String   @id @default(cuid())
+  follower    User     @relation("UserFollowing", fields: [followerId], references: [id])
+  followerId  String
+  following   User     @relation("UserFollowers", fields: [followingId], references: [id])
+  followingId String
+  createdAt   DateTime @default(now())
+
+  @@unique([followerId, followingId])
+  @@index([followerId])
+  @@index([followingId])
 }

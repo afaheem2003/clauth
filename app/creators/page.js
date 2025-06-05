@@ -1,4 +1,6 @@
 import { prisma } from '@/lib/prisma';
+import { getServerSession } from 'next-auth';
+import { authOptions } from '@/lib/authOptions';
 import CreatorsClient from './CreatorsClient';
 
 export const metadata = {
@@ -11,6 +13,8 @@ export const metadata = {
 };
 
 export default async function CreatorsPage() {
+  const session = await getServerSession(authOptions);
+
   const topCreators = await prisma.user.findMany({
     where: {
       clothingItems: {
@@ -38,7 +42,8 @@ export default async function CreatorsPage() {
                 in: ['AVAILABLE', 'SELECTED', 'CONCEPT']
               }
             }
-          }
+          },
+          followers: true
         }
       },
       clothingItems: {
@@ -58,7 +63,7 @@ export default async function CreatorsPage() {
           preorders: {
             select: {
               id: true,
-          status: true
+              status: true
             },
             where: {
               status: {
@@ -82,6 +87,23 @@ export default async function CreatorsPage() {
     take: 20
   });
 
+  // Get following status for each creator if user is logged in
+  let followingMap = new Map();
+  if (session?.user) {
+    const following = await prisma.follow.findMany({
+      where: {
+        followerId: session.user.uid,
+        followingId: {
+          in: topCreators.map(creator => creator.id)
+        }
+      },
+      select: {
+        followingId: true
+      }
+    });
+    followingMap = new Map(following.map(f => [f.followingId, true]));
+  }
+
   // Calculate total likes and enrich the data
   const enrichedCreators = topCreators.map(creator => {
     const clothingData = creator.clothingItems || [];
@@ -92,8 +114,7 @@ export default async function CreatorsPage() {
       name: item.name,
       imageUrl: item.imageUrl || '/images/clothing-item-placeholder.png',
       likes: item.likes?.length || 0,
-      status: item.status,
-      progress: item.totalQuantity ? Math.min(100, Math.round((item.preorders.length / item.totalQuantity) * 100)) : 0
+      status: item.status
     }));
 
     return {
@@ -102,8 +123,10 @@ export default async function CreatorsPage() {
       image: creator.image || '/images/profile-placeholder.png',
       stats: {
         clothingItems: creator._count.clothingItems,
-        likes: totalLikes
+        likes: totalLikes,
+        followers: creator._count.followers
       },
+      isFollowing: followingMap.get(creator.id) || false,
       availableClothingItems
     };
   });

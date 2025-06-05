@@ -3,6 +3,7 @@
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 import { formatCompactNumber } from '@/utils/formatters';
+import FollowButton from '@/components/profile/FollowButton';
 
 export default function CreatorsClient({ initialCreators }) {
   const router = useRouter();
@@ -27,40 +28,49 @@ export default function CreatorsClient({ initialCreators }) {
             >
               <div className="p-6">
                 {/* Creator Info */}
-                <div 
-                  className="flex items-center space-x-4 cursor-pointer"
-                  onClick={() => router.push(`/profile/${creator.id}`)}
-                >
-                  <div className="relative h-16 w-16 flex-shrink-0">
-                    <Image
-                      src={creator.image}
-                      alt={creator.displayName}
-                      fill
-                      unoptimized
-                      sizes="(max-width: 768px) 64px, 64px"
-                      className="rounded-full object-cover"
-                    />
+                <div className="flex items-center justify-between">
+                  <div 
+                    className="flex items-center space-x-4 cursor-pointer"
+                    onClick={() => router.push(`/profile/${creator.displayName}`)}
+                  >
+                    <div className="relative h-16 w-16 flex-shrink-0">
+                      <Image
+                        src={creator.image}
+                        alt={creator.displayName}
+                        fill
+                        unoptimized
+                        sizes="(max-width: 768px) 64px, 64px"
+                        className="rounded-full object-cover"
+                      />
+                    </div>
+                    <div>
+                      <h2 className="text-xl font-bold text-gray-900 truncate">
+                        {creator.displayName}
+                      </h2>
+                    </div>
                   </div>
-                  <div>
-                    <h2 className="text-xl font-bold text-gray-900 truncate">
-                      {creator.displayName}
-                    </h2>
-                  </div>
+                  <FollowButton userId={creator.id} initialIsFollowing={creator.isFollowing} />
                 </div>
 
                 {/* Creator Stats */}
-                <div className="mt-6 grid grid-cols-2 gap-4 border-t border-gray-100 pt-4">
+                <div className="mt-6 grid grid-cols-3 gap-4 border-t border-gray-100 pt-4">
                   <div className="text-center">
                     <span className="block text-3xl font-bold text-gray-900">
                       {formatCompactNumber(creator.stats.clothingItems)}
                     </span>
-                    <span className="block text-sm text-gray-500 mt-1">Creations</span>
+                    <span className="block text-sm text-gray-500 mt-1">Designs</span>
                   </div>
                   <div className="text-center">
                     <span className="block text-3xl font-bold text-gray-900">
                       {formatCompactNumber(creator.stats.likes)}
                     </span>
-                    <span className="block text-sm text-gray-500 mt-1">Likes</span>
+                    <span className="block text-sm text-gray-500 mt-1">Total Likes</span>
+                  </div>
+                  <div className="text-center">
+                    <span className="block text-3xl font-bold text-gray-900">
+                      {formatCompactNumber(creator.stats.followers)}
+                    </span>
+                    <span className="block text-sm text-gray-500 mt-1">Followers</span>
                   </div>
                 </div>
 
@@ -68,7 +78,7 @@ export default function CreatorsClient({ initialCreators }) {
                 {creator.availableClothingItems?.length > 0 && (
                   <div className="mt-6 border-t border-gray-100 pt-4">
                     <h3 className="text-sm font-medium text-gray-900 mb-4">
-                      Available Designs
+                      Latest Designs
                     </h3>
                     <div className="space-y-4">
                       {creator.availableClothingItems.map((item) => (
@@ -93,14 +103,6 @@ export default function CreatorsClient({ initialCreators }) {
                             <p className="text-sm font-medium text-gray-900 truncate">
                               {item.name}
                             </p>
-                            {item.status === 'AVAILABLE' && (
-                            <div className="mt-1 w-full bg-gray-200 rounded-full h-1.5">
-                              <div
-                                className="bg-green-500 h-1.5 rounded-full"
-                                style={{ width: `${item.progress}%` }}
-                              />
-                            </div>
-                            )}
                           </div>
                           <div className="flex items-center text-sm text-gray-500">
                             <svg
