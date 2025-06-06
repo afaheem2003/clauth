@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { getAIDesignerInsights, generateImageWithOpenAI, inpaintImageWithOpenAI, getAIInpaintingInsights } from '@/services/openaiService';
 import { createClient } from "@supabase/supabase-js";
 import { ANGLES, getAngleImagePath } from '@/utils/imageProcessing';
+import { canUserGenerate, incrementUserUsage } from '@/lib/rateLimiting';
 import sharp from 'sharp';
 
 // Create a private Supabase server-side client
@@ -142,6 +143,25 @@ export async function POST(req) {
 
     if (!userId) {
       return NextResponse.json({ error: "Missing user ID" }, { status: 401 });
+    }
+
+    // Check rate limiting before processing any request
+    const rateLimitCheck = await canUserGenerate(userId);
+    if (!rateLimitCheck.canGenerate) {
+      return NextResponse.json({ 
+        error: `Daily limit reached. You've used ${rateLimitCheck.currentUsage}/${rateLimitCheck.limit} generations today. Limit resets tomorrow.`,
+        rateLimitInfo: rateLimitCheck
+      }, { status: 429 });
+    }
+
+    // Increment usage count at the start to prevent race conditions
+    try {
+      await incrementUserUsage(userId);
+    } catch (error) {
+      console.error('Error incrementing usage:', error);
+      return NextResponse.json({ 
+        error: "Failed to update usage count. Please try again." 
+      }, { status: 500 });
     }
 
     // Check if this is an inpainting request
@@ -299,7 +319,6 @@ export async function POST(req) {
       return NextResponse.json({
         success: true,
         aiDescription: insights.promptJsonData.description,
-        suggestedName: insights.promptJsonData.name,
         angleUrls,
         compositeImage: imageData // Return the full composite image for potential inpainting
       });

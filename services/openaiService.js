@@ -141,13 +141,10 @@ MODEL DESCRIPTION GUIDELINES:
 - Focus on professional modeling appearance, pose, and styling that suits the garment
 
 Your response must include:
-1. A catchy, marketable name (3-5 words)
-2. A clear, factual description
-3. The type of clothing item (matching one of these exact values: ${ITEM_TYPES.map(t => t.value).join(', ')})
-4. Precise front view details
-5. Precise back view details
-6. Base color and materials
-7. Professional model details for image generation
+1. A clear, factual description
+2. Precise front view details
+3. Precise back view details
+4. Professional model details for image generation
 
 🚫 NO subjective descriptions, artistic interpretations, or non-visual elements.`
       },
@@ -172,17 +169,12 @@ Generate a structured response focusing on CONCRETE, VISIBLE elements only.`
         parameters: {
           type: "object",
           properties: {
-            name: { type: "string", description: "Catchy, marketable name for the item" },
             description: { type: "string", description: "Clear, factual description focusing on visible elements" },
-            itemType: { type: "string", description: "Type of clothing item" },
-            productType: { type: "string", description: "The type of clothing item (for image generation)" },
-            baseColor: { type: "string", description: "Primary color of the item" },
             frontDetails: { type: "string", description: "Precise description of front design elements and their placement" },
             backDetails: { type: "string", description: "Precise description of back design elements and their placement" },
-            modelDetails: { type: "string", description: "Professional model description for image generation, including appearance, pose, and styling" },
-            materials: { type: "array", items: { type: "string" }, description: "Material composition" }
+            modelDetails: { type: "string", description: "Professional model description for image generation, including appearance, pose, and styling" }
           },
-          required: ["name", "description", "itemType", "productType", "baseColor", "frontDetails", "backDetails", "modelDetails"]
+          required: ["description", "frontDetails", "backDetails", "modelDetails"]
         }
       }],
       function_call: { name: "generateClothingItemDetails" }
@@ -233,34 +225,42 @@ export async function generateImageWithOpenAI(prompt, options = {}) {
     } = options;
 
     const basePrompt = `
-Generate a high-resolution horizontal (landscape) image, sized exactly 1536x1024 pixels, divided into two vertical panels of equal width.
+Generate a high-resolution horizontal (landscape) image, sized exactly 1536x1024 pixels, showing two views of the same model and clothing item positioned side by side.
 
-Both panels must feature the same hyperrealistic runway model wearing the exact same clothing item. The image should appear professionally photographed under consistent studio lighting with a clean, neutral background. The background must be plain and free of any props, scenery, textures, or visual distractions.
+CRITICAL LAYOUT REQUIREMENTS:
+- NO dividers, borders, lines, or separators between the left and right areas
+- The background must flow seamlessly across the entire width of the image
+- Think of this as ONE continuous studio space photographed from two angles, not two separate panels
+- The lighting and studio environment should be consistent and uninterrupted across the full image width
+
+Both areas must feature the same hyperrealistic runway model wearing the exact same clothing item. The image should appear professionally photographed under consistent studio lighting with a clean, neutral background that extends seamlessly across the entire image width.
 
 IMPORTANT BRAND SAFETY NOTE:
 Do **not** use or reference any real-world brand names, logos, university names, slogans, or trademarks (e.g., "Nike", "Harvard", "Burberry", "Fighting Irish"). Every design element, label, or text must be **original** and fictional. Use made-up names, slogans, or symbols that are safe for commercial use.
 
-Left Panel (Front View):
+Left Area (Front View):
 Display the model facing directly forward, showcasing the front of a ${itemDescription}.
 The front design should include: ${frontDesign}
 
-Right Panel (Back View):
+Right Area (Back View):
 Display the same model facing directly backward, showcasing the back of the same ${itemDescription}.
 The back design should include: ${backDesign}
 
 Model Appearance:
-The same model must appear in both panels. Appearance details: ${modelDetails}
+The same model must appear in both areas. Appearance details: ${modelDetails}
 
 Image Requirements:
-- Use identical studio conditions across both panels (lighting, pose style, camera distance, proportions)
+- ONE continuous studio background that flows seamlessly across the entire 1536x1024 image
+- NO visual separators, dividers, lines, or borders anywhere in the image
+- Use identical studio conditions across both areas (lighting, pose style, camera distance, proportions)
 - Match professional fashion catalog or editorial photography standards
 - The clothing should be faithfully rendered from both sides
 - Text or lettering printed on the clothing (e.g., logos, mottos, crests) is welcome and encouraged if described, but must be fictional and **not** resemble any existing brands or slogans
 - Do **not** include any unrelated UI text, captions, labels, borders, watermarks, shadows, or props
-- The background must remain clean and neutral in both panels — no gradients, patterns, or depth of field effects
+- The background must be a single, continuous, clean neutral surface with no interruptions
 
 Final Output:
-A clean, high-quality, side-by-side comparison of the same item viewed from front and back, using studio photography style and the same model throughout.
+A clean, high-quality comparison of the same item viewed from front and back, appearing as if photographed in one continuous studio space with no visual dividers or separations.
 `.trim();
 
     const requestOptions = {

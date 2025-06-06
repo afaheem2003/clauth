@@ -57,7 +57,6 @@ export default function Nav() {
   const logout = () => signOut().finally(close);
 
   const links = [
-    { href: '/', label: 'Home' },
     { href: '/discover', label: 'Discover' },
     { href: '/shop', label: 'Shop' },
     { href: '/creators', label: 'Creators' },
@@ -74,7 +73,7 @@ export default function Nav() {
   return (
     <header className="bg-white border-b sticky top-0 z-50">
       <div className="container mx-auto px-6 h-14 flex items-center justify-between">
-        <Link href="/" className="text-2xl font-extrabold text-gray-900">
+        <Link href="/discover" className="text-2xl font-extrabold text-gray-900">
           Clauth
         </Link>
 

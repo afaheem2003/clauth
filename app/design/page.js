@@ -23,6 +23,8 @@ export default function DesignPage() {
   const [color, setColor] = useState('');
   const [modelDescription, setModelDescription] = useState(''); // User's model description
   const [isEditingDescription, setIsEditingDescription] = useState(false);
+  const [isEditingItemName, setIsEditingItemName] = useState(false);
+  const [isEditingColor, setIsEditingColor] = useState(false);
   const [frontImage, setFrontImage] = useState(null);
   const [backImage, setBackImage] = useState(null);
   const [compositeImage, setCompositeImage] = useState(null);
@@ -33,6 +35,32 @@ export default function DesignPage() {
   const [currentView, setCurrentView] = useState('front'); // 'front' or 'back'
 
   const [generatingDesign, setGeneratingDesign] = useState(false);
+  
+  // Usage tracking state
+  const [usageStats, setUsageStats] = useState({
+    currentUsage: 0,
+    limit: 10,
+    remaining: 10,
+    plan: 'Free Plan'
+  });
+
+  // Helper function to format reset time
+  const getResetTimeDisplay = () => {
+    const now = new Date();
+    const tomorrow = new Date(now);
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    tomorrow.setHours(0, 0, 0, 0); // Set to start of tomorrow
+    
+    const timeUntilReset = tomorrow.getTime() - now.getTime();
+    const hoursUntilReset = Math.floor(timeUntilReset / (1000 * 60 * 60));
+    const minutesUntilReset = Math.floor((timeUntilReset % (1000 * 60 * 60)) / (1000 * 60));
+    
+    if (hoursUntilReset > 0) {
+      return `Resets in ${hoursUntilReset}h ${minutesUntilReset}m`;
+    } else {
+      return `Resets in ${minutesUntilReset}m`;
+    }
+  };
 
   const steps = [
     { number: 1, title: 'Basic Details' },
@@ -52,6 +80,40 @@ export default function DesignPage() {
       return;
     }
   }, [compositeImage, isInpaintingMode]);
+
+  // Fetch user usage stats
+  useEffect(() => {
+    const fetchUsageStats = async () => {
+      if (!session?.user?.uid) return;
+      
+      try {
+        const response = await fetch('/api/usage');
+        if (response.ok) {
+          const data = await response.json();
+          setUsageStats(data.usage);
+        }
+      } catch (error) {
+        console.error('Error fetching usage stats:', error);
+      }
+    };
+
+    fetchUsageStats();
+  }, [session?.user?.uid]);
+
+  // Function to refresh usage stats
+  const refreshUsageStats = async () => {
+    if (!session?.user?.uid) return;
+    
+    try {
+      const response = await fetch('/api/usage');
+      if (response.ok) {
+        const data = await response.json();
+        setUsageStats(data.usage);
+      }
+    } catch (error) {
+      console.error('Error refreshing usage stats:', error);
+    }
+  };
 
   const handleGenerateDesign = async () => {
     try {
@@ -95,6 +157,12 @@ export default function DesignPage() {
       document.body.removeChild(generationModal);
 
       if (!response.ok) {
+        const errorData = await response.json();
+        if (response.status === 429) {
+          // Rate limit error - refresh usage stats
+          await refreshUsageStats();
+          throw new Error(errorData.error || 'Daily generation limit reached');
+        }
         throw new Error('Failed to generate design');
       }
 
@@ -113,10 +181,13 @@ export default function DesignPage() {
 
       // Set the AI-generated description
       setAiDescription(data.aiDescription);
-      setItemName(data.suggestedName || itemName);
+      setItemName(itemName);
 
       setCurrentStep(3);
       setGeneratingDesign(false);
+
+      // Refresh usage stats
+      await refreshUsageStats();
 
     } catch (err) {
       console.error('Error in design generation:', err);
@@ -186,7 +257,13 @@ export default function DesignPage() {
       const data = await response.json();
       
       if (!response.ok) {
-        throw new Error(data.error || 'Failed to inpaint design');
+        const errorData = await response.json();
+        if (response.status === 429) {
+          // Rate limit error - refresh usage stats
+          await refreshUsageStats();
+          throw new Error(errorData.error || 'Daily generation limit reached');
+        }
+        throw new Error(errorData.error || 'Failed to inpaint design');
       }
 
       // Update the composite image with the inpainted version
@@ -201,6 +278,9 @@ export default function DesignPage() {
       setInpaintingPrompt('');
 
       setGeneratingDesign(false);
+
+      // Refresh usage stats
+      await refreshUsageStats();
 
     } catch (err) {
       console.error('Error in inpainting:', err);
@@ -329,6 +409,52 @@ export default function DesignPage() {
           </div>
         </div>
 
+        {/* Usage Stats Display */}
+        <div className="mb-8 bg-gradient-to-r from-indigo-50 to-purple-50 border border-indigo-200 rounded-xl p-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center space-x-3">
+              <div className="flex items-center justify-center w-8 h-8 bg-indigo-100 rounded-full">
+                <svg className="w-4 h-4 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                </svg>
+              </div>
+              <div>
+                <h3 className="text-sm font-medium text-gray-900">Daily Generations</h3>
+                <p className="text-xs text-gray-600">{usageStats.plan}</p>
+              </div>
+            </div>
+            <div className="text-right">
+              <div className="text-lg font-semibold text-gray-900">
+                {usageStats.remaining}/{usageStats.limit}
+              </div>
+              <p className="text-xs text-gray-600">remaining today</p>
+              <p className="text-xs text-gray-500 mt-1">{getResetTimeDisplay()}</p>
+            </div>
+          </div>
+          
+          {/* Progress bar */}
+          <div className="mt-3">
+            <div className="flex justify-between text-xs text-gray-600 mb-1">
+              <span>Used: {usageStats.currentUsage}</span>
+              <span>{Math.round((usageStats.currentUsage / usageStats.limit) * 100)}%</span>
+            </div>
+            <div className="w-full bg-gray-200 rounded-full h-2">
+              <div 
+                className="bg-gradient-to-r from-indigo-500 to-purple-600 h-2 rounded-full transition-all duration-300"
+                style={{ width: `${Math.min((usageStats.currentUsage / usageStats.limit) * 100, 100)}%` }}
+              ></div>
+            </div>
+          </div>
+          
+          {usageStats.remaining === 0 && (
+            <div className="mt-3 p-2 bg-amber-50 border border-amber-200 rounded-lg">
+              <p className="text-sm text-amber-800">
+                📅 You've reached your daily limit. More generations available tomorrow! {getResetTimeDisplay()}
+              </p>
+            </div>
+          )}
+        </div>
+
         <form onSubmit={handleSubmit} className="space-y-8">
           {/* Step 1 */}
           {currentStep === 1 && (
@@ -402,7 +528,7 @@ export default function DesignPage() {
             <div className="space-y-6">
               <div>
                 <label className="block text-sm font-medium text-gray-900 mb-2">
-                  Design Prompt
+                  Clothing Item Design Prompt
                 </label>
                 <textarea
                   value={userPrompt}
@@ -430,17 +556,17 @@ export default function DesignPage() {
 
               <div>
                 <label className="block text-sm font-medium text-gray-900 mb-2">
-                  Model Description (Optional)
+                  Model and Additional Clothing Description
                 </label>
                 <p className="text-xs text-gray-600 mb-2">
-                  Describe the model's appearance, pose, or styling. Leave blank for auto-generated professional model description.
+                  Describe the model's appearance, pose, styling, and any additional clothing items you'd like them to wear (pants, shoes, accessories, etc.). Leave blank for auto-generated professional model description.
                 </p>
                 <textarea
                   value={modelDescription}
                   onChange={(e) => setModelDescription(e.target.value)}
                   rows={3}
                   className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-black focus:border-transparent text-gray-900 placeholder-gray-500"
-                  placeholder="e.g., 'Athletic young woman with confident pose' or 'Mature professional with formal styling'"
+                  placeholder="e.g., 'Athletic young woman in black jeans and white sneakers with confident pose' or 'Mature professional wearing dark slacks and dress shoes with formal styling'"
                 />
               </div>
             </div>
@@ -463,16 +589,66 @@ export default function DesignPage() {
                           <h4 className="text-sm font-medium text-gray-500 uppercase tracking-wider">Item Details</h4>
                           <div className="mt-3 bg-gray-50 rounded-lg p-4 space-y-3">
                             <div>
-                              <dt className="text-sm font-medium text-gray-700">Item Name</dt>
-                              <dd className="mt-1 text-sm text-gray-900">{itemName}</dd>
+                              <div className="flex items-center justify-between">
+                                <dt className="text-sm font-medium text-gray-700">Item Name</dt>
+                                <button
+                                  type="button"
+                                  onClick={() => setIsEditingItemName(!isEditingItemName)}
+                                  className="text-gray-400 hover:text-indigo-600 transition-colors"
+                                >
+                                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                                  </svg>
+                                </button>
+                              </div>
+                              {isEditingItemName ? (
+                                <input
+                                  type="text"
+                                  value={itemName}
+                                  onChange={(e) => setItemName(e.target.value)}
+                                  onBlur={() => setIsEditingItemName(false)}
+                                  onKeyDown={(e) => {
+                                    if (e.key === 'Enter') setIsEditingItemName(false);
+                                  }}
+                                  className="mt-1 w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-gray-900"
+                                  autoFocus
+                                />
+                              ) : (
+                                <dd className="mt-1 text-sm text-gray-900">{itemName}</dd>
+                              )}
                             </div>
                             <div>
                               <dt className="text-sm font-medium text-gray-700">Type</dt>
                               <dd className="mt-1 text-sm text-gray-900">{itemType}</dd>
                             </div>
                             <div>
-                              <dt className="text-sm font-medium text-gray-700">Color</dt>
-                              <dd className="mt-1 text-sm text-gray-900">{color}</dd>
+                              <div className="flex items-center justify-between">
+                                <dt className="text-sm font-medium text-gray-700">Color</dt>
+                                <button
+                                  type="button"
+                                  onClick={() => setIsEditingColor(!isEditingColor)}
+                                  className="text-gray-400 hover:text-indigo-600 transition-colors"
+                                >
+                                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                                  </svg>
+                                </button>
+                              </div>
+                              {isEditingColor ? (
+                                <input
+                                  type="text"
+                                  value={color}
+                                  onChange={(e) => setColor(e.target.value)}
+                                  onBlur={() => setIsEditingColor(false)}
+                                  onKeyDown={(e) => {
+                                    if (e.key === 'Enter') setIsEditingColor(false);
+                                  }}
+                                  className="mt-1 w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-gray-900"
+                                  autoFocus
+                                />
+                              ) : (
+                                <dd className="mt-1 text-sm text-gray-900">{color}</dd>
+                              )}
                             </div>
                           </div>
                         </div>
@@ -483,9 +659,11 @@ export default function DesignPage() {
                             <button
                               type="button"
                               onClick={() => setIsEditingDescription(!isEditingDescription)}
-                              className="text-sm text-indigo-600 hover:text-indigo-800 font-medium"
+                              className="text-gray-400 hover:text-indigo-600 transition-colors"
                             >
-                              {isEditingDescription ? 'Save' : 'Edit'}
+                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                              </svg>
                             </button>
                           </div>
                           <div className="mt-3">
