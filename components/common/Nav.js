@@ -8,6 +8,7 @@ import { useRouter } from "next/navigation";
 import { useSession, signOut } from "next-auth/react";
 import { useCart } from "@/lib/CartContext";
 import { ShoppingBagIcon } from "@heroicons/react/24/outline";
+import CreditBalance from "@/components/credits/CreditBalance";
 
 /* react-burger-menu styles ----------------------------------------- */
 const menuStyles = {
@@ -97,6 +98,9 @@ export default function Nav() {
               Admin
             </Link>
           )}
+
+          {/* Credit Balance - Only show for logged in users */}
+          {session?.user && <CreditBalance />}
 
           {/* Cart Icon - Only show if shop is enabled */}
           {isShopEnabled && (

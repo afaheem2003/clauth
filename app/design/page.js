@@ -6,6 +6,7 @@ import { useSession } from 'next-auth/react';
 import Image from 'next/image';
 import { CLOTHING_CATEGORIES, getAllCategories } from '@/app/constants/clothingCategories';
 import { ANGLES } from '@/utils/imageProcessing';
+import QualitySelector from '@/components/credits/QualitySelector';
 
 export default function DesignPage() {
   const router = useRouter();
@@ -34,33 +35,21 @@ export default function DesignPage() {
   const [inpaintingPrompt, setInpaintingPrompt] = useState('');
   const [currentView, setCurrentView] = useState('front'); // 'front' or 'back'
 
+  // Quality selection state
+  const [quality, setQuality] = useState('medium');
+
   const [generatingDesign, setGeneratingDesign] = useState(false);
   
   // Usage tracking state
   const [usageStats, setUsageStats] = useState({
-    currentUsage: 0,
-    limit: 10,
-    remaining: 10,
-    plan: 'Free Plan'
+    mediumCredits: 0,
+    highCredits: 0,
+    mediumUsedToday: 0,
+    highUsedToday: 0,
+    dailyMediumCap: null,
+    dailyHighCap: null,
+    plan: 'Starter'
   });
-
-  // Helper function to format reset time
-  const getResetTimeDisplay = () => {
-    const now = new Date();
-    const tomorrow = new Date(now);
-    tomorrow.setDate(tomorrow.getDate() + 1);
-    tomorrow.setHours(0, 0, 0, 0); // Set to start of tomorrow
-    
-    const timeUntilReset = tomorrow.getTime() - now.getTime();
-    const hoursUntilReset = Math.floor(timeUntilReset / (1000 * 60 * 60));
-    const minutesUntilReset = Math.floor((timeUntilReset % (1000 * 60 * 60)) / (1000 * 60));
-    
-    if (hoursUntilReset > 0) {
-      return `Resets in ${hoursUntilReset}h ${minutesUntilReset}m`;
-    } else {
-      return `Resets in ${minutesUntilReset}m`;
-    }
-  };
 
   const steps = [
     { number: 1, title: 'Basic Details' },
@@ -82,23 +71,32 @@ export default function DesignPage() {
   }, [compositeImage, isInpaintingMode]);
 
   // Fetch user usage stats
-  useEffect(() => {
-    const fetchUsageStats = async () => {
-      if (!session?.user?.uid) return;
-      
-      try {
-        const response = await fetch('/api/usage');
-        if (response.ok) {
-          const data = await response.json();
-          setUsageStats(data.usage);
-        }
-      } catch (error) {
-        console.error('Error fetching usage stats:', error);
+  const fetchUsageStats = async () => {
+    if (!session?.user?.uid) return;
+    
+    try {
+      const response = await fetch('/api/usage');
+      if (response.ok) {
+        const data = await response.json();
+        setUsageStats(data.usage);
       }
-    };
+    } catch (error) {
+      console.error('Error fetching usage stats:', error);
+    }
+  };
 
-    fetchUsageStats();
-  }, [session?.user?.uid]);
+  useEffect(() => {
+    if (status === 'authenticated') {
+      fetchUsageStats();
+    }
+  }, [session?.user?.uid, status]);
+
+  // Handle redirect to login if not authenticated
+  useEffect(() => {
+    if (status === 'unauthenticated') {
+      router.push('/login');
+    }
+  }, [status, router]);
 
   // Function to refresh usage stats
   const refreshUsageStats = async () => {
@@ -146,6 +144,7 @@ export default function DesignPage() {
           userPrompt: userPrompt,
           modelDescription: modelDescription || '',
           userId: session?.user?.id || session?.user?.uid,
+          quality: quality,
           // Only include inpainting data if we're in inpainting mode
           ...(isInpaintingMode && compositeImage ? {
             originalImage: compositeImage
@@ -241,6 +240,7 @@ export default function DesignPage() {
           userPrompt: inpaintingPrompt,
           modelDescription: modelDescription || '',
           userId: session?.user?.id || session?.user?.uid,
+          quality: quality,
           originalImage: compositeImage
         }),
         signal: controller.signal
@@ -373,8 +373,7 @@ export default function DesignPage() {
   }
 
   if (!session?.user) {
-    router.push('/login');
-    return null;
+    return <div className="flex justify-center items-center min-h-screen">Redirecting...</div>;
   }
 
   return (
@@ -419,37 +418,68 @@ export default function DesignPage() {
                 </svg>
               </div>
               <div>
-                <h3 className="text-sm font-medium text-gray-900">Daily Generations</h3>
-                <p className="text-xs text-gray-600">{usageStats.plan}</p>
+                <h3 className="text-sm font-medium text-gray-900">Credits Available</h3>
+                <p className="text-xs text-gray-600">{usageStats.plan || 'Starter'}</p>
               </div>
             </div>
             <div className="text-right">
-              <div className="text-lg font-semibold text-gray-900">
-                {usageStats.remaining}/{usageStats.limit}
+              <div className="flex items-center space-x-2">
+                <div className="text-center">
+                  <div className="text-lg font-semibold text-blue-600">
+                    {usageStats.mediumCredits || 0}
+                  </div>
+                  <p className="text-xs text-gray-600">Medium</p>
+                </div>
+                <div className="text-gray-400">|</div>
+                <div className="text-center">
+                  <div className="text-lg font-semibold text-purple-600">
+                    {usageStats.highCredits || 0}
+                  </div>
+                  <p className="text-xs text-gray-600">High</p>
+                </div>
               </div>
-              <p className="text-xs text-gray-600">remaining today</p>
-              <p className="text-xs text-gray-500 mt-1">{getResetTimeDisplay()}</p>
             </div>
           </div>
           
-          {/* Progress bar */}
-          <div className="mt-3">
-            <div className="flex justify-between text-xs text-gray-600 mb-1">
-              <span>Used: {usageStats.currentUsage}</span>
-              <span>{Math.round((usageStats.currentUsage / usageStats.limit) * 100)}%</span>
+          {/* Daily Usage Progress */}
+          {(usageStats.dailyMediumCap || usageStats.dailyHighCap) && (
+            <div className="mt-4 space-y-3">
+              {usageStats.dailyMediumCap && (
+                <div>
+                  <div className="flex justify-between text-xs text-gray-600 mb-1">
+                    <span>Medium Daily Usage</span>
+                    <span>{Math.round(((usageStats.mediumUsedToday || 0) / usageStats.dailyMediumCap) * 100)}%</span>
+                  </div>
+                  <div className="w-full bg-gray-200 rounded-full h-2">
+                    <div 
+                      className="bg-blue-500 h-2 rounded-full transition-all duration-300"
+                      style={{ width: `${Math.min(((usageStats.mediumUsedToday || 0) / usageStats.dailyMediumCap) * 100, 100)}%` }}
+                    ></div>
+                  </div>
+                </div>
+              )}
+              
+              {usageStats.dailyHighCap && (
+                <div>
+                  <div className="flex justify-between text-xs text-gray-600 mb-1">
+                    <span>High Daily Usage</span>
+                    <span>{Math.round(((usageStats.highUsedToday || 0) / usageStats.dailyHighCap) * 100)}%</span>
+                  </div>
+                  <div className="w-full bg-gray-200 rounded-full h-2">
+                    <div 
+                      className="bg-purple-500 h-2 rounded-full transition-all duration-300"
+                      style={{ width: `${Math.min(((usageStats.highUsedToday || 0) / usageStats.dailyHighCap) * 100, 100)}%` }}
+                    ></div>
+                  </div>
+                </div>
+              )}
             </div>
-            <div className="w-full bg-gray-200 rounded-full h-2">
-              <div 
-                className="bg-gradient-to-r from-indigo-500 to-purple-600 h-2 rounded-full transition-all duration-300"
-                style={{ width: `${Math.min((usageStats.currentUsage / usageStats.limit) * 100, 100)}%` }}
-              ></div>
-            </div>
-          </div>
+          )}
           
-          {usageStats.remaining === 0 && (
+          {(usageStats.mediumCredits === 0 && usageStats.highCredits === 0) && (
             <div className="mt-3 p-2 bg-amber-50 border border-amber-200 rounded-lg">
               <p className="text-sm text-amber-800">
-                📅 You've reached your daily limit. More generations available tomorrow! {getResetTimeDisplay()}
+                📅 No credits remaining. Credits refill monthly or you can purchase boosters.
               </p>
             </div>
           )}
@@ -569,6 +599,12 @@ export default function DesignPage() {
                   placeholder="e.g., 'Athletic young woman in black jeans and white sneakers with confident pose' or 'Mature professional wearing dark slacks and dress shoes with formal styling'"
                 />
               </div>
+
+              <QualitySelector
+                quality={quality}
+                setQuality={setQuality}
+                disabled={loading}
+              />
             </div>
           )}
 

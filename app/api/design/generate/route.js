@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { getAIDesignerInsights, generateImageWithOpenAI, inpaintImageWithOpenAI, getAIInpaintingInsights } from '@/services/openaiService';
 import { createClient } from "@supabase/supabase-js";
 import { ANGLES, getAngleImagePath } from '@/utils/imageProcessing';
-import { canUserGenerate, incrementUserUsage } from '@/lib/rateLimiting';
+import { canUserGenerate, consumeCreditsForGeneration } from '@/lib/rateLimiting';
 import sharp from 'sharp';
 
 // Create a private Supabase server-side client
@@ -139,29 +139,30 @@ async function uploadPanelsToStorage(angleBuffers, userId) {
 export async function POST(req) {
   try {
     const data = await req.json();
-    const { itemType, color, userPrompt, modelDescription, userId, inpaintingMask, originalImage } = data;
+    const { itemType, color, userPrompt, modelDescription, userId, inpaintingMask, originalImage, quality = 'medium' } = data;
 
     if (!userId) {
       return NextResponse.json({ error: "Missing user ID" }, { status: 401 });
     }
 
-    // Check rate limiting before processing any request
-    const rateLimitCheck = await canUserGenerate(userId);
-    if (!rateLimitCheck.canGenerate) {
+    // Check credit availability and daily limits before processing
+    const creditCheck = await canUserGenerate(userId, quality);
+    if (!creditCheck.canGenerate) {
       return NextResponse.json({ 
-        error: `Daily limit reached. You've used ${rateLimitCheck.currentUsage}/${rateLimitCheck.limit} generations today. Limit resets tomorrow.`,
-        rateLimitInfo: rateLimitCheck
+        error: creditCheck.reason,
+        creditsRemaining: creditCheck.creditsRemaining,
+        dailyRemaining: creditCheck.dailyRemaining
       }, { status: 429 });
     }
 
-    // Increment usage count at the start to prevent race conditions
+    // Consume credits at the start to prevent race conditions
     try {
-      await incrementUserUsage(userId);
+      await consumeCreditsForGeneration(userId, quality);
     } catch (error) {
-      console.error('Error incrementing usage:', error);
+      console.error('Error consuming credits:', error);
       return NextResponse.json({ 
-        error: "Failed to update usage count. Please try again." 
-      }, { status: 500 });
+        error: `Failed to consume ${quality} credits. ${error.message}` 
+      }, { status: 400 });
     }
 
     // Check if this is an inpainting request
@@ -201,14 +202,14 @@ export async function POST(req) {
       // Step 3: Perform inpainting with structured data
       let imageData;
       try {
-        console.log("[API] Inpainting with itemType:", itemType, "color:", color);
+        console.log("[API] Inpainting with itemType:", itemType, "color:", color, "quality:", quality);
         imageData = await inpaintImageWithOpenAI(
           originalImage,
           maskToUse,
           inpaintingInsights.inpaintingData,
           {
             size: "1536x1024",
-            quality: process.env.OPENAI_IMAGE_QUALITY || "high",
+            quality: quality,
             originalItemType: itemType,
             originalColor: color
           }
@@ -274,11 +275,12 @@ export async function POST(req) {
       // Step 2: Generate the image
       let imageData;
       try {
+        console.log("[API] Generating image with quality:", quality);
         imageData = await generateImageWithOpenAI(
           insights.promptJsonData.description,
           {
             size: "1536x1024",
-            quality: process.env.OPENAI_IMAGE_QUALITY || "high",
+            quality: quality,
             itemDescription: `${itemType} in ${color}`,
             frontDesign: insights.promptJsonData.frontDetails,
             backDesign: insights.promptJsonData.backDetails,

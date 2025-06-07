@@ -26,6 +26,9 @@ model User {
 
   role          Role           @default(USER)
 
+  // Stripe integration
+  stripeCustomerId String?     @unique
+
   clothingItems ClothingItem[]
   votes         Vote[]
   preorders     Preorder[]
@@ -46,6 +49,12 @@ model User {
   // Rate limiting & subscription relationships
   subscription  UserSubscription?
   dailyUsage    DailyUsage[]
+  
+  // Credit system relationships
+  credits       UserCredits?
+  designEdits   DesignEditHistory[]
+  boosterPurchases BoosterPurchase[]
+  creditTransactions CreditTransaction[]
 }
 
 model Account {
@@ -132,6 +141,7 @@ model ClothingItem {
   customerRating   Float?     // Customer Rating (1-5 stars)
   inStock          Boolean    @default(true) // Availability
   wardrobeItems    WardrobeItem[]
+  designEdits      DesignEditHistory[]
   
   // Drop-based system fields
   status           ItemStatus @default(CONCEPT)
@@ -342,52 +352,140 @@ model Follow {
 }
 
 /* ────────────────────────────────────────────────────────────
-   Rate Limiting & Subscription models
+   Credit & Subscription models
 ────────────────────────────────────────────────────────────── */
-model SubscriptionPlan {
-  id                String   @id @default(cuid())
-  name              String   @unique  // "Free", "Pro", "Premium"
-  displayName       String             // "Free Plan", "Pro Plan", "Premium Plan"
-  price             Decimal            // Monthly price in dollars
-  dailyGenerations  Int                // Number of generations/edits per day
-  features          String[]           // Array of feature descriptions
-  isActive          Boolean  @default(true)
-  stripePriceId     String?            // Stripe price ID for paid plans
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
 
-  userSubscriptions UserSubscription[]
+model SubscriptionPlan {
+  id                    String   @id @default(cuid())
+  name                  String   @unique  // "starter", "creator", "pro_creator"
+  displayName           String             // "Starter", "Creator", "Creator Pro"
+  price                 Decimal            // Monthly price in dollars
+  monthlyMediumCredits  Int                // Medium quality credits per month
+  monthlyHighCredits    Int                // High quality credits per month
+  dailyMediumCap        Int?               // Daily limit for medium credits (null = no limit)
+  dailyHighCap          Int?               // Daily limit for high credits (null = no limit)
+  editCapPerDesign      Int                // Max edits allowed per design
+  features              String[]           // Array of feature descriptions
+  isActive              Boolean  @default(true)
+  stripePriceId         String?            // Stripe price ID for paid plans
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+
+  userSubscriptions     UserSubscription[]
 }
 
 model UserSubscription {
-  id                String           @id @default(cuid())
-  user              User             @relation(fields: [userId], references: [id])
-  userId            String
-  plan              SubscriptionPlan @relation(fields: [planId], references: [id])
-  planId            String
-  status            SubscriptionStatus @default(ACTIVE)
-  stripeSubscriptionId String?        // Stripe subscription ID
-  stripePriceId     String?          // Current Stripe price ID
-  currentPeriodStart DateTime?       // Start of current billing period
-  currentPeriodEnd   DateTime?       // End of current billing period
-  cancelAtPeriodEnd Boolean @default(false)
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
+  id                    String           @id @default(cuid())
+  user                  User             @relation(fields: [userId], references: [id])
+  userId                String
+  plan                  SubscriptionPlan @relation(fields: [planId], references: [id])
+  planId                String
+  status                SubscriptionStatus @default(ACTIVE)
+  stripeSubscriptionId  String?          // Stripe subscription ID
+  stripePriceId         String?          // Current Stripe price ID
+  currentPeriodStart    DateTime?        // Start of current billing period
+  currentPeriodEnd      DateTime?        // End of current billing period
+  cancelAtPeriodEnd     Boolean @default(false)
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
 
   @@unique([userId])  // One active subscription per user
 }
 
+model UserCredits {
+  id                    String   @id @default(cuid())
+  user                  User     @relation(fields: [userId], references: [id])
+  userId                String
+  mediumCredits         Int      @default(0)  // Available medium quality credits
+  highCredits           Int      @default(0)  // Available high quality credits
+  lastMonthlyRefill     DateTime?             // When credits were last refilled
+  
+  // Subscription fields for backward compatibility with webhook
+  subscriptionType      String   @default("FREE")  // "FREE", "CREATOR", "CREATOR_PRO"
+  dailyMediumCap        Int?                       // Daily limit for medium credits
+  dailyHighCap          Int?                       // Daily limit for high credits  
+  lastReset             DateTime?                  // When subscription was last reset
+  
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+
+  @@unique([userId])  // One credit balance per user
+}
+
 model DailyUsage {
-  id            String   @id @default(cuid())
-  user          User     @relation(fields: [userId], references: [id])
-  userId        String
-  date          DateTime @db.Date  // Just the date (YYYY-MM-DD)
-  generations   Int      @default(0)  // Number of generations/edits used
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  id                    String   @id @default(cuid())
+  user                  User     @relation(fields: [userId], references: [id])
+  userId                String
+  date                  DateTime @db.Date  // Just the date (YYYY-MM-DD)
+  mediumGenerations     Int      @default(0)  // Medium quality generations used today
+  highGenerations       Int      @default(0)  // High quality generations used today
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
 
   @@unique([userId, date])  // One record per user per day
   @@index([userId, date])
+}
+
+model DesignEditHistory {
+  id                    String       @id @default(cuid())
+  user                  User         @relation(fields: [userId], references: [id])
+  userId                String
+  clothingItem          ClothingItem? @relation(fields: [clothingItemId], references: [id])
+  clothingItemId        String?      // Null for unpublished designs
+  designSession         String       // Unique identifier for this design session
+  editCount             Int          @default(0)  // Number of edits made to this design
+  originalPrompt        String       // The original design prompt
+  createdAt             DateTime     @default(now())
+  updatedAt             DateTime     @updatedAt
+
+  @@index([userId, designSession])
+  @@index([clothingItemId])
+}
+
+model BoosterPack {
+  id                    String   @id @default(cuid())
+  name                  String   @unique  // "medium_micro", "medium_bulk", "high_micro", "high_bulk"
+  displayName           String             // "Medium Booster — Micro"
+  price                 Decimal            // Price in dollars
+  mediumCredits         Int      @default(0)  // Medium credits provided
+  highCredits           Int      @default(0)  // High credits provided
+  isActive              Boolean  @default(true)
+  stripePriceId         String?            // Stripe price ID
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+
+  purchases             BoosterPurchase[]
+}
+
+model BoosterPurchase {
+  id                    String      @id @default(cuid())
+  user                  User        @relation(fields: [userId], references: [id])
+  userId                String
+  boosterPack           BoosterPack @relation(fields: [boosterPackId], references: [id])
+  boosterPackId         String
+  mediumCreditsAdded    Int         // Medium credits added to user account
+  highCreditsAdded      Int         // High credits added to user account
+  amountPaid            Decimal     // Amount paid in dollars
+  stripePaymentIntentId String?     // Stripe payment intent ID
+  status                PurchaseStatus @default(PENDING)
+  createdAt             DateTime    @default(now())
+  updatedAt             DateTime    @updatedAt
+
+  @@index([userId])
+}
+
+model CreditTransaction {
+  id                    String           @id @default(cuid())
+  user                  User             @relation(fields: [userId], references: [id])
+  userId                String
+  type                  CreditTransactionType
+  mediumCreditsChange   Int              @default(0)  // Can be positive or negative
+  highCreditsChange     Int              @default(0)  // Can be positive or negative
+  reason                String           // Description of the transaction
+  relatedId             String?          // ID of related object (booster purchase, generation, etc.)
+  createdAt             DateTime         @default(now())
+
+  @@index([userId, createdAt])
 }
 
 enum SubscriptionStatus {
@@ -397,5 +495,20 @@ enum SubscriptionStatus {
   INCOMPLETE
   INCOMPLETE_EXPIRED
   TRIALING
-  UNPAID
+}
+
+enum PurchaseStatus {
+  PENDING
+  COMPLETED
+  FAILED
+  REFUNDED
+}
+
+enum CreditTransactionType {
+  MONTHLY_REFILL
+  BOOSTER_PURCHASE
+  GENERATION_USED
+  EDIT_USED
+  ADMIN_ADJUSTMENT
+  REFUND
 }

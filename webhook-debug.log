@@ -1,0 +1,472 @@
+2025-06-07T01:24:04.112Z: 🚀 WEBHOOK RECEIVED - Starting processing
+2025-06-07T01:24:04.115Z: 🔐 Stripe signature found: t=1749259443,v1=e8a3...
+2025-06-07T01:24:04.115Z: 📝 Raw body length: 3492
+2025-06-07T01:24:04.116Z: ✅ Webhook event parsed successfully: {"type":"checkout.session.completed","id":"evt_1RX5Z8DuOuAiWY1U1AvEIWRz","created":1749236674}
+2025-06-07T01:24:04.116Z: 🔄 Processing event type: checkout.session.completed
+2025-06-07T01:24:04.116Z: 📦 Handling checkout.session.completed
+2025-06-07T01:24:04.116Z: ✅ Webhook processing completed successfully
+2025-06-07T01:45:10.427Z: 🚀 WEBHOOK RECEIVED - Starting processing
+2025-06-07T01:45:10.429Z: 🔐 Stripe signature found: t=1749260710,v1=750f...
+2025-06-07T01:45:10.429Z: 📝 Raw body length: 3525
+2025-06-07T01:45:10.431Z: ✅ Webhook event parsed successfully: {"type":"checkout.session.completed","id":"evt_1RX5Z8DuOuAiWY1U1AvEIWRz","created":1749236674}
+2025-06-07T01:45:10.431Z: 🔄 Processing event type: checkout.session.completed
+2025-06-07T01:45:10.431Z: 📦 Handling checkout.session.completed
+2025-06-07T01:45:10.431Z: ✅ Webhook processing completed successfully
+2025-06-07T01:45:51.530Z: 🚀 WEBHOOK RECEIVED - Starting processing
+2025-06-07T01:45:51.531Z: 🔐 Stripe signature found: t=1749260748,v1=3de1...
+2025-06-07T01:45:51.533Z: 📝 Raw body length: 984
+2025-06-07T01:45:51.534Z: ✅ Webhook event parsed successfully: {"type":"product.created","id":"evt_1RXBpQDuOuAiWY1U6WGBlbJw","created":1749260748}
+2025-06-07T01:45:51.534Z: 🔄 Processing event type: product.created
+2025-06-07T01:45:51.535Z: 🔄 Unhandled event type: product.created
+2025-06-07T01:45:51.535Z: ✅ Webhook processing completed successfully
+2025-06-07T01:46:00.423Z: 🚀 WEBHOOK RECEIVED - Starting processing
+2025-06-07T01:46:00.424Z: 🔐 Stripe signature found: t=1749260760,v1=b3b7...
+2025-06-07T01:46:00.424Z: 📝 Raw body length: 930
+2025-06-07T01:46:00.425Z: ✅ Webhook event parsed successfully: {"type":"plan.created","id":"evt_1RXBpcDuOuAiWY1U09oDpjZC","created":1749260760}
+2025-06-07T01:46:00.425Z: 🔄 Processing event type: plan.created
+2025-06-07T01:46:00.425Z: 🔄 Unhandled event type: plan.created
+2025-06-07T01:46:00.425Z: ✅ Webhook processing completed successfully
+2025-06-07T01:46:00.453Z: 🚀 WEBHOOK RECEIVED - Starting processing
+2025-06-07T01:46:00.453Z: 🔐 Stripe signature found: t=1749260760,v1=3414...
+2025-06-07T01:46:00.453Z: 📝 Raw body length: 1110
+2025-06-07T01:46:00.454Z: ✅ Webhook event parsed successfully: {"type":"price.created","id":"evt_1RXBpcDuOuAiWY1UfEzhGjxH","created":1749260760}
+2025-06-07T01:46:00.454Z: 🔄 Processing event type: price.created
+2025-06-07T01:46:00.454Z: 🔄 Unhandled event type: price.created
+2025-06-07T01:46:00.454Z: ✅ Webhook processing completed successfully
+2025-06-07T01:46:08.931Z: 🚀 WEBHOOK RECEIVED - Starting processing
+2025-06-07T01:46:08.932Z: 🔐 Stripe signature found: t=1749260768,v1=58bd...
+2025-06-07T01:46:08.933Z: 📝 Raw body length: 992
+2025-06-07T01:46:08.934Z: ✅ Webhook event parsed successfully: {"type":"product.created","id":"evt_1RXBpkDuOuAiWY1U1TULLygn","created":1749260768}
+2025-06-07T01:46:08.934Z: 🔄 Processing event type: product.created
+2025-06-07T01:46:08.934Z: 🔄 Unhandled event type: product.created
+2025-06-07T01:46:08.934Z: ✅ Webhook processing completed successfully
+2025-06-07T01:46:16.604Z: 🚀 WEBHOOK RECEIVED - Starting processing
+2025-06-07T01:46:16.605Z: 🔐 Stripe signature found: t=1749260776,v1=8a1f...
+2025-06-07T01:46:16.606Z: 📝 Raw body length: 932
+2025-06-07T01:46:16.607Z: ✅ Webhook event parsed successfully: {"type":"plan.created","id":"evt_1RXBpsDuOuAiWY1U6AF9ACWB","created":1749260776}
+2025-06-07T01:46:16.607Z: 🔄 Processing event type: plan.created
+2025-06-07T01:46:16.608Z: 🔄 Unhandled event type: plan.created
+2025-06-07T01:46:16.608Z: ✅ Webhook processing completed successfully
+2025-06-07T01:46:17.569Z: 🚀 WEBHOOK RECEIVED - Starting processing
+2025-06-07T01:46:17.570Z: 🔐 Stripe signature found: t=1749260776,v1=f433...
+2025-06-07T01:46:17.571Z: 📝 Raw body length: 1112
+2025-06-07T01:46:17.572Z: ✅ Webhook event parsed successfully: {"type":"price.created","id":"evt_1RXBpsDuOuAiWY1UpCjYq8sj","created":1749260776}
+2025-06-07T01:46:17.572Z: 🔄 Processing event type: price.created
+2025-06-07T01:46:17.573Z: 🔄 Unhandled event type: price.created
+2025-06-07T01:46:17.573Z: ✅ Webhook processing completed successfully
+2025-06-07T03:25:44.545Z: 🚀 WEBHOOK RECEIVED - Starting processing
+2025-06-07T03:25:44.547Z: 🔐 Stripe signature found: t=1749266744,v1=b651...
+2025-06-07T03:25:44.548Z: 🚀 WEBHOOK RECEIVED - Starting processing
+2025-06-07T03:25:44.548Z: 🔐 Stripe signature found: t=1749266743,v1=d363...
+2025-06-07T03:25:44.548Z: 📝 Raw body length: 924
+2025-06-07T03:25:44.549Z: ✅ Webhook event parsed successfully: {"type":"price.created","id":"evt_1RXDO8DuOuAiWY1UJABUo4Eu","created":1749266744}
+2025-06-07T03:25:44.549Z: 🔄 Processing event type: price.created
+2025-06-07T03:25:44.549Z: 🔄 Unhandled event type: price.created
+2025-06-07T03:25:44.550Z: ✅ Webhook processing completed successfully
+2025-06-07T03:25:44.550Z: 📝 Raw body length: 942
+2025-06-07T03:25:44.550Z: ✅ Webhook event parsed successfully: {"type":"product.created","id":"evt_1RXDO7DuOuAiWY1UMdJmPe1o","created":1749266743}
+2025-06-07T03:25:44.550Z: 🔄 Processing event type: product.created
+2025-06-07T03:25:44.550Z: 🔄 Unhandled event type: product.created
+2025-06-07T03:25:44.550Z: ✅ Webhook processing completed successfully
+2025-06-07T03:25:46.824Z: 🚀 WEBHOOK RECEIVED - Starting processing
+2025-06-07T03:25:46.824Z: 🔐 Stripe signature found: t=1749266746,v1=d673...
+2025-06-07T03:25:46.825Z: 📝 Raw body length: 4112
+2025-06-07T03:25:46.825Z: ✅ Webhook event parsed successfully: {"type":"charge.succeeded","id":"evt_3RXDO9DuOuAiWY1U2V7mTfmv","created":1749266746}
+2025-06-07T03:25:46.826Z: 🔄 Processing event type: charge.succeeded
+2025-06-07T03:25:46.826Z: 🔄 Unhandled event type: charge.succeeded
+2025-06-07T03:25:46.826Z: ✅ Webhook processing completed successfully
+2025-06-07T03:25:46.834Z: 🚀 WEBHOOK RECEIVED - Starting processing
+2025-06-07T03:25:46.835Z: 🔐 Stripe signature found: t=1749266746,v1=2692...
+2025-06-07T03:25:46.835Z: 📝 Raw body length: 3525
+2025-06-07T03:25:46.836Z: ✅ Webhook event parsed successfully: {"type":"checkout.session.completed","id":"evt_1RXDOADuOuAiWY1UZXxdD0J2","created":1749266746}
+2025-06-07T03:25:46.836Z: 🔄 Processing event type: checkout.session.completed
+2025-06-07T03:25:46.836Z: 📦 Handling checkout.session.completed
+2025-06-07T03:25:46.836Z: ✅ Webhook processing completed successfully
+2025-06-07T03:25:46.896Z: 🚀 WEBHOOK RECEIVED - Starting processing
+2025-06-07T03:25:46.897Z: 🔐 Stripe signature found: t=1749266746,v1=312f...
+2025-06-07T03:25:46.897Z: 📝 Raw body length: 2264
+2025-06-07T03:25:46.898Z: ✅ Webhook event parsed successfully: {"type":"payment_intent.succeeded","id":"evt_3RXDO9DuOuAiWY1U2fkcIzgK","created":1749266746}
+2025-06-07T03:25:46.898Z: 🔄 Processing event type: payment_intent.succeeded
+2025-06-07T03:25:46.898Z: 🔄 Unhandled event type: payment_intent.succeeded
+2025-06-07T03:25:46.898Z: ✅ Webhook processing completed successfully
+2025-06-07T03:25:46.970Z: 🚀 WEBHOOK RECEIVED - Starting processing
+2025-06-07T03:25:46.971Z: 🔐 Stripe signature found: t=1749266747,v1=1985...
+2025-06-07T03:25:46.971Z: 📝 Raw body length: 2223
+2025-06-07T03:25:46.972Z: ✅ Webhook event parsed successfully: {"type":"payment_intent.created","id":"evt_3RXDO9DuOuAiWY1U2j8bteze","created":1749266745}
+2025-06-07T03:25:46.972Z: 🔄 Processing event type: payment_intent.created
+2025-06-07T03:25:46.973Z: 🔄 Unhandled event type: payment_intent.created
+2025-06-07T03:25:46.973Z: ✅ Webhook processing completed successfully
+2025-06-07T03:25:49.042Z: 🚀 WEBHOOK RECEIVED - Starting processing
+2025-06-07T03:25:49.043Z: 🔐 Stripe signature found: t=1749266749,v1=9f92...
+2025-06-07T03:25:49.044Z: 📝 Raw body length: 4353
+2025-06-07T03:25:49.045Z: ✅ Webhook event parsed successfully: {"type":"charge.updated","id":"evt_3RXDO9DuOuAiWY1U2oKkYwHJ","created":1749266749}
+2025-06-07T03:25:49.045Z: 🔄 Processing event type: charge.updated
+2025-06-07T03:25:49.045Z: 🔄 Unhandled event type: charge.updated
+2025-06-07T03:25:49.045Z: ✅ Webhook processing completed successfully
+2025-06-07T03:41:33.686Z: 🚀 WEBHOOK RECEIVED - Starting processing
+2025-06-07T03:41:33.687Z: 🔐 Stripe signature found: t=1749267692,v1=7f68...
+2025-06-07T03:41:33.687Z: 📝 Raw body length: 942
+2025-06-07T03:41:33.688Z: ✅ Webhook event parsed successfully: {"type":"product.created","id":"evt_1RXDdQDuOuAiWY1U77iYSXTd","created":1749267692}
+2025-06-07T03:41:33.688Z: 🔄 Processing event type: product.created
+2025-06-07T03:41:33.688Z: 🔄 Unhandled event type: product.created
+2025-06-07T03:41:33.688Z: ✅ Webhook processing completed successfully
+2025-06-07T03:41:33.938Z: 🚀 WEBHOOK RECEIVED - Starting processing
+2025-06-07T03:41:33.939Z: 🔐 Stripe signature found: t=1749267693,v1=e765...
+2025-06-07T03:41:33.939Z: 📝 Raw body length: 924
+2025-06-07T03:41:33.940Z: ✅ Webhook event parsed successfully: {"type":"price.created","id":"evt_1RXDdRDuOuAiWY1UlhRu6ndG","created":1749267693}
+2025-06-07T03:41:33.940Z: 🔄 Processing event type: price.created
+2025-06-07T03:41:33.940Z: 🔄 Unhandled event type: price.created
+2025-06-07T03:41:33.940Z: ✅ Webhook processing completed successfully
+2025-06-07T03:41:36.379Z: 🚀 WEBHOOK RECEIVED - Starting processing
+2025-06-07T03:41:36.380Z: 🔐 Stripe signature found: t=1749267696,v1=8939...
+2025-06-07T03:41:36.380Z: 📝 Raw body length: 4112
+2025-06-07T03:41:36.381Z: ✅ Webhook event parsed successfully: {"type":"charge.succeeded","id":"evt_3RXDdTDuOuAiWY1U2htAF3s7","created":1749267695}
+2025-06-07T03:41:36.381Z: 🔄 Processing event type: charge.succeeded
+2025-06-07T03:41:36.381Z: 🔄 Unhandled event type: charge.succeeded
+2025-06-07T03:41:36.381Z: ✅ Webhook processing completed successfully
+2025-06-07T03:41:36.383Z: 🚀 WEBHOOK RECEIVED - Starting processing
+2025-06-07T03:41:36.384Z: 🔐 Stripe signature found: t=1749267696,v1=ea71...
+2025-06-07T03:41:36.384Z: 📝 Raw body length: 3525
+2025-06-07T03:41:36.385Z: ✅ Webhook event parsed successfully: {"type":"checkout.session.completed","id":"evt_1RXDdUDuOuAiWY1UesTGiBYO","created":1749267696}
+2025-06-07T03:41:36.385Z: 🔄 Processing event type: checkout.session.completed
+2025-06-07T03:41:36.385Z: 📦 Handling checkout.session.completed
+2025-06-07T03:41:36.385Z: ✅ Webhook processing completed successfully
+2025-06-07T03:41:36.477Z: 🚀 WEBHOOK RECEIVED - Starting processing
+2025-06-07T03:41:36.477Z: 🔐 Stripe signature found: t=1749267696,v1=86ec...
+2025-06-07T03:41:36.477Z: 📝 Raw body length: 2264
+2025-06-07T03:41:36.478Z: ✅ Webhook event parsed successfully: {"type":"payment_intent.succeeded","id":"evt_3RXDdTDuOuAiWY1U2w1GJU2r","created":1749267695}
+2025-06-07T03:41:36.478Z: 🔄 Processing event type: payment_intent.succeeded
+2025-06-07T03:41:36.478Z: 🔄 Unhandled event type: payment_intent.succeeded
+2025-06-07T03:41:36.478Z: ✅ Webhook processing completed successfully
+2025-06-07T03:41:36.480Z: 🚀 WEBHOOK RECEIVED - Starting processing
+2025-06-07T03:41:36.480Z: 🔐 Stripe signature found: t=1749267696,v1=2445...
+2025-06-07T03:41:36.481Z: 📝 Raw body length: 2223
+2025-06-07T03:41:36.481Z: ✅ Webhook event parsed successfully: {"type":"payment_intent.created","id":"evt_3RXDdTDuOuAiWY1U27986V6H","created":1749267695}
+2025-06-07T03:41:36.481Z: 🔄 Processing event type: payment_intent.created
+2025-06-07T03:41:36.481Z: 🔄 Unhandled event type: payment_intent.created
+2025-06-07T03:41:36.481Z: ✅ Webhook processing completed successfully
+2025-06-07T03:41:38.742Z: 🚀 WEBHOOK RECEIVED - Starting processing
+2025-06-07T03:41:38.743Z: 🔐 Stripe signature found: t=1749267698,v1=66f5...
+2025-06-07T03:41:38.744Z: 📝 Raw body length: 4353
+2025-06-07T03:41:38.744Z: ✅ Webhook event parsed successfully: {"type":"charge.updated","id":"evt_3RXDdTDuOuAiWY1U2dqperFJ","created":1749267698}
+2025-06-07T03:41:38.745Z: 🔄 Processing event type: charge.updated
+2025-06-07T03:41:38.745Z: 🔄 Unhandled event type: charge.updated
+2025-06-07T03:41:38.745Z: ✅ Webhook processing completed successfully
+2025-06-07T03:41:54.682Z: 🚀 WEBHOOK RECEIVED - Starting processing
+2025-06-07T03:41:54.682Z: 🔐 Stripe signature found: test_signature...
+2025-06-07T03:41:54.683Z: 📝 Raw body length: 314
+2025-06-07T03:41:54.683Z: ❌ Webhook signature verification failed: Unable to extract timestamp and signatures from header
+2025-06-07T03:44:33.131Z: 🚀 WEBHOOK RECEIVED - Starting processing
+2025-06-07T03:44:33.133Z: 🔐 Stripe signature found: t=1749267873,v1=fcda...
+2025-06-07T03:44:33.133Z: 🚀 WEBHOOK RECEIVED - Starting processing
+2025-06-07T03:44:33.133Z: 🔐 Stripe signature found: t=1749267872,v1=bef1...
+2025-06-07T03:44:33.133Z: 📝 Raw body length: 1741
+2025-06-07T03:44:33.134Z: ❌ Webhook signature verification failed: No signatures found matching the expected signature for payload. Are you passing the raw request body you received from Stripe? 
+ If a webhook request is being forwarded by a third-party tool, ensure that the exact request body, including JSON formatting and new line style, is preserved.
+
+Learn more about webhook signing and explore webhook integration examples for various frameworks at https://docs.stripe.com/webhooks/signature
+
+2025-06-07T03:44:33.134Z: 📝 Raw body length: 3939
+2025-06-07T03:44:33.134Z: ❌ Webhook signature verification failed: No signatures found matching the expected signature for payload. Are you passing the raw request body you received from Stripe? 
+ If a webhook request is being forwarded by a third-party tool, ensure that the exact request body, including JSON formatting and new line style, is preserved.
+
+Learn more about webhook signing and explore webhook integration examples for various frameworks at https://docs.stripe.com/webhooks/signature
+
+2025-06-07T03:44:33.137Z: 🚀 WEBHOOK RECEIVED - Starting processing
+2025-06-07T03:44:33.137Z: 🔐 Stripe signature found: t=1749267873,v1=ad33...
+2025-06-07T03:44:33.137Z: 📝 Raw body length: 3412
+2025-06-07T03:44:33.137Z: ❌ Webhook signature verification failed: No signatures found matching the expected signature for payload. Are you passing the raw request body you received from Stripe? 
+ If a webhook request is being forwarded by a third-party tool, ensure that the exact request body, including JSON formatting and new line style, is preserved.
+
+Learn more about webhook signing and explore webhook integration examples for various frameworks at https://docs.stripe.com/webhooks/signature
+
+2025-06-07T03:44:33.164Z: 🚀 WEBHOOK RECEIVED - Starting processing
+2025-06-07T03:44:33.164Z: 🔐 Stripe signature found: t=1749267873,v1=9374...
+2025-06-07T03:44:33.164Z: 📝 Raw body length: 5833
+2025-06-07T03:44:33.164Z: ❌ Webhook signature verification failed: No signatures found matching the expected signature for payload. Are you passing the raw request body you received from Stripe? 
+ If a webhook request is being forwarded by a third-party tool, ensure that the exact request body, including JSON formatting and new line style, is preserved.
+
+Learn more about webhook signing and explore webhook integration examples for various frameworks at https://docs.stripe.com/webhooks/signature
+
+2025-06-07T03:44:33.185Z: 🚀 WEBHOOK RECEIVED - Starting processing
+2025-06-07T03:44:33.185Z: 🔐 Stripe signature found: t=1749267873,v1=2a5e...
+2025-06-07T03:44:33.186Z: 📝 Raw body length: 5957
+2025-06-07T03:44:33.186Z: ❌ Webhook signature verification failed: No signatures found matching the expected signature for payload. Are you passing the raw request body you received from Stripe? 
+ If a webhook request is being forwarded by a third-party tool, ensure that the exact request body, including JSON formatting and new line style, is preserved.
+
+Learn more about webhook signing and explore webhook integration examples for various frameworks at https://docs.stripe.com/webhooks/signature
+
+2025-06-07T03:44:33.229Z: 🚀 WEBHOOK RECEIVED - Starting processing
+2025-06-07T03:44:33.230Z: 🔐 Stripe signature found: t=1749267873,v1=814b...
+2025-06-07T03:44:33.230Z: 📝 Raw body length: 2041
+2025-06-07T03:44:33.230Z: ❌ Webhook signature verification failed: No signatures found matching the expected signature for payload. Are you passing the raw request body you received from Stripe? 
+ If a webhook request is being forwarded by a third-party tool, ensure that the exact request body, including JSON formatting and new line style, is preserved.
+
+Learn more about webhook signing and explore webhook integration examples for various frameworks at https://docs.stripe.com/webhooks/signature
+
+2025-06-07T03:44:33.256Z: 🚀 WEBHOOK RECEIVED - Starting processing
+2025-06-07T03:44:33.256Z: 🔐 Stripe signature found: t=1749267873,v1=2ede...
+2025-06-07T03:44:33.256Z: 📝 Raw body length: 1954
+2025-06-07T03:44:33.256Z: ❌ Webhook signature verification failed: No signatures found matching the expected signature for payload. Are you passing the raw request body you received from Stripe? 
+ If a webhook request is being forwarded by a third-party tool, ensure that the exact request body, including JSON formatting and new line style, is preserved.
+
+Learn more about webhook signing and explore webhook integration examples for various frameworks at https://docs.stripe.com/webhooks/signature
+
+2025-06-07T03:44:33.378Z: 🚀 WEBHOOK RECEIVED - Starting processing
+2025-06-07T03:44:33.379Z: 🔐 Stripe signature found: t=1749267873,v1=997a...
+2025-06-07T03:44:33.380Z: 📝 Raw body length: 8249
+2025-06-07T03:44:33.380Z: ❌ Webhook signature verification failed: No signatures found matching the expected signature for payload. Are you passing the raw request body you received from Stripe? 
+ If a webhook request is being forwarded by a third-party tool, ensure that the exact request body, including JSON formatting and new line style, is preserved.
+
+Learn more about webhook signing and explore webhook integration examples for various frameworks at https://docs.stripe.com/webhooks/signature
+
+2025-06-07T03:44:33.469Z: 🚀 WEBHOOK RECEIVED - Starting processing
+2025-06-07T03:44:33.471Z: 🔐 Stripe signature found: t=1749267873,v1=b54c...
+2025-06-07T03:44:33.472Z: 📝 Raw body length: 8251
+2025-06-07T03:44:33.473Z: ❌ Webhook signature verification failed: No signatures found matching the expected signature for payload. Are you passing the raw request body you received from Stripe? 
+ If a webhook request is being forwarded by a third-party tool, ensure that the exact request body, including JSON formatting and new line style, is preserved.
+
+Learn more about webhook signing and explore webhook integration examples for various frameworks at https://docs.stripe.com/webhooks/signature
+
+2025-06-07T03:44:33.582Z: 🚀 WEBHOOK RECEIVED - Starting processing
+2025-06-07T03:44:33.582Z: 🔐 Stripe signature found: t=1749267873,v1=8770...
+2025-06-07T03:44:33.583Z: 📝 Raw body length: 8550
+2025-06-07T03:44:33.583Z: ❌ Webhook signature verification failed: No signatures found matching the expected signature for payload. Are you passing the raw request body you received from Stripe? 
+ If a webhook request is being forwarded by a third-party tool, ensure that the exact request body, including JSON formatting and new line style, is preserved.
+
+Learn more about webhook signing and explore webhook integration examples for various frameworks at https://docs.stripe.com/webhooks/signature
+
+2025-06-07T03:44:33.680Z: 🚀 WEBHOOK RECEIVED - Starting processing
+2025-06-07T03:44:33.681Z: 🔐 Stripe signature found: t=1749267873,v1=0354...
+2025-06-07T03:44:33.682Z: 📝 Raw body length: 8275
+2025-06-07T03:44:33.683Z: ❌ Webhook signature verification failed: No signatures found matching the expected signature for payload. Are you passing the raw request body you received from Stripe? 
+ If a webhook request is being forwarded by a third-party tool, ensure that the exact request body, including JSON formatting and new line style, is preserved.
+
+Learn more about webhook signing and explore webhook integration examples for various frameworks at https://docs.stripe.com/webhooks/signature
+
+2025-06-07T03:44:33.759Z: 🚀 WEBHOOK RECEIVED - Starting processing
+2025-06-07T03:44:33.760Z: 🔐 Stripe signature found: t=1749267873,v1=6626...
+2025-06-07T03:44:33.760Z: 📝 Raw body length: 8288
+2025-06-07T03:44:33.761Z: ❌ Webhook signature verification failed: No signatures found matching the expected signature for payload. Are you passing the raw request body you received from Stripe? 
+ If a webhook request is being forwarded by a third-party tool, ensure that the exact request body, including JSON formatting and new line style, is preserved.
+
+Learn more about webhook signing and explore webhook integration examples for various frameworks at https://docs.stripe.com/webhooks/signature
+
+2025-06-07T03:44:55.739Z: 🚀 WEBHOOK RECEIVED - Starting processing
+2025-06-07T03:44:55.740Z: 🔐 Stripe signature found: t=1749267895,v1=1c86...
+2025-06-07T03:44:55.741Z: 📝 Raw body length: 839
+2025-06-07T03:44:55.741Z: ❌ Webhook signature verification failed: No signatures found matching the expected signature for payload. Are you passing the raw request body you received from Stripe? 
+ If a webhook request is being forwarded by a third-party tool, ensure that the exact request body, including JSON formatting and new line style, is preserved.
+
+Learn more about webhook signing and explore webhook integration examples for various frameworks at https://docs.stripe.com/webhooks/signature
+
+2025-06-07T03:45:50.773Z: 🚀 WEBHOOK RECEIVED - Starting processing
+2025-06-07T03:45:50.774Z: 🔐 Stripe signature found: t=1749267950,v1=e16c...
+2025-06-07T03:45:50.774Z: 📝 Raw body length: 3940
+2025-06-07T03:45:50.775Z: ✅ Webhook event parsed successfully: {"type":"charge.succeeded","id":"evt_3RXDhYRgxXa12fTw1LQqhUhf","created":1749267949}
+2025-06-07T03:45:50.775Z: 🔄 Processing event type: charge.succeeded
+2025-06-07T03:45:50.775Z: 🔄 Unhandled event type: charge.succeeded
+2025-06-07T03:45:50.776Z: ✅ Webhook processing completed successfully
+2025-06-07T03:45:50.789Z: 🚀 WEBHOOK RECEIVED - Starting processing
+2025-06-07T03:45:50.789Z: 🔐 Stripe signature found: t=1749267950,v1=b230...
+2025-06-07T03:45:50.790Z: 📝 Raw body length: 3412
+2025-06-07T03:45:50.790Z: ✅ Webhook event parsed successfully: {"type":"checkout.session.completed","id":"evt_1RXDhaRgxXa12fTwT906t0yC","created":1749267950}
+2025-06-07T03:45:50.790Z: 🔄 Processing event type: checkout.session.completed
+2025-06-07T03:45:50.790Z: 📦 Handling checkout.session.completed
+2025-06-07T03:45:50.857Z: ❌ Webhook handler error: 
+Invalid `prisma.creditTransaction.create()` invocation:
+
+{
+  data: {
+    userId: "cmb8oc46r0000qmfbiheqhse7",
+    type: "SUBSCRIPTION",
+    mediumCredits: 250,
+    highCredits: 20,
+    description: "CREATOR plan activated - $9",
++   reason: String
+  }
+}
+
+Argument `reason` is missing.
+2025-06-07T03:45:50.887Z: 🚀 WEBHOOK RECEIVED - Starting processing
+2025-06-07T03:45:50.888Z: 🔐 Stripe signature found: t=1749267950,v1=5229...
+2025-06-07T03:45:50.888Z: 📝 Raw body length: 1741
+2025-06-07T03:45:50.888Z: ✅ Webhook event parsed successfully: {"type":"payment_method.attached","id":"evt_1RXDhaRgxXa12fTwcSIvsf4D","created":1749267949}
+2025-06-07T03:45:50.888Z: 🔄 Processing event type: payment_method.attached
+2025-06-07T03:45:50.888Z: 🔄 Unhandled event type: payment_method.attached
+2025-06-07T03:45:50.888Z: ✅ Webhook processing completed successfully
+2025-06-07T03:45:50.912Z: 🚀 WEBHOOK RECEIVED - Starting processing
+2025-06-07T03:45:50.912Z: 🔐 Stripe signature found: t=1749267950,v1=781c...
+2025-06-07T03:45:50.912Z: 📝 Raw body length: 5833
+2025-06-07T03:45:50.912Z: ✅ Webhook event parsed successfully: {"type":"customer.subscription.created","id":"evt_1RXDhaRgxXa12fTwUdDZSSx5","created":1749267948}
+2025-06-07T03:45:50.913Z: 🔄 Processing event type: customer.subscription.created
+2025-06-07T03:45:50.913Z: 🔄 Unhandled event type: customer.subscription.created
+2025-06-07T03:45:50.913Z: ✅ Webhook processing completed successfully
+2025-06-07T03:45:51.277Z: 🚀 WEBHOOK RECEIVED - Starting processing
+2025-06-07T03:45:51.278Z: 🔐 Stripe signature found: t=1749267951,v1=bd86...
+2025-06-07T03:45:51.279Z: 📝 Raw body length: 2041
+2025-06-07T03:45:51.280Z: ✅ Webhook event parsed successfully: {"type":"payment_intent.succeeded","id":"evt_3RXDhYRgxXa12fTw1TGly1cV","created":1749267949}
+2025-06-07T03:45:51.280Z: 🔄 Processing event type: payment_intent.succeeded
+2025-06-07T03:45:51.281Z: 🔄 Unhandled event type: payment_intent.succeeded
+2025-06-07T03:45:51.281Z: ✅ Webhook processing completed successfully
+2025-06-07T03:45:51.288Z: 🚀 WEBHOOK RECEIVED - Starting processing
+2025-06-07T03:45:51.288Z: 🔐 Stripe signature found: t=1749267951,v1=647d...
+2025-06-07T03:45:51.289Z: 📝 Raw body length: 5957
+2025-06-07T03:45:51.289Z: ✅ Webhook event parsed successfully: {"type":"customer.subscription.updated","id":"evt_1RXDhaRgxXa12fTwYw7RoKBJ","created":1749267950}
+2025-06-07T03:45:51.289Z: 🔄 Processing event type: customer.subscription.updated
+2025-06-07T03:45:51.289Z: 🔄 Handling customer.subscription.updated
+2025-06-07T03:45:51.301Z: 🚀 WEBHOOK RECEIVED - Starting processing
+2025-06-07T03:45:51.301Z: 🔐 Stripe signature found: t=1749267951,v1=5c00...
+2025-06-07T03:45:51.302Z: 📝 Raw body length: 1954
+2025-06-07T03:45:51.302Z: ✅ Webhook event parsed successfully: {"type":"payment_intent.created","id":"evt_3RXDhYRgxXa12fTw1Aiv7xia","created":1749267948}
+2025-06-07T03:45:51.302Z: 🔄 Processing event type: payment_intent.created
+2025-06-07T03:45:51.302Z: 🔄 Unhandled event type: payment_intent.created
+2025-06-07T03:45:51.302Z: ✅ Webhook processing completed successfully
+2025-06-07T03:45:51.428Z: 🚀 WEBHOOK RECEIVED - Starting processing
+2025-06-07T03:45:51.429Z: 🔐 Stripe signature found: t=1749267951,v1=c0a9...
+2025-06-07T03:45:51.430Z: 📝 Raw body length: 8249
+2025-06-07T03:45:51.431Z: ✅ Webhook event parsed successfully: {"type":"invoice.created","id":"evt_1RXDhbRgxXa12fTwGVbkN7Hm","created":1749267948}
+2025-06-07T03:45:51.433Z: 🔄 Processing event type: invoice.created
+2025-06-07T03:45:51.433Z: 🔄 Unhandled event type: invoice.created
+2025-06-07T03:45:51.434Z: ✅ Webhook processing completed successfully
+2025-06-07T03:45:51.502Z: ❌ Webhook handler error: 
+Invalid `prisma.creditTransaction.create()` invocation:
+
+{
+  data: {
+    userId: "cmb8oc46r0000qmfbiheqhse7",
+    type: "SUBSCRIPTION",
+    mediumCredits: 120,
+    highCredits: 5,
+    description: "Subscription updated to FREE",
++   reason: String
+  }
+}
+
+Argument `reason` is missing.
+2025-06-07T03:45:51.535Z: 🚀 WEBHOOK RECEIVED - Starting processing
+2025-06-07T03:45:51.535Z: 🔐 Stripe signature found: t=1749267951,v1=3cef...
+2025-06-07T03:45:51.535Z: 📝 Raw body length: 8251
+2025-06-07T03:45:51.535Z: ✅ Webhook event parsed successfully: {"type":"invoice.finalized","id":"evt_1RXDhbRgxXa12fTw5lZbgeps","created":1749267948}
+2025-06-07T03:45:51.535Z: 🔄 Processing event type: invoice.finalized
+2025-06-07T03:45:51.536Z: 🔄 Unhandled event type: invoice.finalized
+2025-06-07T03:45:51.536Z: ✅ Webhook processing completed successfully
+2025-06-07T03:45:51.676Z: 🚀 WEBHOOK RECEIVED - Starting processing
+2025-06-07T03:45:51.677Z: 🔐 Stripe signature found: t=1749267951,v1=1dcd...
+2025-06-07T03:45:51.677Z: 📝 Raw body length: 8550
+2025-06-07T03:45:51.678Z: ✅ Webhook event parsed successfully: {"type":"invoice.updated","id":"evt_1RXDhbRgxXa12fTwLdu2ZaVt","created":1749267950}
+2025-06-07T03:45:51.678Z: 🔄 Processing event type: invoice.updated
+2025-06-07T03:45:51.678Z: 🔄 Unhandled event type: invoice.updated
+2025-06-07T03:45:51.678Z: ✅ Webhook processing completed successfully
+2025-06-07T03:45:51.795Z: 🚀 WEBHOOK RECEIVED - Starting processing
+2025-06-07T03:45:51.797Z: 🔐 Stripe signature found: t=1749267951,v1=5fdb...
+2025-06-07T03:45:51.798Z: 📝 Raw body length: 8275
+2025-06-07T03:45:51.799Z: ✅ Webhook event parsed successfully: {"type":"invoice.paid","id":"evt_1RXDhbRgxXa12fTwcZrkl4kr","created":1749267950}
+2025-06-07T03:45:51.800Z: 🔄 Processing event type: invoice.paid
+2025-06-07T03:45:51.800Z: 🔄 Unhandled event type: invoice.paid
+2025-06-07T03:45:51.801Z: ✅ Webhook processing completed successfully
+2025-06-07T03:45:51.873Z: 🚀 WEBHOOK RECEIVED - Starting processing
+2025-06-07T03:45:51.874Z: 🔐 Stripe signature found: t=1749267951,v1=325f...
+2025-06-07T03:45:51.875Z: 📝 Raw body length: 8288
+2025-06-07T03:45:51.876Z: ✅ Webhook event parsed successfully: {"type":"invoice.payment_succeeded","id":"evt_1RXDhbRgxXa12fTwVRfwtajo","created":1749267950}
+2025-06-07T03:45:51.876Z: 🔄 Processing event type: invoice.payment_succeeded
+2025-06-07T03:45:51.876Z: 💰 Handling invoice.payment_succeeded
+2025-06-07T03:45:52.203Z: ✅ Webhook processing completed successfully
+2025-06-07T03:46:56.047Z: 🚀 WEBHOOK RECEIVED - Starting processing
+2025-06-07T03:46:56.048Z: 🔐 Stripe signature found: t=1749268015,v1=b295...
+2025-06-07T03:46:56.049Z: 📝 Raw body length: 839
+2025-06-07T03:46:56.049Z: ✅ Webhook event parsed successfully: {"type":"invoice_payment.paid","id":"evt_1RXDidRgxXa12fTwMFAu9beV","created":1749268015}
+2025-06-07T03:46:56.049Z: 🔄 Processing event type: invoice_payment.paid
+2025-06-07T03:46:56.050Z: 🔄 Unhandled event type: invoice_payment.paid
+2025-06-07T03:46:56.050Z: ✅ Webhook processing completed successfully
+2025-06-07T03:50:14.252Z: 🚀 WEBHOOK RECEIVED - Starting processing
+2025-06-07T03:50:14.252Z: 🔐 Stripe signature found: t=1749268214,v1=639b...
+2025-06-07T03:50:14.253Z: 🚀 WEBHOOK RECEIVED - Starting processing
+2025-06-07T03:50:14.253Z: 🔐 Stripe signature found: t=1749268214,v1=4992...
+2025-06-07T03:50:14.253Z: 🚀 WEBHOOK RECEIVED - Starting processing
+2025-06-07T03:50:14.253Z: 🔐 Stripe signature found: t=1749268214,v1=3c62...
+2025-06-07T03:50:14.253Z: 🚀 WEBHOOK RECEIVED - Starting processing
+2025-06-07T03:50:14.253Z: 🔐 Stripe signature found: t=1749268213,v1=848d...
+2025-06-07T03:50:14.254Z: 📝 Raw body length: 3412
+2025-06-07T03:50:14.254Z: ✅ Webhook event parsed successfully: {"type":"checkout.session.completed","id":"evt_1RXDlpRgxXa12fTw6grGummX","created":1749268213}
+2025-06-07T03:50:14.254Z: 🔄 Processing event type: checkout.session.completed
+2025-06-07T03:50:14.254Z: 📦 Handling checkout.session.completed
+2025-06-07T03:50:14.254Z: 📝 Raw body length: 1741
+2025-06-07T03:50:14.255Z: ✅ Webhook event parsed successfully: {"type":"payment_method.attached","id":"evt_1RXDlpRgxXa12fTwTe25wi2w","created":1749268212}
+2025-06-07T03:50:14.255Z: 🔄 Processing event type: payment_method.attached
+2025-06-07T03:50:14.255Z: 🔄 Unhandled event type: payment_method.attached
+2025-06-07T03:50:14.255Z: ✅ Webhook processing completed successfully
+2025-06-07T03:50:14.255Z: 📝 Raw body length: 5833
+2025-06-07T03:50:14.255Z: ✅ Webhook event parsed successfully: {"type":"customer.subscription.created","id":"evt_1RXDlqRgxXa12fTwnNqoL9xa","created":1749268211}
+2025-06-07T03:50:14.255Z: 🔄 Processing event type: customer.subscription.created
+2025-06-07T03:50:14.256Z: 🔄 Unhandled event type: customer.subscription.created
+2025-06-07T03:50:14.256Z: ✅ Webhook processing completed successfully
+2025-06-07T03:50:14.256Z: 📝 Raw body length: 3943
+2025-06-07T03:50:14.256Z: ✅ Webhook event parsed successfully: {"type":"charge.succeeded","id":"evt_3RXDlnRgxXa12fTw1TV4gLiE","created":1749268212}
+2025-06-07T03:50:14.256Z: 🔄 Processing event type: charge.succeeded
+2025-06-07T03:50:14.256Z: 🔄 Unhandled event type: charge.succeeded
+2025-06-07T03:50:14.256Z: ✅ Webhook processing completed successfully
+2025-06-07T03:50:14.260Z: 🚀 WEBHOOK RECEIVED - Starting processing
+2025-06-07T03:50:14.261Z: 🔐 Stripe signature found: t=1749268214,v1=66d0...
+2025-06-07T03:50:14.261Z: 📝 Raw body length: 5957
+2025-06-07T03:50:14.261Z: ✅ Webhook event parsed successfully: {"type":"customer.subscription.updated","id":"evt_1RXDlqRgxXa12fTwVBXJlde0","created":1749268213}
+2025-06-07T03:50:14.261Z: 🔄 Processing event type: customer.subscription.updated
+2025-06-07T03:50:14.261Z: 🔄 Handling customer.subscription.updated
+2025-06-07T03:50:14.263Z: ✅ Webhook processing completed successfully
+2025-06-07T03:50:14.266Z: 🚀 WEBHOOK RECEIVED - Starting processing
+2025-06-07T03:50:14.266Z: 🔐 Stripe signature found: t=1749268214,v1=b2d8...
+2025-06-07T03:50:14.267Z: 📝 Raw body length: 2041
+2025-06-07T03:50:14.267Z: ✅ Webhook event parsed successfully: {"type":"payment_intent.succeeded","id":"evt_3RXDlnRgxXa12fTw1iYJ4OYC","created":1749268212}
+2025-06-07T03:50:14.267Z: 🔄 Processing event type: payment_intent.succeeded
+2025-06-07T03:50:14.267Z: 🔄 Unhandled event type: payment_intent.succeeded
+2025-06-07T03:50:14.267Z: ✅ Webhook processing completed successfully
+2025-06-07T03:50:14.280Z: 🚀 WEBHOOK RECEIVED - Starting processing
+2025-06-07T03:50:14.280Z: 🔐 Stripe signature found: t=1749268214,v1=b449...
+2025-06-07T03:50:14.280Z: 📝 Raw body length: 1954
+2025-06-07T03:50:14.280Z: ✅ Webhook event parsed successfully: {"type":"payment_intent.created","id":"evt_3RXDlnRgxXa12fTw1ojcvmUS","created":1749268211}
+2025-06-07T03:50:14.281Z: 🔄 Processing event type: payment_intent.created
+2025-06-07T03:50:14.281Z: 🔄 Unhandled event type: payment_intent.created
+2025-06-07T03:50:14.281Z: ✅ Webhook processing completed successfully
+2025-06-07T03:50:14.514Z: ✅ Webhook processing completed successfully
+2025-06-07T03:50:14.525Z: 🚀 WEBHOOK RECEIVED - Starting processing
+2025-06-07T03:50:14.526Z: 🔐 Stripe signature found: t=1749268214,v1=48a8...
+2025-06-07T03:50:14.527Z: 📝 Raw body length: 8249
+2025-06-07T03:50:14.528Z: ✅ Webhook event parsed successfully: {"type":"invoice.created","id":"evt_1RXDlqRgxXa12fTwfkCHvX3G","created":1749268211}
+2025-06-07T03:50:14.529Z: 🔄 Processing event type: invoice.created
+2025-06-07T03:50:14.529Z: 🔄 Unhandled event type: invoice.created
+2025-06-07T03:50:14.529Z: ✅ Webhook processing completed successfully
+2025-06-07T03:50:14.592Z: 🚀 WEBHOOK RECEIVED - Starting processing
+2025-06-07T03:50:14.592Z: 🔐 Stripe signature found: t=1749268214,v1=c752...
+2025-06-07T03:50:14.593Z: 📝 Raw body length: 8251
+2025-06-07T03:50:14.593Z: ✅ Webhook event parsed successfully: {"type":"invoice.finalized","id":"evt_1RXDlqRgxXa12fTw9ZswwBjH","created":1749268211}
+2025-06-07T03:50:14.594Z: 🔄 Processing event type: invoice.finalized
+2025-06-07T03:50:14.594Z: 🔄 Unhandled event type: invoice.finalized
+2025-06-07T03:50:14.594Z: ✅ Webhook processing completed successfully
+2025-06-07T03:50:14.727Z: 🚀 WEBHOOK RECEIVED - Starting processing
+2025-06-07T03:50:14.728Z: 🔐 Stripe signature found: t=1749268214,v1=aeb8...
+2025-06-07T03:50:14.729Z: 📝 Raw body length: 8550
+2025-06-07T03:50:14.730Z: ✅ Webhook event parsed successfully: {"type":"invoice.updated","id":"evt_1RXDlqRgxXa12fTwRtLNhKBP","created":1749268213}
+2025-06-07T03:50:14.730Z: 🔄 Processing event type: invoice.updated
+2025-06-07T03:50:14.731Z: 🔄 Unhandled event type: invoice.updated
+2025-06-07T03:50:14.731Z: ✅ Webhook processing completed successfully
+2025-06-07T03:50:14.804Z: 🚀 WEBHOOK RECEIVED - Starting processing
+2025-06-07T03:50:14.805Z: 🔐 Stripe signature found: t=1749268214,v1=ddfd...
+2025-06-07T03:50:14.806Z: 📝 Raw body length: 8275
+2025-06-07T03:50:14.806Z: ✅ Webhook event parsed successfully: {"type":"invoice.paid","id":"evt_1RXDlqRgxXa12fTwyKXmtvbl","created":1749268213}
+2025-06-07T03:50:14.807Z: 🔄 Processing event type: invoice.paid
+2025-06-07T03:50:14.807Z: 🔄 Unhandled event type: invoice.paid
+2025-06-07T03:50:14.807Z: ✅ Webhook processing completed successfully
+2025-06-07T03:50:14.978Z: 🚀 WEBHOOK RECEIVED - Starting processing
+2025-06-07T03:50:14.979Z: 🔐 Stripe signature found: t=1749268214,v1=1316...
+2025-06-07T03:50:14.980Z: 📝 Raw body length: 8288
+2025-06-07T03:50:14.981Z: ✅ Webhook event parsed successfully: {"type":"invoice.payment_succeeded","id":"evt_1RXDlqRgxXa12fTwqtzQLdLo","created":1749268213}
+2025-06-07T03:50:14.981Z: 🔄 Processing event type: invoice.payment_succeeded
+2025-06-07T03:50:14.981Z: 💰 Handling invoice.payment_succeeded
+2025-06-07T03:50:15.343Z: ✅ Webhook processing completed successfully
+2025-06-07T03:50:59.633Z: 🚀 WEBHOOK RECEIVED - Starting processing
+2025-06-07T03:50:59.634Z: 🔐 Stripe signature found: t=1749268259,v1=1a84...
+2025-06-07T03:50:59.634Z: 📝 Raw body length: 839
+2025-06-07T03:50:59.635Z: ✅ Webhook event parsed successfully: {"type":"invoice_payment.paid","id":"evt_1RXDmZRgxXa12fTwFgV1HmYk","created":1749268259}
+2025-06-07T03:50:59.635Z: 🔄 Processing event type: invoice_payment.paid
+2025-06-07T03:50:59.635Z: 🔄 Unhandled event type: invoice_payment.paid
+2025-06-07T03:50:59.635Z: ✅ Webhook processing completed successfully
