@@ -36,11 +36,12 @@ export default function Header({ showSearch = true, showLogo = true }) {
             )}
           >
             <input
+              type="text"
               value={q}
               onChange={e => setQ(e.target.value)}
               placeholder="Search clothing, designers…"
               className="
-                w-full bg-gray-100 text-gray-800 placeholder-gray-500
+                w-full bg-gray-100 text-gray-900 placeholder-gray-600
                 rounded-full pl-4 pr-14 py-2 shadow-sm
                 focus:outline-none focus:ring-2 focus:ring-blue-500
               "

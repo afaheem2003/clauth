@@ -30,10 +30,10 @@ function Input({ label, value, setValue, type = "text", required = false, placeh
       </label>
       <input
         type={type}
-        placeholder={placeholder || label}
         value={value}
         onChange={(e) => setValue(e.target.value)}
-        className="w-full px-3 py-2 border-2 border-gray-200 rounded-lg text-gray-800 placeholder-gray-400 text-sm focus:ring-2 focus:ring-indigo-200 focus:border-indigo-300 outline-none bg-white/50"
+        placeholder={placeholder || label}
+        className="w-full px-3 py-2 border-2 border-gray-200 rounded-lg text-gray-900 placeholder-gray-600 text-sm focus:ring-2 focus:ring-indigo-200 focus:border-indigo-300 outline-none bg-white/50"
         required={required}
       />
     </div>

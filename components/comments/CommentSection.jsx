@@ -98,9 +98,10 @@ export default function CommentSection({ itemId, itemType, commentsData = [], on
               id="commentText"
               value={newComment}
               onChange={(e) => setNewComment(e.target.value)}
-              rows={3}
               placeholder="Write a comment..."
-              className="w-full p-4 border border-gray-200 rounded-2xl focus:ring-1 focus:ring-gray-900 focus:border-gray-900 text-sm text-gray-900 placeholder-gray-500 transition-colors"
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg resize-none focus:ring-2 focus:ring-indigo-500 focus:border-gray-900 text-sm text-gray-900 placeholder-gray-600 transition-colors"
+              rows={3}
+              maxLength={500}
               disabled={isSubmitting}
             />
           </div>

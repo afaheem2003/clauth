@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import Stripe from "stripe";
 import prisma from "@/lib/prisma";
 import { sendReceiptWithPDF } from "@/lib/sendReceiptWithPDF";
+import { getPlanByName, getPlanBySubscriptionType, getPlanByPriceId } from "@/lib/plans";
 import fs from "fs";
 import path from "path";
 
@@ -214,33 +215,9 @@ async function handleSubscriptionPurchase(session, meta) {
   const { userId, planId } = meta;
   const amount = session.amount_total / 100;
 
-  // Define plan benefits
-  const planMapping = {
-    'creator': { 
-      mediumCredits: 250, 
-      highCredits: 20, 
-      dailyMediumCap: 30, 
-      dailyHighCap: 6,
-      subscriptionType: 'CREATOR'
-    },
-    'pro-creator': { 
-      mediumCredits: 500, 
-      highCredits: 40, 
-      dailyMediumCap: 60, 
-      dailyHighCap: 10,
-      subscriptionType: 'CREATOR_PRO'
-    },
-    'pro_creator': { 
-      mediumCredits: 500, 
-      highCredits: 40, 
-      dailyMediumCap: 60, 
-      dailyHighCap: 10,
-      subscriptionType: 'CREATOR_PRO'
-    }
-  };
-
-  const plan = planMapping[planId];
-  if (!plan) {
+  // Get plan configuration from centralized config
+  const plan = getPlanByName(planId);
+  if (!plan || plan.price === 0) {
     console.error("❌ Invalid plan ID:", planId);
     return;
   }
@@ -251,8 +228,8 @@ async function handleSubscriptionPurchase(session, meta) {
       where: { userId },
       update: {
         subscriptionType: plan.subscriptionType,
-        mediumCredits: plan.mediumCredits,
-        highCredits: plan.highCredits,
+        mediumCredits: plan.monthlyMediumCredits,
+        highCredits: plan.monthlyHighCredits,
         dailyMediumCap: plan.dailyMediumCap,
         dailyHighCap: plan.dailyHighCap,
         lastReset: new Date(),
@@ -260,8 +237,8 @@ async function handleSubscriptionPurchase(session, meta) {
       create: {
         userId,
         subscriptionType: plan.subscriptionType,
-        mediumCredits: plan.mediumCredits,
-        highCredits: plan.highCredits,
+        mediumCredits: plan.monthlyMediumCredits,
+        highCredits: plan.monthlyHighCredits,
         dailyMediumCap: plan.dailyMediumCap,
         dailyHighCap: plan.dailyHighCap,
         lastReset: new Date(),
@@ -273,9 +250,9 @@ async function handleSubscriptionPurchase(session, meta) {
       data: {
         userId,
         type: 'MONTHLY_REFILL',
-        mediumCreditsChange: plan.mediumCredits,
-        highCreditsChange: plan.highCredits,
-        reason: `Monthly ${plan.subscriptionType} credits reset`,
+        mediumCreditsChange: plan.monthlyMediumCredits,
+        highCreditsChange: plan.monthlyHighCredits,
+        reason: `${plan.subscriptionType} plan activated - $${amount}`,
       }
     });
 
@@ -390,18 +367,15 @@ async function handleSubscriptionPayment(invoice) {
     });
 
     if (userCredits) {
-      const planMapping = {
-        'CREATOR': { mediumCredits: 250, highCredits: 20 },
-        'CREATOR_PRO': { mediumCredits: 500, highCredits: 40 }
-      };
-
-      const plan = planMapping[userCredits.subscriptionType];
-      if (plan) {
+      // Get plan configuration from centralized config
+      const plan = getPlanBySubscriptionType(userCredits.subscriptionType);
+      
+      if (plan && plan.price > 0) {
         await prisma.userCredits.update({
           where: { userId: user.id },
           data: {
-            mediumCredits: plan.mediumCredits,
-            highCredits: plan.highCredits,
+            mediumCredits: plan.monthlyMediumCredits,
+            highCredits: plan.monthlyHighCredits,
             lastReset: new Date(),
           }
         });
@@ -411,8 +385,8 @@ async function handleSubscriptionPayment(invoice) {
           data: {
             userId: user.id,
             type: 'MONTHLY_REFILL',
-            mediumCreditsChange: plan.mediumCredits,
-            highCreditsChange: plan.highCredits,
+            mediumCreditsChange: plan.monthlyMediumCredits,
+            highCreditsChange: plan.monthlyHighCredits,
             reason: `Monthly ${userCredits.subscriptionType} credits reset`,
           }
         });
@@ -439,39 +413,16 @@ async function handleSubscriptionUpdated(subscription) {
       return;
     }
 
-    // Map Stripe price IDs to plan benefits
-    const priceIdMapping = {
-      'price_1RX5cMRgxXa12fTw2kN2DeeF': { // $9/month - Creator Plan - Confirmed working
-        mediumCredits: 250, 
-        highCredits: 20, 
-        dailyMediumCap: 30, 
-        dailyHighCap: 6,
-        subscriptionType: 'CREATOR'
-      },
-      'price_1RX5cjRgxXa12fTwn1CqVF2v': { // $15/month - Creator Pro Plan - Confirmed working
-        mediumCredits: 500, 
-        highCredits: 40, 
-        dailyMediumCap: 60, 
-        dailyHighCap: 10,
-        subscriptionType: 'CREATOR_PRO'
-      }
-    };
-
     // Get the current price ID from the subscription
     const currentPriceId = subscription.items?.data?.[0]?.price?.id;
     console.log("🏷️ Subscription price ID:", currentPriceId);
     
-    let plan = priceIdMapping[currentPriceId];
+    // Get plan configuration from centralized config using price ID
+    let plan = getPlanByPriceId(currentPriceId);
     
     // If subscription is canceled or no valid price found, downgrade to free
-    if (subscription.status === 'canceled' || subscription.cancel_at_period_end || !plan) {
-      plan = {
-        mediumCredits: 120,
-        highCredits: 5,
-        dailyMediumCap: 15,
-        dailyHighCap: null,
-        subscriptionType: 'FREE'
-      };
+    if (subscription.status === 'canceled' || subscription.cancel_at_period_end || !plan || plan.price === 0) {
+      plan = getPlanBySubscriptionType('FREE');
       console.log("⬇️ Downgrading to free plan");
     }
 
@@ -480,8 +431,8 @@ async function handleSubscriptionUpdated(subscription) {
       where: { userId: user.id },
       update: {
         subscriptionType: plan.subscriptionType,
-        mediumCredits: plan.mediumCredits,
-        highCredits: plan.highCredits,
+        mediumCredits: plan.monthlyMediumCredits,
+        highCredits: plan.monthlyHighCredits,
         dailyMediumCap: plan.dailyMediumCap,
         dailyHighCap: plan.dailyHighCap,
         lastReset: new Date(),
@@ -489,8 +440,8 @@ async function handleSubscriptionUpdated(subscription) {
       create: {
         userId: user.id,
         subscriptionType: plan.subscriptionType,
-        mediumCredits: plan.mediumCredits,
-        highCredits: plan.highCredits,
+        mediumCredits: plan.monthlyMediumCredits,
+        highCredits: plan.monthlyHighCredits,
         dailyMediumCap: plan.dailyMediumCap,
         dailyHighCap: plan.dailyHighCap,
         lastReset: new Date(),
@@ -502,8 +453,8 @@ async function handleSubscriptionUpdated(subscription) {
       data: {
         userId: user.id,
         type: 'MONTHLY_REFILL',
-        mediumCreditsChange: plan.mediumCredits,
-        highCreditsChange: plan.highCredits,
+        mediumCreditsChange: plan.monthlyMediumCredits,
+        highCreditsChange: plan.monthlyHighCredits,
         reason: `Subscription updated to ${plan.subscriptionType}`,
       }
     });

@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/authOptions';
 import { stripe } from '@/lib/stripe';
+import { getPlanByName, PLAN_CONFIGS } from '@/lib/plans';
 import prisma from '@/lib/prisma';
 
 export async function POST(request) {
@@ -13,26 +14,8 @@ export async function POST(request) {
 
     const { planId } = await request.json();
     
-    // Define your subscription plans with actual Stripe price IDs
-    const plans = {
-      'creator': {
-        priceId: 'price_1RX5cMRgxXa12fTw2kN2DeeF',
-        name: 'Creator',
-        price: 9,
-      },
-      'pro_creator': {
-        priceId: 'price_1RX5cjRgxXa12fTwn1CqVF2v',
-        name: 'Creator Pro',
-        price: 15,
-      },
-      'starter': {
-        priceId: null, // Free plan
-        name: 'Starter',
-        price: 0,
-      }
-    };
-
-    const plan = plans[planId];
+    // Get plan configuration from centralized config
+    const plan = getPlanByName(planId);
     if (!plan) {
       return NextResponse.json({ error: 'Invalid plan' }, { status: 400 });
     }
@@ -82,24 +65,25 @@ export async function POST(request) {
         }
       }
 
-      // Update user to free plan immediately
+      // Update user to free plan immediately using centralized config
+      const freePlan = PLAN_CONFIGS.FREE;
       await prisma.userCredits.upsert({
         where: { userId: user.id },
         update: {
-          subscriptionType: 'FREE',
-          mediumCredits: 120,
-          highCredits: 5,
-          dailyMediumCap: 15,
-          dailyHighCap: null,
+          subscriptionType: freePlan.subscriptionType,
+          mediumCredits: freePlan.monthlyMediumCredits,
+          highCredits: freePlan.monthlyHighCredits,
+          dailyMediumCap: freePlan.dailyMediumCap,
+          dailyHighCap: freePlan.dailyHighCap,
           lastReset: new Date(),
         },
         create: {
           userId: user.id,
-          subscriptionType: 'FREE',
-          mediumCredits: 120,
-          highCredits: 5,
-          dailyMediumCap: 15,
-          dailyHighCap: null,
+          subscriptionType: freePlan.subscriptionType,
+          mediumCredits: freePlan.monthlyMediumCredits,
+          highCredits: freePlan.monthlyHighCredits,
+          dailyMediumCap: freePlan.dailyMediumCap,
+          dailyHighCap: freePlan.dailyHighCap,
           lastReset: new Date(),
         }
       });
@@ -130,7 +114,7 @@ export async function POST(request) {
           const updatedSubscription = await stripe.subscriptions.update(subscription.id, {
             items: [{
               id: subscription.items.data[0].id,
-              price: plan.priceId,
+              price: plan.stripePriceId,
             }],
             proration_behavior: 'create_prorations', // This handles prorating the price difference
           });
@@ -188,7 +172,7 @@ export async function POST(request) {
       payment_method_types: ['card'],
       line_items: [
         {
-          price: plan.priceId,
+          price: plan.stripePriceId,
           quantity: 1,
         },
       ],

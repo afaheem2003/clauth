@@ -470,3 +470,10 @@ Argument `reason` is missing.
 2025-06-07T03:50:59.635Z: 🔄 Processing event type: invoice_payment.paid
 2025-06-07T03:50:59.635Z: 🔄 Unhandled event type: invoice_payment.paid
 2025-06-07T03:50:59.635Z: ✅ Webhook processing completed successfully
+2025-06-08T01:11:34.264Z: 🚀 WEBHOOK RECEIVED - Starting processing
+2025-06-08T01:11:34.272Z: 🔐 Stripe signature found: t=1749345092,v1=252d...
+2025-06-08T01:11:34.272Z: 📝 Raw body length: 3592
+2025-06-08T01:11:34.274Z: ✅ Webhook event parsed successfully: {"type":"checkout.session.expired","id":"evt_1RXXloRgxXa12fTwI4CFDNzM","created":1749345092}
+2025-06-08T01:11:34.274Z: 🔄 Processing event type: checkout.session.expired
+2025-06-08T01:11:34.274Z: 🔄 Unhandled event type: checkout.session.expired
+2025-06-08T01:11:34.274Z: ✅ Webhook processing completed successfully

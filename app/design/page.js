@@ -497,8 +497,9 @@ export default function DesignPage() {
                   type="text"
                   value={itemName}
                   onChange={(e) => setItemName(e.target.value)}
-                  className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-black focus:border-transparent text-gray-900 placeholder-gray-500"
                   placeholder="e.g., Classic Cotton Hoodie"
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-gray-900 placeholder-gray-600"
+                  maxLength={50}
                   required
                 />
               </div>
@@ -563,9 +564,10 @@ export default function DesignPage() {
                 <textarea
                   value={userPrompt}
                   onChange={(e) => setUserPrompt(e.target.value)}
-                  rows={4}
-                  className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-black focus:border-transparent text-gray-900 placeholder-gray-500"
                   placeholder="Describe your design vision in detail... This will be used to generate the design but won't be publicly visible."
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-gray-900 placeholder-gray-600"
+                  rows={4}
+                  maxLength={1000}
                   required
                 />
               </div>
@@ -578,9 +580,9 @@ export default function DesignPage() {
                   type="text"
                   value={color}
                   onChange={(e) => setColor(e.target.value)}
-                  className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-black focus:border-transparent text-gray-900 placeholder-gray-500"
                   placeholder="e.g., Navy Blue, Forest Green"
-                  required
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-gray-900 placeholder-gray-600"
+                  maxLength={50}
                 />
               </div>
 

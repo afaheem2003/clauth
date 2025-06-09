@@ -62,6 +62,7 @@ export default function Nav() {
     { href: '/shop', label: 'Shop' },
     { href: '/creators', label: 'Creators' },
     { href: '/design', label: 'Design' },
+    { href: '/challenges', label: 'Challenges' },
   ];
 
   // Add feed link if user is logged in

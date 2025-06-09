@@ -116,8 +116,9 @@ export default function ProfilePage() {
                   <textarea
                     value={bio}
                     onChange={(e) => setBio(e.target.value)}
-                    className="w-full p-2 text-gray-600 bg-transparent border-b-2 border-indigo-200 focus:border-indigo-600 focus:outline-none placeholder-gray-400 resize-none"
-                    rows={2}
+                    maxLength={200}
+                    rows={3}
+                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-600 focus:border-indigo-600 focus:outline-none placeholder-gray-600 text-gray-900 resize-none"
                     placeholder="Tell others about your style..."
                   />
                   <div className="flex gap-2 mb-1">

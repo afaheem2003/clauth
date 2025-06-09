@@ -109,10 +109,10 @@ export default function DiscoverPage() {
             <div className="max-w-2xl mx-auto relative">
               <input
                 type="text"
-                value={searchTerm}
-                onChange={e => setSearchTerm(e.target.value)}
                 placeholder="Search by name, type, or description..."
-                className="w-full rounded-full pl-5 pr-14 py-3 bg-white text-gray-800 placeholder-gray-500 shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="w-full rounded-full pl-5 pr-14 py-3 bg-white text-gray-900 placeholder-gray-600 shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
             </div>
           </div>

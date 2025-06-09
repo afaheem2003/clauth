@@ -115,10 +115,12 @@ export default function SettingsPage() {
           <div className="flex items-center rounded-lg border border-gray-300 overflow-hidden mb-4">
             <span className="px-3 text-gray-500 select-none">@</span>
             <input
+              type="text"
               value={raw}
-              onChange={e => setRaw(e.target.value)}
+              onChange={(e) => setRaw(e.target.value)}
               placeholder="your_handle"
-              className="flex-1 py-3 pr-3 text-gray-800 placeholder-gray-400 focus:outline-none"
+              className="flex-1 py-3 pr-3 text-gray-900 placeholder-gray-600 focus:outline-none"
+              maxLength={30}
             />
           </div>
 

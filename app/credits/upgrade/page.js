@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
+import { getAllPlans } from '@/lib/plans';
 import Link from 'next/link';
 
 export default function UpgradePage() {
@@ -50,16 +51,11 @@ export default function UpgradePage() {
     try {
       setUpgradeLoading(planId);
       
-      // Handle free plan (downgrade)
-      if (planId === 'starter') {
-        // For downgrading to free, we can handle this directly
-        // TODO: Add API endpoint to handle subscription cancellation
-        alert('Downgrade to free plan - TODO: implement cancellation');
-        return;
-      }
-      
-      // For paid plans, use the original create-subscription endpoint
-      const response = await fetch('/api/payments/create-subscription', {
+      // Use the subscription update endpoint which properly handles:
+      // - Existing subscription updates with proration
+      // - New subscription creation if no active subscription
+      // - Downgrades to free plan
+      const response = await fetch('/api/subscription/update', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ planId }),
@@ -70,8 +66,13 @@ export default function UpgradePage() {
       if (data.error) {
         alert(data.error);
       } else if (data.url) {
-        // Redirect to Stripe checkout
+        // Redirect to Stripe checkout for new subscriptions
         window.location.href = data.url;
+      } else if (data.success) {
+        // Subscription was updated successfully (existing subscription)
+        alert(data.message || 'Subscription updated successfully!');
+        // Refresh the page to show updated plan
+        window.location.reload();
       }
     } catch (error) {
       console.error('Subscription error:', error);
@@ -81,63 +82,8 @@ export default function UpgradePage() {
     }
   };
 
-  // Fallback plan data
-  const fallbackPlans = [
-    {
-      id: 'starter',
-      name: 'starter',
-      displayName: 'Starter',
-      price: 0,
-      monthlyMediumCredits: 120,
-      monthlyHighCredits: 5,
-      dailyMediumCap: 15,
-      dailyHighCap: null,
-      editCapPerDesign: 3,
-      features: [
-        '120 Medium + 5 High credits per month',
-        '15 Medium generations per day',
-        '3 edits per design'
-      ],
-      isPopular: false,
-      image: '/images/plans/standard_plan.png'
-    },
-    {
-      id: 'creator',
-      name: 'creator',
-      displayName: 'Creator',
-      price: 9,
-      monthlyMediumCredits: 250,
-      monthlyHighCredits: 20,
-      dailyMediumCap: 30,
-      dailyHighCap: 6,
-      editCapPerDesign: 5,
-      features: [
-        '250 Medium + 20 High credits per month',
-        '30 Medium / 6 High generations per day',
-        '5 edits per design'
-      ],
-      isPopular: true,
-      image: '/images/plans/creator_plan.png'
-    },
-    {
-      id: 'pro_creator',
-      name: 'pro_creator',
-      displayName: 'Creator Pro',
-      price: 15,
-      monthlyMediumCredits: 500,
-      monthlyHighCredits: 40,
-      dailyMediumCap: 60,
-      dailyHighCap: 10,
-      editCapPerDesign: 5,
-      features: [
-        '500 Medium + 40 High credits per month',
-        '60 Medium / 10 High generations per day',
-        '5 edits per design'
-      ],
-      isPopular: false,
-      image: '/images/plans/creator_plan_pro.png'
-    }
-  ];
+  // Get plan data from centralized config
+  const fallbackPlans = getAllPlans();
 
   const displayPlans = plans.length > 0 ? plans : fallbackPlans;
 

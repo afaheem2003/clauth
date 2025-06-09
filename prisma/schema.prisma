@@ -47,7 +47,6 @@ model User {
   sessions      Session[]
 
   // Rate limiting & subscription relationships
-  subscription  UserSubscription?
   dailyUsage    DailyUsage[]
   
   // Credit system relationships
@@ -55,6 +54,12 @@ model User {
   designEdits   DesignEditHistory[]
   boosterPurchases BoosterPurchase[]
   creditTransactions CreditTransaction[]
+  
+  // Game mode relationships
+  createdGroups     Group[]                @relation("GroupCreator")
+  groupMemberships  GroupMember[]
+  challengeSubmissions ChallengeSubmission[]
+  submissionUpvotes    SubmissionUpvote[]
 }
 
 model Account {
@@ -355,43 +360,6 @@ model Follow {
    Credit & Subscription models
 ────────────────────────────────────────────────────────────── */
 
-model SubscriptionPlan {
-  id                    String   @id @default(cuid())
-  name                  String   @unique  // "starter", "creator", "pro_creator"
-  displayName           String             // "Starter", "Creator", "Creator Pro"
-  price                 Decimal            // Monthly price in dollars
-  monthlyMediumCredits  Int                // Medium quality credits per month
-  monthlyHighCredits    Int                // High quality credits per month
-  dailyMediumCap        Int?               // Daily limit for medium credits (null = no limit)
-  dailyHighCap          Int?               // Daily limit for high credits (null = no limit)
-  editCapPerDesign      Int                // Max edits allowed per design
-  features              String[]           // Array of feature descriptions
-  isActive              Boolean  @default(true)
-  stripePriceId         String?            // Stripe price ID for paid plans
-  createdAt             DateTime @default(now())
-  updatedAt             DateTime @updatedAt
-
-  userSubscriptions     UserSubscription[]
-}
-
-model UserSubscription {
-  id                    String           @id @default(cuid())
-  user                  User             @relation(fields: [userId], references: [id])
-  userId                String
-  plan                  SubscriptionPlan @relation(fields: [planId], references: [id])
-  planId                String
-  status                SubscriptionStatus @default(ACTIVE)
-  stripeSubscriptionId  String?          // Stripe subscription ID
-  stripePriceId         String?          // Current Stripe price ID
-  currentPeriodStart    DateTime?        // Start of current billing period
-  currentPeriodEnd      DateTime?        // End of current billing period
-  cancelAtPeriodEnd     Boolean @default(false)
-  createdAt             DateTime @default(now())
-  updatedAt             DateTime @updatedAt
-
-  @@unique([userId])  // One active subscription per user
-}
-
 model UserCredits {
   id                    String   @id @default(cuid())
   user                  User     @relation(fields: [userId], references: [id])
@@ -400,7 +368,7 @@ model UserCredits {
   highCredits           Int      @default(0)  // Available high quality credits
   lastMonthlyRefill     DateTime?             // When credits were last refilled
   
-  // Subscription fields for backward compatibility with webhook
+  // Subscription fields
   subscriptionType      String   @default("FREE")  // "FREE", "CREATOR", "CREATOR_PRO"
   dailyMediumCap        Int?                       // Daily limit for medium credits
   dailyHighCap          Int?                       // Daily limit for high credits  
@@ -488,15 +456,6 @@ model CreditTransaction {
   @@index([userId, createdAt])
 }
 
-enum SubscriptionStatus {
-  ACTIVE
-  CANCELED
-  PAST_DUE
-  INCOMPLETE
-  INCOMPLETE_EXPIRED
-  TRIALING
-}
-
 enum PurchaseStatus {
   PENDING
   COMPLETED
@@ -511,4 +470,116 @@ enum CreditTransactionType {
   EDIT_USED
   ADMIN_ADJUSTMENT
   REFUND
+}
+
+/* ────────────────────────────────────────────────────────────
+   Fashion Challenge Game Mode
+────────────────────────────────────────────────────────────── */
+
+model Group {
+  id          String   @id @default(cuid())
+  name        String   // Display name with spaces allowed
+  handle      String   @unique // @handle for URLs (no spaces, lowercase)
+  description String?
+  inviteCode  String   @unique // 8-character alphanumeric invite code
+  isPrivate   Boolean  @default(true)
+  maxMembers  Int      @default(20)
+  
+  creator     User     @relation("GroupCreator", fields: [creatorId], references: [id])
+  creatorId   String
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  members     GroupMember[]
+  submissions ChallengeSubmission[]
+  
+  @@index([inviteCode])
+  @@index([handle])
+}
+
+model GroupMember {
+  id        String   @id @default(cuid())
+  group     Group    @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  groupId   String
+  user      User     @relation(fields: [userId], references: [id])
+  userId    String
+  role      GroupRole @default(DESIGNER) // CREATOR or DESIGNER
+  joinedAt  DateTime @default(now())
+
+  @@unique([groupId, userId]) // One membership per user per group
+  @@index([userId])
+}
+
+enum GroupRole {
+  CREATOR
+  DESIGNER
+}
+
+model DailyChallenge {
+  id              String   @id @default(cuid())
+  date            DateTime @unique @db.Date // The date this challenge is for
+  mainItem        String?  // Optional main clothing item to design around
+  theme           String   // Theme/aesthetic for the challenge
+  description     String?  // Optional additional description
+  
+  submissionDeadline DateTime // When submissions must be completed by
+  competitionStart   DateTime // When voting/competition begins
+  competitionEnd     DateTime // When voting/competition ends
+  
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  
+  submissions     ChallengeSubmission[]
+  
+  @@index([date])
+}
+
+model ChallengeSubmission {
+  id              String   @id @default(cuid())
+  challenge       DailyChallenge @relation(fields: [challengeId], references: [id])
+  challengeId     String
+  group           Group    @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  groupId         String
+  user            User     @relation(fields: [userId], references: [id])
+  userId          String
+  
+  outfitDescription String // User's text description of their outfit
+  generatedImageUrl String? // AI-generated image URL
+  generationStatus  SubmissionStatus @default(PENDING)
+  
+  // Global competition fields
+  isPublic        Boolean  @default(true) // Visible in global feed
+  isEligibleForGlobal Boolean @default(false) // True when user has upvoted 3+ others
+  globalRank      Int?     // Calculated rank based on upvotes
+  
+  submittedAt     DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  
+  upvotes         SubmissionUpvote[] // Upvotes received
+  
+  @@unique([challengeId, groupId, userId]) // One submission per user per challenge per group
+  @@index([challengeId, groupId])
+  @@index([userId])
+  @@index([challengeId, isEligibleForGlobal]) // For global leaderboard queries
+}
+
+model SubmissionUpvote {
+  id           String   @id @default(cuid())
+  submission   ChallengeSubmission @relation(fields: [submissionId], references: [id], onDelete: Cascade)
+  submissionId String
+  user         User     @relation(fields: [userId], references: [id])
+  userId       String
+  
+  createdAt    DateTime @default(now())
+  
+  @@unique([submissionId, userId]) // One upvote per user per submission
+  @@index([userId, createdAt]) // For user's upvote history
+}
+
+enum SubmissionStatus {
+  PENDING      // Waiting for AI generation
+  GENERATING   // AI is generating the image
+  COMPLETED    // Image generated successfully
+  FAILED       // Generation failed
 }

@@ -6,10 +6,10 @@ export default function Input({ label, value, onChange, placeholder, type = 'tex
         </label>
         <input
           type={type}
-          placeholder={placeholder || label}
           value={value}
-          onChange={e => onChange(e.target.value)}
-          className="w-full px-2 py-1.5 border rounded-md text-gray-800 placeholder-gray-400 text-sm focus:ring-purple-500 focus:border-purple-500 shadow-sm transition-all"
+          onChange={(e) => onChange(e.target.value)}
+          placeholder={placeholder || label}
+          className="w-full px-2 py-1.5 border rounded-md text-gray-900 placeholder-gray-600 text-sm focus:ring-purple-500 focus:border-purple-500 shadow-sm transition-all"
           required={required}
         />
       </div>

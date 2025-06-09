@@ -205,8 +205,9 @@ export default function ClothingItemGeneratorModal({ isOpen, onClose, onSave }) 
                     value={creativePrompt}
                     onChange={(e) => setCreativePrompt(e.target.value)}
                     placeholder={currentPlaceholder}
+                    className="w-full p-2 border rounded-md text-gray-900 placeholder-gray-600 text-sm focus:ring-purple-500 focus:border-purple-500 shadow-sm"
                     rows={4}
-                    className="w-full p-2 border rounded-md text-gray-800 placeholder-gray-400 text-sm focus:ring-purple-500 focus:border-purple-500 shadow-sm"
+                    maxLength={1000}
                 />
             </div>
             <button
