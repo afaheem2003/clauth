@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { getAIDesignerInsights, generateImageWithOpenAI, inpaintImageWithOpenAI, getAIInpaintingInsights } from '@/services/openaiService';
+import { getAIDesignerInsights, generateImageWithOpenAI, generatePortraitWithOpenAI, editPortraitToBackWithOpenAI, inpaintImageWithOpenAI, getAIInpaintingInsights } from '@/services/openaiService';
 import { createClient } from "@supabase/supabase-js";
 import { ANGLES, getAngleImagePath } from '@/utils/imageProcessing';
 import { canUserGenerate, consumeCreditsForGeneration } from '@/lib/rateLimiting';
@@ -10,6 +10,56 @@ const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL,
   process.env.SUPABASE_SERVICE_ROLE_KEY
 );
+
+// Helper function to get approach based on quality level from environment variables
+function getApproachForQuality(quality) {
+  const qualityKey = `QUALITY_${quality.toUpperCase()}_APPROACH`;
+  const approach = process.env[qualityKey];
+  
+  console.log(`[Quality Lookup] Checking env var: ${qualityKey} = ${approach}`);
+  
+  if (!approach) {
+    console.warn(`[Quality Lookup] ⚠️ No approach defined for quality: ${quality}, defaulting to PORTRAIT`);
+    return 'PORTRAIT';
+  }
+  
+  const normalizedApproach = approach.toUpperCase();
+  console.log(`[Quality Lookup] ✅ Quality ${quality} → Approach: ${normalizedApproach}`);
+  
+  return normalizedApproach;
+}
+
+// Helper function to get generation method based on approach
+function getGenerationMethodForApproach(approach) {
+  const methods = {
+    'PORTRAIT': 'GENERATE_INDIVIDUAL_PORTRAITS',
+    'LANDSCAPE': 'GENERATE_COMPOSITE_THEN_SPLIT'
+  };
+  
+  const method = methods[approach];
+  if (!method) {
+    throw new Error(`Unknown approach: ${approach}. Supported: PORTRAIT, LANDSCAPE`);
+  }
+  
+  console.log(`[Method Lookup] ✅ Approach ${approach} → Method: ${method}`);
+  return method;
+}
+
+// Helper function to get editing method based on approach
+function getEditingMethodForApproach(approach) {
+  const methods = {
+    'PORTRAIT': 'EDIT_INDIVIDUAL_PORTRAITS',
+    'LANDSCAPE': 'EDIT_COMPOSITE_THEN_SPLIT'
+  };
+  
+  const method = methods[approach];
+  if (!method) {
+    throw new Error(`Unknown approach: ${approach}. Supported: PORTRAIT, LANDSCAPE`);
+  }
+  
+  console.log(`[Method Lookup] ✅ Approach ${approach} → Method: ${method}`);
+  return method;
+}
 
 /**
  * Creates a full white mask for the entire image (1536x1024)
@@ -136,6 +186,37 @@ async function uploadPanelsToStorage(angleBuffers, userId) {
   return angleUrls;
 }
 
+/**
+ * Creates portrait panels from front and back portrait images
+ */
+async function createPortraitPanels(frontImageBuffer, backImageBuffer) {
+  try {
+    // Resize both images to ensure consistent dimensions (768x1024)
+    const frontPanel = await sharp(frontImageBuffer)
+      .resize(768, 1024, { 
+        fit: 'fill',
+        position: 'center'
+      })
+      .toBuffer();
+
+    const backPanel = await sharp(backImageBuffer)
+      .resize(768, 1024, { 
+        fit: 'fill',
+        position: 'center'
+      })
+      .toBuffer();
+
+    console.log('[Portrait Panels] Successfully created portrait panels');
+    return {
+      [ANGLES.FRONT]: frontPanel,
+      [ANGLES.BACK]: backPanel
+    };
+  } catch (error) {
+    console.error('Error creating portrait panels:', error);
+    throw new Error(`Failed to create portrait panels: ${error.message}`);
+  }
+}
+
 export async function POST(req) {
   try {
     const data = await req.json();
@@ -174,6 +255,23 @@ export async function POST(req) {
         return NextResponse.json({ error: "Inpainting prompt is required" }, { status: 400 });
       }
 
+      // Determine approach based on environment variables
+      let approach, editingMethod;
+      try {
+        console.log("[API] Looking up approach for quality level:", quality);
+        approach = getApproachForQuality(quality);
+        editingMethod = getEditingMethodForApproach(approach);
+        console.log("[API] ✅ Quality-based approach determined for inpainting:");
+        console.log("[API]   Quality:", quality);
+        console.log("[API]   Approach:", approach);
+        console.log("[API]   Editing Method:", editingMethod);
+      } catch (error) {
+        console.error('Error determining approach from quality for inpainting:', error);
+        return NextResponse.json({ 
+          error: `Failed to determine inpainting approach: ${error.message}` 
+        }, { status: 500 });
+      }
+
       // Step 1: Get AI inpainting insights to structure the prompt
       let inpaintingInsights;
       try {
@@ -199,37 +297,49 @@ export async function POST(req) {
         }
       }
 
-      // Step 3: Perform inpainting with structured data
-      let imageData;
+      // Step 3: Perform inpainting based on approach
+      let imageData, angleBuffers;
       try {
-        console.log("[API] Inpainting with itemType:", itemType, "color:", color, "quality:", quality);
-        imageData = await inpaintImageWithOpenAI(
-          originalImage,
-          maskToUse,
-          inpaintingInsights.inpaintingData,
-          {
-            size: "1536x1024",
-            quality: quality,
-            originalItemType: itemType,
-            originalColor: color
+        if (editingMethod === 'EDIT_COMPOSITE_THEN_SPLIT') {
+          console.log("[API] ✅ CONFIRMED: Using landscape composite inpainting approach");
+          console.log("[API] Inpainting with itemType:", itemType, "color:", color, "quality:", quality);
+          imageData = await inpaintImageWithOpenAI(
+            originalImage,
+            maskToUse,
+            inpaintingInsights.inpaintingData,
+            {
+              size: "1536x1024",
+              quality: quality,
+              originalItemType: itemType,
+              originalColor: color
+            }
+          );
+
+          // Step 4: Split the inpainted image and store the panels
+          try {
+            const imageBuffer = Buffer.from(imageData, 'base64');
+            angleBuffers = await splitCompositeImage(imageBuffer);
+          } catch (error) {
+            console.error('Error splitting inpainted image:', error);
+            return NextResponse.json({ 
+              error: `Failed to process inpainted image: ${error.message}` 
+            }, { status: 500 });
           }
-        );
+        } else if (editingMethod === 'EDIT_INDIVIDUAL_PORTRAITS') {
+          // Portrait approach requires separate front/back images, not a composite
+          console.log("[API] ⚠️ Portrait approach requested for inpainting but only composite image provided");
+          return NextResponse.json({ 
+            error: 'Portrait editing requires separate front and back images. Please use the dedicated inpainting endpoint with front and back images.' 
+          }, { status: 400 });
+        } else {
+          return NextResponse.json({ 
+            error: `Unknown editing method: ${editingMethod}` 
+          }, { status: 500 });
+        }
       } catch (error) {
         console.error('Error in inpainting:', error);
         return NextResponse.json({ 
           error: `Failed to inpaint image: ${error.message}` 
-        }, { status: 500 });
-      }
-
-      // Step 4: Split the inpainted image and store the panels
-      let angleBuffers;
-      try {
-        const imageBuffer = Buffer.from(imageData, 'base64');
-        angleBuffers = await splitCompositeImage(imageBuffer);
-      } catch (error) {
-        console.error('Error splitting inpainted image:', error);
-        return NextResponse.json({ 
-          error: `Failed to process inpainted image: ${error.message}` 
         }, { status: 500 });
       }
 
@@ -272,41 +382,107 @@ export async function POST(req) {
         }, { status: 500 });
       }
 
-      // Step 2: Generate the image
-      let imageData;
+      // Step 2: Generate the image based on quality
+      let imageData, angleBuffers;
+      
+      // Determine approach based on environment variables
+      let approach, generationMethod;
       try {
-        console.log("[API] Generating image with quality:", quality);
-        imageData = await generateImageWithOpenAI(
-          insights.promptJsonData.description,
-          {
-            size: "1536x1024",
-            quality: quality,
-            itemDescription: `${itemType} in ${color}`,
-            frontDesign: insights.promptJsonData.frontDetails,
-            backDesign: insights.promptJsonData.backDetails,
-            modelDetails: insights.promptJsonData.modelDetails || "Professional model with neutral expression"
-          }
-        );
+        console.log("[API] Looking up approach for quality level:", quality);
+        approach = getApproachForQuality(quality);
+        generationMethod = getGenerationMethodForApproach(approach);
+        console.log("[API] ✅ Quality-based approach determined:");
+        console.log("[API]   Quality:", quality);
+        console.log("[API]   Approach:", approach);
+        console.log("[API]   Generation Method:", generationMethod);
       } catch (error) {
-        console.error('Error in image generation:', error);
+        console.error('Error determining generation approach:', error);
         return NextResponse.json({ 
-          error: `Failed to generate image: ${error.message}` 
+          error: `Failed to determine generation approach: ${error.message}` 
+        }, { status: 500 });
+      }
+      
+      if (generationMethod === 'GENERATE_COMPOSITE_THEN_SPLIT') {
+        // LANDSCAPE: Use landscape composite approach
+        try {
+          console.log("[API] ✅ CONFIRMED: Generating landscape composite image");
+          imageData = await generateImageWithOpenAI(
+            insights.promptJsonData.description,
+            {
+              size: "1536x1024",
+              quality: quality,
+              itemDescription: `${itemType} in ${color}`,
+              frontDesign: insights.promptJsonData.frontDetails,
+              backDesign: insights.promptJsonData.backDetails,
+              modelDetails: insights.promptJsonData.modelDetails || "Professional model with neutral expression"
+            }
+          );
+
+          // Split the landscape image
+          const imageBuffer = Buffer.from(imageData, 'base64');
+          angleBuffers = await splitCompositeImage(imageBuffer);
+          
+        } catch (error) {
+          console.error('Error in landscape composite generation:', error);
+          return NextResponse.json({ 
+            error: `Failed to generate landscape composite image: ${error.message}` 
+          }, { status: 500 });
+        }
+      } else if (generationMethod === 'GENERATE_INDIVIDUAL_PORTRAITS') {
+        // PORTRAIT: Use portrait + edit approach
+        try {
+          console.log(`[API] ✅ CONFIRMED: Generating individual portraits for ${quality} quality`);
+          console.log(`[API] ✅ GUARANTEED: Will create 1024x1536 portrait images`);
+          
+          // Step 2a: Generate front portrait
+          const frontImageData = await generatePortraitWithOpenAI(
+            insights.promptJsonData.description,
+            {
+              size: "1024x1536",
+              quality: quality,
+              itemDescription: `${itemType} in ${color}`,
+              frontDesign: insights.promptJsonData.frontDetails,
+              modelDetails: insights.promptJsonData.modelDetails || "Professional model with neutral expression"
+            }
+          );
+
+          // Step 2b: Edit portrait to show back view
+          const backImageData = await editPortraitToBackWithOpenAI(
+            frontImageData,
+            {
+              size: "1024x1536", 
+              quality: quality,
+              itemDescription: `${itemType} in ${color}`,
+              backDesign: insights.promptJsonData.backDetails,
+              modelDetails: insights.promptJsonData.modelDetails || "Professional model with neutral expression",
+              originalColor: color
+            }
+          );
+
+          // Step 2c: Create panels from both portraits - store as separate portraits
+          const frontBuffer = Buffer.from(frontImageData, 'base64');
+          const backBuffer = Buffer.from(backImageData, 'base64');
+          angleBuffers = await createPortraitPanels(frontBuffer, backBuffer);
+
+          // For portrait approach, do NOT create a composite image
+          // Keep the portraits separate throughout the entire flow
+          console.log(`[API] Portrait approach completed successfully for ${quality} quality`);
+          
+        } catch (error) {
+          console.error(`Error in portrait generation for ${quality} quality:`, error);
+          // For portrait approach, no fallback - maintain consistency
+          console.error('[API] No fallback for portrait approach to maintain format consistency');
+          return NextResponse.json({ 
+            error: `Failed to generate portrait images: ${error.message}` 
+          }, { status: 500 });
+        }
+      } else {
+        return NextResponse.json({ 
+          error: `Unknown generation method: ${generationMethod}` 
         }, { status: 500 });
       }
 
-      // Step 3: Split the image and store the panels
-      let angleBuffers;
-      try {
-        const imageBuffer = Buffer.from(imageData, 'base64');
-        angleBuffers = await splitCompositeImage(imageBuffer);
-      } catch (error) {
-        console.error('Error splitting image:', error);
-        return NextResponse.json({ 
-          error: `Failed to process generated image: ${error.message}` 
-        }, { status: 500 });
-      }
-
-      // Step 4: Upload the panels
+      // Step 3: Upload the panels
       let angleUrls;
       try {
         angleUrls = await uploadPanelsToStorage(angleBuffers, userId);
@@ -322,7 +498,7 @@ export async function POST(req) {
         success: true,
         aiDescription: insights.promptJsonData.description,
         angleUrls,
-        compositeImage: imageData // Return the full composite image for potential inpainting
+        ...(generationMethod === 'GENERATE_COMPOSITE_THEN_SPLIT' ? { compositeImage: imageData } : {}) // Only include compositeImage for landscape generation
       });
     }
 

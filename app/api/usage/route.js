@@ -42,18 +42,22 @@ export async function GET(request) {
       }
     });
 
+    const lowUsedToday = dailyUsage?.lowGenerations || 0;
     const mediumUsedToday = dailyUsage?.mediumGenerations || 0;
     const highUsedToday = dailyUsage?.highGenerations || 0;
 
     // Build stats using the credits and plan from getUserCredits
     const stats = {
       // Credit balances from initialized credits record
+      lowCredits: credits.lowCredits,
       mediumCredits: credits.mediumCredits,
       highCredits: credits.highCredits,
       
       // Daily usage and caps from plan config
+      lowUsedToday,
       mediumUsedToday,
       highUsedToday,
+      dailyLowCap: plan.dailyLowCap,
       dailyMediumCap: plan.dailyMediumCap,
       dailyHighCap: plan.dailyHighCap,
       

@@ -4,6 +4,7 @@ import OpenAI from 'openai';
 import clothingPromptSchema from '../schemas/clothingPromptSchema.js';
 import { ITEM_TYPES } from '@/app/constants/options';
 import { Readable } from 'stream';
+import sharp from 'sharp';
 
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY, // Ensure this is in your .env file
@@ -224,6 +225,9 @@ export async function generateImageWithOpenAI(prompt, options = {}) {
       modelDetails = ''
     } = options;
 
+    // Map internal quality levels to OpenAI quality values
+    // Use quality parameter directly
+
     const basePrompt = `
 Generate a high-resolution horizontal (landscape) image, sized exactly 1536x1024 pixels, showing two views of the same model and clothing item positioned side by side.
 
@@ -268,7 +272,7 @@ A clean, high-quality comparison of the same item viewed from front and back, ap
       prompt: basePrompt,
       n: 1,
       size,
-      quality
+      quality: quality
     };
 
     console.log("[OpenAI Service] Using standard generation mode");
@@ -316,15 +320,35 @@ export async function inpaintImageWithOpenAI(originalImage, maskImage, inpaintin
       originalColor = ''
     } = options;
 
+    // Map internal quality levels to OpenAI quality values
+    // Use quality parameter directly
+
     // Convert base64 strings to buffers
     console.log("[OpenAI Service] Converting images to buffers...");
     const imageBuffer = Buffer.from(originalImage, 'base64');
     const maskBuffer = Buffer.from(maskImage, 'base64');
     console.log("[OpenAI Service] Image buffer size:", imageBuffer.length, "Mask buffer size:", maskBuffer.length);
 
-    // Create a concise inpainting prompt
-    const inpaintingPrompt = `
-Modify this 1536x1024 split-panel studio image of a ${originalItemType} in ${originalColor}.
+    // Detect image format from size parameter to generate appropriate prompt
+    const isPortrait = size === "1024x1536";
+    const isLandscape = size === "1536x1024";
+    
+    let inpaintingPrompt;
+    if (isPortrait) {
+      // Portrait format: single image editing
+      console.log("[OpenAI Service] Generating portrait inpainting prompt");
+      inpaintingPrompt = `
+Modify this ${size} portrait studio image of a ${originalItemType} in ${originalColor}.
+
+${inpaintingData.frontModifications !== 'No changes to front view.' ? inpaintingData.frontModifications : inpaintingData.backModifications}
+
+Preserve the original model pose, background, lighting, and color. Only modify as described above. Do not change any other details. Avoid real-world brand references.
+`.trim();
+    } else if (isLandscape) {
+      // Landscape format: split-panel editing
+      console.log("[OpenAI Service] Generating landscape split-panel inpainting prompt");
+      inpaintingPrompt = `
+Modify this ${size} split-panel studio image of a ${originalItemType} in ${originalColor}.
 
 Left Panel (Front View):
 ${inpaintingData.frontModifications}
@@ -334,6 +358,18 @@ ${inpaintingData.backModifications}
 
 Preserve the original model pose, background, lighting, garment structure, and color. Only modify as described above. Do not change any other details. Avoid real-world brand references.
 `.trim();
+    } else {
+      // Fallback for unknown sizes
+      console.log("[OpenAI Service] Unknown size format, using generic prompt");
+      inpaintingPrompt = `
+Modify this ${size} studio image of a ${originalItemType} in ${originalColor}.
+
+${inpaintingData.frontModifications}
+${inpaintingData.backModifications}
+
+Preserve the original model pose, background, lighting, and color. Only modify as described above. Do not change any other details. Avoid real-world brand references.
+`.trim();
+    }
 
     console.log("[OpenAI Service] Making inpainting request to OpenAI...");
     console.log("[OpenAI Service] Prompt:", inpaintingPrompt);
@@ -352,7 +388,7 @@ Preserve the original model pose, background, lighting, garment structure, and c
         mask: new File([maskBuffer], 'mask.png', { type: 'image/png' }),
         n: 1,
         size,
-        quality
+        quality: quality
       }),
       timeoutPromise
     ]);
@@ -388,7 +424,7 @@ Preserve the original model pose, background, lighting, garment structure, and c
   }
 } 
 
-export async function getAIInpaintingInsights(inpaintingPrompt, originalItemType, originalColor) {
+export async function getAIInpaintingInsights(inpaintingPrompt, originalItemType, originalColor, originalDescription = null) {
   if (!inpaintingPrompt || typeof inpaintingPrompt !== 'string') {
     throw new Error('Inpainting prompt must be a non-empty string.');
   }
@@ -404,29 +440,45 @@ export async function getAIInpaintingInsights(inpaintingPrompt, originalItemType
     const inpaintingMessages = [
       {
         role: "system",
-        content: `You are an AI fashion designer specializing in precise clothing modifications. Your task is to parse user edit requests and create structured inpainting instructions.
+        content: `You are an AI fashion designer specializing in precise clothing modifications and image improvements. Your task is to parse user edit requests and create structured inpainting instructions.
 
 CRITICAL GUIDELINES:
-1. PRESERVE the original model appearance - same pose, lighting, background, and model features
-2. ONLY modify elements explicitly mentioned in the user's edit request
-3. Maintain the same ${originalItemType} base garment in ${originalColor}
-4. Focus on CONCRETE, VISUAL modifications only
-5. Specify exact placement and appearance of changes
-6. Keep all unchanged elements exactly as they were
+1. Handle TWO types of requests:
+   a) CLOTHING modifications (change colors, patterns, designs, garment structure)
+   b) MODEL/OVERALL improvements (make more realistic, change model appearance, improve lighting/quality)
+2. For CLOTHING changes: Apply to the garment while preserving model and environment
+3. For MODEL/OVERALL changes: Apply to the entire image including model, pose, and overall quality
+4. If request mentions both clothing AND model changes, apply both appropriately
+5. Maintain the same ${originalItemType} base garment type unless explicitly changing it
+6. Focus on CONCRETE, VISUAL modifications only
+7. Specify exact changes needed for each view
+8. Provide a COMPLETE updated design description that reflects the final state after all changes
 
 Your response must include:
-1. Clear front view modifications (what changes on the front)
-2. Clear back view modifications (what changes on the back)
-3. A preservation note about maintaining unchanged elements
+1. Clear front view modifications (what changes on the front view)
+2. Clear back view modifications (what changes on the back view)  
+3. A preservation note about what to maintain vs what to change
+4. Summary of the overall modification being applied
+5. Complete updated design description showing the final design after all changes
 
-🚫 DO NOT change the model, background, lighting, or any unmentioned design elements.`
+🔧 CLOTHING CHANGES: Modify garment while keeping model/environment the same
+🎨 MODEL/OVERALL CHANGES: Improve model appearance, realism, pose, or overall image quality`
       },
       {
         role: "user",
         content: `Original item: ${originalItemType} in ${originalColor}
+${originalDescription ? `Original design description: "${originalDescription}"` : ''}
+
 User's edit request: "${inpaintingPrompt}"
 
-Parse this into structured front and back modifications. If the edit doesn't specify front or back, apply it to the most logical location(s).`
+Parse this into structured front and back modifications. Determine if this is:
+- A CLOTHING modification (change the garment itself)
+- A MODEL/OVERALL modification (improve model appearance, realism, lighting, etc.)
+- Both types of changes
+
+Apply the changes to the most logical location(s) for each view.
+
+IMPORTANT: For the updated design description, start with the original design description${originalDescription ? '' : ' (if available)'} and modify it to reflect all changes from the edit request. The result should be a complete description of the final design, not just the changes.`
       }
     ];
 
@@ -435,28 +487,32 @@ Parse this into structured front and back modifications. If the edit doesn't spe
       messages: inpaintingMessages,
       functions: [{
         name: "generateInpaintingInstructions",
-        description: "Generates structured inpainting instructions for clothing modifications",
+        description: "Generates structured inpainting instructions for clothing modifications and model appearance improvements",
         parameters: {
           type: "object",
           properties: {
             frontModifications: { 
               type: "string", 
-              description: "Precise description of changes to make on the front view. If no front changes, say 'No changes to front view.'" 
+              description: "Precise description of changes to make on the front view (clothing changes, model improvements, or both). If no front changes, say 'No changes to front view.'" 
             },
             backModifications: { 
               type: "string", 
-              description: "Precise description of changes to make on the back view. If no back changes, say 'No changes to back view.'" 
+              description: "Precise description of changes to make on the back view (clothing changes, model improvements, or both). If no back changes, say 'No changes to back view.'" 
             },
             preservationNote: { 
               type: "string", 
-              description: "Instructions on what to keep unchanged (model, pose, lighting, unmentioned design elements)" 
+              description: "Instructions on what to preserve vs what to change (depends on whether it's clothing-only or model/overall improvements)" 
             },
             modificationSummary: { 
               type: "string", 
-              description: "Brief summary of the overall change being made" 
+              description: "Brief summary of the overall change being made (clothing modification, model improvement, or both)" 
+            },
+            updatedDesignDescription: {
+              type: "string",
+              description: "Complete description of the final design after all modifications are applied. This should describe the entire garment and its features, not just what changed."
             }
           },
-          required: ["frontModifications", "backModifications", "preservationNote", "modificationSummary"]
+          required: ["frontModifications", "backModifications", "preservationNote", "modificationSummary", "updatedDesignDescription"]
         }
       }],
       function_call: { name: "generateInpaintingInstructions" }
@@ -483,4 +539,264 @@ Parse this into structured front and back modifications. If the edit doesn't spe
     }
     throw error;
   }
+} 
+
+export async function generatePortraitWithOpenAI(prompt, options = {}) {
+  if (!process.env.OPENAI_API_KEY) {
+    console.error("OPENAI_API_KEY is not set.");
+    throw new Error("OpenAI API key is not configured for image generation.");
+  }
+
+  const maxRetries = 3;
+  let lastError;
+
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    try {
+      console.log(`[OpenAI Service] Generating portrait image (attempt ${attempt}/${maxRetries}) with options:`, options);
+      
+      // Default options
+      const {
+        model = "gpt-image-1",
+        size = "1024x1536",
+        quality = process.env.OPENAI_IMAGE_QUALITY || "high",
+        itemDescription = '',
+        frontDesign = '',
+        modelDetails = ''
+      } = options;
+
+      // Map internal quality levels to OpenAI quality values
+      // Use quality parameter directly
+
+      const portraitPrompt = `
+Generate a high-resolution vertical (portrait) image, sized exactly 1024x1536 pixels, showing a single model wearing a clothing item from the front view.
+
+LAYOUT REQUIREMENTS:
+- Single front-facing view only
+- Clean, professional studio background
+- Model positioned centrally in the frame
+- Professional fashion photography style
+
+The image should feature a hyperrealistic runway model wearing the clothing item described below, photographed under professional studio lighting with a clean, neutral background.
+
+IMPORTANT BRAND SAFETY NOTE:
+Do **not** use or reference any real-world brand names, logos, university names, slogans, or trademarks (e.g., "Nike", "Harvard", "Burberry", "Fighting Irish"). Every design element, label, or text must be **original** and fictional. Use made-up names, slogans, or symbols that are safe for commercial use.
+
+Model View (Front):
+Display the model facing directly forward, showcasing the front of a ${itemDescription}.
+The front design should include: ${frontDesign}
+
+Model Appearance:
+${modelDetails}
+
+Image Requirements:
+- Professional studio lighting and background
+- Model should be well-positioned and proportioned
+- Clothing should be clearly visible and well-rendered
+- Text or lettering on clothing must be fictional/original
+- No unrelated UI elements, watermarks, or distractions
+- Clean, neutral background suitable for commercial use
+
+Final Output:
+A clean, high-quality portrait image showing the clothing item from the front view only.
+`.trim();
+
+      const requestOptions = {
+        model,
+        prompt: portraitPrompt,
+        n: 1,
+        size,
+        quality: quality
+      };
+
+      console.log("[OpenAI Service] Using portrait generation mode");
+      
+      // Create timeout promise - increased from 3 to 5 minutes
+      const timeoutPromise = new Promise((_, reject) => {
+        setTimeout(() => reject(new Error('Portrait generation request timed out after 5 minutes')), 300000);
+      });
+
+      const response = await Promise.race([
+        openai.images.generate(requestOptions),
+        timeoutPromise
+      ]);
+
+      if (!response.data || !response.data[0]) {
+        throw new Error("No valid response from portrait image generation");
+      }
+
+      const imageData = response.data[0];
+      console.log("[OpenAI Service] Successfully generated portrait image");
+      return imageData.b64_json;
+
+    } catch (error) {
+      lastError = error;
+      console.error(`[OpenAI Service] Portrait generation attempt ${attempt} failed:`, error.message);
+      
+      // Check if it's a connection error that might be retryable
+      const isRetryableError = (
+        error.message.includes('Connection error') ||
+        error.message.includes('ECONNRESET') ||
+        error.message.includes('ETIMEDOUT') ||
+        error.message.includes('fetch failed') ||
+        (error.status >= 500 && error.status < 600) // Server errors
+      );
+
+      if (isRetryableError && attempt < maxRetries) {
+        const delay = Math.pow(2, attempt) * 1000; // Exponential backoff
+        console.log(`[OpenAI Service] Retrying portrait generation in ${delay}ms...`);
+        await new Promise(resolve => setTimeout(resolve, delay));
+        continue;
+      }
+
+      // If it's not retryable or we've exhausted retries, throw the error
+      break;
+    }
+  }
+
+  // If we get here, all retries failed
+  console.error("[OpenAI Service] All portrait generation attempts failed. Final error:", lastError);
+  if (lastError instanceof OpenAI.APIError) {
+    throw new Error(`OpenAI API Error: ${lastError.status} ${lastError.name} - ${lastError.message}`);
+  }
+  throw new Error(`Failed to generate portrait image after ${maxRetries} attempts: ${lastError.message}`);
+}
+
+export async function editPortraitToBackWithOpenAI(originalImage, options = {}) {
+  if (!process.env.OPENAI_API_KEY) {
+    console.error("OPENAI_API_KEY is not set.");
+    throw new Error("OpenAI API key is not configured for image generation.");
+  }
+
+  if (!originalImage) {
+    throw new Error("Original portrait image is required for back view editing.");
+  }
+
+  const maxRetries = 3;
+  let lastError;
+
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    try {
+      console.log(`[OpenAI Service] Editing portrait to show back view (attempt ${attempt}/${maxRetries}) with options:`, options);
+      
+      // Default options
+      const {
+        model = "gpt-image-1",
+        size = "1024x1536",
+        quality = process.env.OPENAI_IMAGE_QUALITY || "high",
+        itemDescription = '',
+        backDesign = '',
+        modelDetails = '',
+        originalColor = ''
+      } = options;
+
+      // Map internal quality levels to OpenAI quality values
+      // Use quality parameter directly
+
+      // Convert base64 string to buffer
+      console.log("[OpenAI Service] Converting portrait image to buffer...");
+      const imageBuffer = Buffer.from(originalImage, 'base64');
+      console.log("[OpenAI Service] Portrait image buffer size:", imageBuffer.length);
+
+      // Create a full mask for complete image editing
+      const maskBuffer = await sharp({
+        create: {
+          width: 1024,
+          height: 1536,
+          channels: 4,
+          background: { r: 255, g: 255, b: 255, alpha: 1 }
+        }
+      })
+      .png()
+      .toBuffer();
+
+      const backViewPrompt = `
+Transform this front-view portrait into a back-view portrait of the EXACT SAME model and clothing item. 
+
+CRITICAL REQUIREMENTS:
+- Keep the EXACT SAME model appearance, pose style, and studio environment
+- Keep the EXACT SAME clothing item and color (${originalColor})
+- Change ONLY the viewing angle from front to back
+- Maintain identical lighting, background, and proportions
+- Show the back design: ${backDesign}
+
+The model should now be facing directly away from the camera, showing the back of the ${itemDescription} in ${originalColor}. Keep everything else identical to the original image - same model, same clothing item, same studio setup, same lighting conditions.
+
+IMPORTANT: Maintain all fictional branding and avoid any real-world brand references.
+`.trim();
+
+      console.log("[OpenAI Service] Making portrait back-view edit request to OpenAI...");
+      console.log("[OpenAI Service] Prompt:", backViewPrompt);
+      
+      // Create a timeout promise
+      const timeoutPromise = new Promise((_, reject) => {
+        setTimeout(() => reject(new Error('Portrait editing request timed out after 5 minutes')), 300000);
+      });
+
+      // Make the API call with proper file objects
+      const response = await Promise.race([
+        openai.images.edit({
+          model,
+          prompt: backViewPrompt,
+          image: new File([imageBuffer], 'portrait.png', { type: 'image/png' }),
+          mask: new File([maskBuffer], 'mask.png', { type: 'image/png' }),
+          n: 1,
+          size,
+          quality: quality
+        }),
+        timeoutPromise
+      ]);
+
+      console.log("[OpenAI Service] Received response from OpenAI portrait editing");
+
+      if (!response.data || !response.data[0]) {
+        throw new Error("No valid response from portrait back-view editing");
+      }
+
+      const imageData = response.data[0];
+      console.log("[OpenAI Service] Successfully completed portrait back-view editing");
+      return imageData.b64_json;
+
+    } catch (error) {
+      lastError = error;
+      console.error(`[OpenAI Service] Attempt ${attempt} failed:`, error.message);
+      
+      // Check if it's a connection error that might be retryable
+      const isRetryableError = (
+        error.message.includes('Connection error') ||
+        error.message.includes('ECONNRESET') ||
+        error.message.includes('ETIMEDOUT') ||
+        error.message.includes('fetch failed') ||
+        (error.status >= 500 && error.status < 600) // Server errors
+      );
+
+      if (isRetryableError && attempt < maxRetries) {
+        const delay = Math.pow(2, attempt) * 1000; // Exponential backoff
+        console.log(`[OpenAI Service] Retrying in ${delay}ms...`);
+        await new Promise(resolve => setTimeout(resolve, delay));
+        continue;
+      }
+
+      // If it's not retryable or we've exhausted retries, throw the error
+      break;
+    }
+  }
+
+  // If we get here, all retries failed
+  console.error("[OpenAI Service] All attempts failed. Final error:", lastError);
+  console.error("[OpenAI Service] Error details:", {
+    name: lastError.name,
+    message: lastError.message,
+    status: lastError.status,
+    code: lastError.code,
+    type: lastError.type
+  });
+  
+  if (lastError instanceof OpenAI.APIError) {
+    console.error("[OpenAI Service] Full OpenAI error:", JSON.stringify(lastError, null, 2));
+    throw new Error(`OpenAI API Error: ${lastError.status} ${lastError.name} - ${lastError.message}`);
+  }
+  if (lastError.message.includes('timed out')) {
+    throw new Error("The portrait editing request took too long to complete. Please try again or try a different quality setting.");
+  }
+  throw new Error(`Failed to edit portrait to back view after ${maxRetries} attempts: ${lastError.message}`);
 } 

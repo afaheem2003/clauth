@@ -4,9 +4,19 @@ import { useState, useRef, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 import Image from 'next/image';
+import Link from 'next/link';
 import { CLOTHING_CATEGORIES, getAllCategories } from '@/app/constants/clothingCategories';
 import { ANGLES } from '@/utils/imageProcessing';
 import QualitySelector from '@/components/credits/QualitySelector';
+import ProgressSteps from '@/components/design/ProgressSteps';
+import UsageStats from '@/components/design/UsageStats';
+import dayjs from 'dayjs';
+import utc from 'dayjs/plugin/utc';
+import timezone from 'dayjs/plugin/timezone';
+
+// Extend dayjs with timezone support
+dayjs.extend(utc);
+dayjs.extend(timezone);
 
 export default function DesignPage() {
   const router = useRouter();
@@ -15,6 +25,13 @@ export default function DesignPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [selectedCategory, setSelectedCategory] = useState(null);
+
+  // Challenge-related state
+  const [activeChallenges, setActiveChallenges] = useState([]);
+  const [challengesLoading, setChallengesLoading] = useState(true);
+  const [selectedChallengeIds, setSelectedChallengeIds] = useState([]);
+
+  const EASTERN_TIMEZONE = 'America/New_York';
 
   // Form states
   const [itemName, setItemName] = useState('');
@@ -36,16 +53,19 @@ export default function DesignPage() {
   const [currentView, setCurrentView] = useState('front'); // 'front' or 'back'
 
   // Quality selection state
-  const [quality, setQuality] = useState('medium');
+  const [quality, setQuality] = useState('low');
 
   const [generatingDesign, setGeneratingDesign] = useState(false);
   
   // Usage tracking state
   const [usageStats, setUsageStats] = useState({
+    lowCredits: 0,
     mediumCredits: 0,
     highCredits: 0,
+    lowUsedToday: 0,
     mediumUsedToday: 0,
     highUsedToday: 0,
+    dailyLowCap: null,
     dailyMediumCap: null,
     dailyHighCap: null,
     plan: 'Starter'
@@ -54,7 +74,7 @@ export default function DesignPage() {
   const steps = [
     { number: 1, title: 'Basic Details' },
     { number: 2, title: 'Design Specifics' },
-    { number: 3, title: 'Preview & Generate' }
+    { number: 3, title: 'Preview & Publish' }
   ];
 
   // Initialize canvas when composite image is loaded or inpainting mode changes
@@ -63,12 +83,34 @@ export default function DesignPage() {
       return;
     }
 
-    if (!compositeImage) {
+    // Check if we have the required images based on quality level
+    const hasRequiredImages = quality === 'high' 
+      ? compositeImage  // High quality needs composite image
+      : (frontImage && backImage);  // Low/medium quality needs both front and back images
+
+    if (!hasRequiredImages) {
       setError('Please generate a design first before trying to edit it');
       setIsInpaintingMode(false);
       return;
     }
-  }, [compositeImage, isInpaintingMode]);
+  }, [compositeImage, frontImage, backImage, isInpaintingMode, quality]);
+
+  // Fetch active challenges
+  const fetchActiveChallenges = async () => {
+    if (!session?.user?.uid) return;
+    
+    try {
+      const response = await fetch('/api/challenges/user-active');
+      if (response.ok) {
+        const data = await response.json();
+        setActiveChallenges(data.activeChallenges || []);
+      }
+    } catch (error) {
+      console.error('Error fetching active challenges:', error);
+    } finally {
+      setChallengesLoading(false);
+    }
+  };
 
   // Fetch user usage stats
   const fetchUsageStats = async () => {
@@ -88,6 +130,7 @@ export default function DesignPage() {
   useEffect(() => {
     if (status === 'authenticated') {
       fetchUsageStats();
+      fetchActiveChallenges();
     }
   }, [session?.user?.uid, status]);
 
@@ -133,6 +176,18 @@ export default function DesignPage() {
       `;
       document.body.appendChild(generationModal);
 
+      // Check if design matches any active challenges
+      const matchingChallenges = activeChallenges.filter(challenge => {
+        // Auto-match if theme mentioned in prompt or item type matches
+        const promptLower = userPrompt.toLowerCase();
+        const themeLower = challenge.theme.toLowerCase();
+        const itemTypeLower = itemType.toLowerCase();
+        const mainItemLower = challenge.mainItem?.toLowerCase() || '';
+        
+        return promptLower.includes(themeLower) || 
+               (challenge.mainItem && (itemTypeLower.includes(mainItemLower) || mainItemLower.includes(itemTypeLower)));
+      });
+
       const response = await fetch('/api/design/generate', {
         method: 'POST',
         headers: {
@@ -145,6 +200,12 @@ export default function DesignPage() {
           modelDescription: modelDescription || '',
           userId: session?.user?.id || session?.user?.uid,
           quality: quality,
+          // Add challenge context if relevant
+          ...(matchingChallenges.length > 0 && {
+            challengeTheme: matchingChallenges[0].theme,
+            challengeMainItem: matchingChallenges[0].mainItem,
+            isChallenge: true,
+          }),
           // Only include inpainting data if we're in inpainting mode
           ...(isInpaintingMode && compositeImage ? {
             originalImage: compositeImage
@@ -182,6 +243,11 @@ export default function DesignPage() {
       setAiDescription(data.aiDescription);
       setItemName(itemName);
 
+      // Auto-select matching challenges
+      if (matchingChallenges.length > 0) {
+        setSelectedChallengeIds(matchingChallenges.map(c => c.id));
+      }
+
       setCurrentStep(3);
       setGeneratingDesign(false);
 
@@ -192,117 +258,100 @@ export default function DesignPage() {
       console.error('Error in design generation:', err);
       setError(err.message || 'Failed to generate design');
       setGeneratingDesign(false);
-    }
-  };
-
-  const handleInpainting = async () => {
-    if (!compositeImage) {
-      setError('Original image is required for inpainting');
-      return;
-    }
-
-    if (!inpaintingPrompt.trim()) {
-      setError('Please provide edit instructions describing what you want to change');
-      return;
-    }
-
-    try {
-      setGeneratingDesign(true);
-      setError(null);
-
-      // Show inpainting modal
-      const inpaintingModal = document.createElement('div');
-      inpaintingModal.className = 'fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4';
-      inpaintingModal.innerHTML = `
-        <div class="bg-gray-900 rounded-lg p-8 max-w-md w-full text-center shadow-xl">
-          <div class="animate-spin rounded-full h-16 w-16 border-b-2 border-indigo-400 mx-auto mb-4"></div>
-          <h3 class="text-xl font-semibold mb-2 text-white">Applying Your Changes</h3>
-          <p class="text-gray-300 mb-4">We're modifying your design based on your instructions. This will take about a minute. Please don't close or refresh the page.</p>
-          <div class="w-full bg-gray-800 rounded-full h-2">
-            <div class="bg-indigo-400 h-2 rounded-full animate-pulse"></div>
-          </div>
-        </div>
-      `;
-      document.body.appendChild(inpaintingModal);
-
-      // Create AbortController for timeout
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 150000); // 2.5 minute timeout
-
-      const response = await fetch('/api/design/generate', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          itemType: itemType || '',
-          color: color || '',
-          userPrompt: inpaintingPrompt,
-          modelDescription: modelDescription || '',
-          userId: session?.user?.id || session?.user?.uid,
-          quality: quality,
-          originalImage: compositeImage
-        }),
-        signal: controller.signal
-      });
-
-      // Clear the timeout
-      clearTimeout(timeoutId);
-
-      // Remove inpainting modal
-      if (document.body.contains(inpaintingModal)) {
-        document.body.removeChild(inpaintingModal);
-      }
-
-      const data = await response.json();
-      
-      if (!response.ok) {
-        const errorData = await response.json();
-        if (response.status === 429) {
-          // Rate limit error - refresh usage stats
-          await refreshUsageStats();
-          throw new Error(errorData.error || 'Daily generation limit reached');
-        }
-        throw new Error(errorData.error || 'Failed to inpaint design');
-      }
-
-      // Update the composite image with the inpainted version
-      setCompositeImage(data.compositeImage);
-      
-      // Update the angle URLs for display
-      setFrontImage(data.angleUrls.front);
-      setBackImage(data.angleUrls.back);
-
-      // Clear inpainting state
-      setIsInpaintingMode(false);
-      setInpaintingPrompt('');
-
-      setGeneratingDesign(false);
-
-      // Refresh usage stats
-      await refreshUsageStats();
-
-    } catch (err) {
-      console.error('Error in inpainting:', err);
-      
-      // Handle specific error types
-      let errorMessage = 'Failed to inpaint design';
-      if (err.name === 'AbortError') {
-        errorMessage = 'The inpainting request took too long and was cancelled. Please try again with simpler changes.';
-      } else if (err.message.includes('timed out')) {
-        errorMessage = 'The inpainting request timed out. Please try again with simpler modifications.';
-      } else {
-        errorMessage = err.message || 'Failed to inpaint design';
-      }
-      
-      setError(errorMessage);
-      setGeneratingDesign(false);
       
       // Make sure to remove modal if there's an error
       const existingModal = document.querySelector('.fixed.inset-0.bg-black\\/70');
       if (existingModal) {
         document.body.removeChild(existingModal);
       }
+    }
+  };
+
+  const handleInpainting = async () => {
+    // For low/medium quality, we need separate front and back images
+    // For high quality, we need the composite image
+    if (quality === 'low' || quality === 'medium') {
+      if (!frontImage || !backImage) {
+        setError('Front and back images are required for editing');
+        return;
+      }
+    } else {
+    if (!compositeImage) {
+        setError('Original image is required for editing');
+      return;
+      }
+    }
+
+    if (!inpaintingPrompt.trim()) {
+      setError('Please provide edit instructions');
+      return;
+    }
+
+    try {
+      setLoading(true);
+      setError(null);
+
+      const requestBody = {
+        prompt: inpaintingPrompt,
+        userId: session?.user?.id || session?.user?.uid,
+        quality: quality,
+        originalDescription: aiDescription // Pass the current design description
+      };
+
+      // Add appropriate image data based on quality
+      if (quality === 'low' || quality === 'medium') {
+        requestBody.frontImage = frontImage;
+        requestBody.backImage = backImage;
+      } else {
+        requestBody.originalImage = compositeImage;
+      }
+
+      const response = await fetch('/api/design/inpaint', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(requestBody),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to apply changes');
+      }
+
+      const data = await response.json();
+      
+      if (data.error) {
+        throw new Error(data.error);
+      }
+
+      // Update with new images based on quality
+      if (quality === 'low' || quality === 'medium') {
+        // For low/medium, we get separate front and back images
+        setFrontImage(data.angleUrls.front);
+        setBackImage(data.angleUrls.back);
+        // No composite image for low/medium quality
+      } else {
+        // For high quality, we get a composite image and angle URLs
+      setCompositeImage(data.compositeImage);
+      setFrontImage(data.angleUrls.front);
+      setBackImage(data.angleUrls.back);
+      }
+
+      setAiDescription(data.aiDescription);
+
+      // Clear the inpainting prompt and exit inpainting mode
+      setInpaintingPrompt('');
+      setIsInpaintingMode(false);
+
+      // Refresh usage stats
+      await refreshUsageStats();
+
+    } catch (err) {
+      console.error('Error in inpainting:', err);
+      setError(err.message || 'Failed to apply changes');
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -333,6 +382,7 @@ export default function DesignPage() {
       setLoading(true);
       setError(null);
 
+      // First, create the clothing item
       const response = await fetch('/api/saved-clothing-items', {
         method: 'POST',
         headers: {
@@ -358,9 +408,37 @@ export default function DesignPage() {
         throw new Error(data.error || 'Failed to save design');
       }
 
+      const { clothingItem } = await response.json();
+
+      // Submit to selected challenges
+      if (selectedChallengeIds.length > 0) {
+        const challengeSubmissions = selectedChallengeIds.map(challengeId => {
+          const challenge = activeChallenges.find(c => c.id === challengeId);
+          return fetch('/api/challenges/submit', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              challengeId,
+              groupId: challenge.group.id,
+              outfitDescription: aiDescription,
+              clothingItemId: clothingItem.id,
+              generatedImageUrl: frontImage
+            }),
+          });
+        });
+
+        try {
+          await Promise.all(challengeSubmissions);
+        } catch (challengeError) {
+          console.error('Error submitting to challenges:', challengeError);
+          // Don't fail the whole process if challenge submission fails
+        }
+      }
+
       // Redirect to the clothing item page
-      const data = await response.json();
-      router.push(`/clothing/${data.clothingItem.id}`);
+      router.push(`/clothing/${clothingItem.id}`);
     } catch (err) {
       console.error('Error saving design:', err);
       setError(err.message || 'Failed to save design');
@@ -379,111 +457,57 @@ export default function DesignPage() {
   return (
     <div className="min-h-screen bg-white py-12 px-4 sm:px-6 lg:px-8">
       <div className="max-w-3xl mx-auto">
-        {/* Progress Steps */}
-        <div className="mb-12">
-          <div className="flex justify-between items-center relative">
-            {/* Add a connecting line behind the steps */}
-            <div className="absolute top-4 left-0 right-0 h-0.5 bg-gray-200" />
-            
-            {steps.map((step, index) => (
-              <div key={step.number} className="flex-1 relative flex justify-center">
-                <div className="flex flex-col items-center relative bg-white">
-                  <div className={`w-8 h-8 rounded-full flex items-center justify-center border-2 ${
-                    currentStep >= step.number 
-                      ? 'bg-black border-black text-white' 
-                      : 'bg-white border-gray-300 text-gray-500'
-                  }`}>
-                    {step.number}
-                  </div>
-                  <div className="mt-2 text-center">
-                    <p className={`text-sm font-medium ${
-                      currentStep >= step.number ? 'text-gray-900' : 'text-gray-500'
-                    }`}>
-                      {step.title}
-                    </p>
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        {/* Usage Stats Display */}
-        <div className="mb-8 bg-gradient-to-r from-indigo-50 to-purple-50 border border-indigo-200 rounded-xl p-4">
+        {/* Active Challenges Banner */}
+        {!challengesLoading && activeChallenges.length > 0 && (
+          <div className="mb-8 bg-gradient-to-r from-indigo-600 to-purple-600 rounded-2xl p-6 text-white">
+            <div className="flex items-start justify-between">
+              <div className="flex-1">
+                <h2 className="text-xl font-bold mb-2">🎯 Active Challenges</h2>
+                <p className="text-indigo-100 mb-4">
+                  You have {activeChallenges.filter(c => !c.hasSubmitted).length} active challenge{activeChallenges.filter(c => !c.hasSubmitted).length !== 1 ? 's' : ''} today! 
+                  Design something that matches the themes below.
+                </p>
+                <div className="space-y-2">
+                  {activeChallenges.slice(0, 3).map((challenge) => (
+                    <div key={challenge.id} className="bg-white bg-opacity-20 rounded-lg p-3">
           <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-3">
-              <div className="flex items-center justify-center w-8 h-8 bg-indigo-100 rounded-full">
-                <svg className="w-4 h-4 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
-                </svg>
-              </div>
               <div>
-                <h3 className="text-sm font-medium text-gray-900">Credits Available</h3>
-                <p className="text-xs text-gray-600">{usageStats.plan || 'Starter'}</p>
-              </div>
+                          <p className="font-semibold">{challenge.theme}</p>
+                          {challenge.mainItem && (
+                            <p className="text-sm opacity-90">Required: {challenge.mainItem}</p>
+                          )}
+                          <p className="text-xs opacity-75">{challenge.group.name}</p>
             </div>
             <div className="text-right">
-              <div className="flex items-center space-x-2">
-                <div className="text-center">
-                  <div className="text-lg font-semibold text-blue-600">
-                    {usageStats.mediumCredits || 0}
-                  </div>
-                  <p className="text-xs text-gray-600">Medium</p>
-                </div>
-                <div className="text-gray-400">|</div>
-                <div className="text-center">
-                  <div className="text-lg font-semibold text-purple-600">
-                    {usageStats.highCredits || 0}
-                  </div>
-                  <p className="text-xs text-gray-600">High</p>
-                </div>
-              </div>
-            </div>
-          </div>
-          
-          {/* Daily Usage Progress */}
-          {(usageStats.dailyMediumCap || usageStats.dailyHighCap) && (
-            <div className="mt-4 space-y-3">
-              {usageStats.dailyMediumCap && (
-                <div>
-                  <div className="flex justify-between text-xs text-gray-600 mb-1">
-                    <span>Medium Daily Usage</span>
-                    <span>{Math.round(((usageStats.mediumUsedToday || 0) / usageStats.dailyMediumCap) * 100)}%</span>
-                  </div>
-                  <div className="w-full bg-gray-200 rounded-full h-2">
-                    <div 
-                      className="bg-blue-500 h-2 rounded-full transition-all duration-300"
-                      style={{ width: `${Math.min(((usageStats.mediumUsedToday || 0) / usageStats.dailyMediumCap) * 100, 100)}%` }}
-                    ></div>
+                          <p className="text-xs opacity-75">Deadline:</p>
+                          <p className="text-sm">
+                            {dayjs.utc(challenge.submissionDeadline).tz(EASTERN_TIMEZONE).format('h:mm A')} ET
+                          </p>
+                          {challenge.hasSubmitted && (
+                            <span className="inline-block px-2 py-1 bg-green-500 bg-opacity-30 rounded text-xs mt-1">
+                              Submitted ✓
+                            </span>
+                          )}
                   </div>
                 </div>
-              )}
-              
-              {usageStats.dailyHighCap && (
-                <div>
-                  <div className="flex justify-between text-xs text-gray-600 mb-1">
-                    <span>High Daily Usage</span>
-                    <span>{Math.round(((usageStats.highUsedToday || 0) / usageStats.dailyHighCap) * 100)}%</span>
                   </div>
-                  <div className="w-full bg-gray-200 rounded-full h-2">
-                    <div 
-                      className="bg-purple-500 h-2 rounded-full transition-all duration-300"
-                      style={{ width: `${Math.min(((usageStats.highUsedToday || 0) / usageStats.dailyHighCap) * 100, 100)}%` }}
-                    ></div>
-                  </div>
+                  ))}
                 </div>
-              )}
+                {activeChallenges.length > 3 && (
+                  <p className="text-sm text-indigo-100 mt-2">
+                    + {activeChallenges.length - 3} more challenge{activeChallenges.length - 3 !== 1 ? 's' : ''}
+                  </p>
+                )}
+                  </div>
+                  </div>
             </div>
           )}
           
-          {(usageStats.mediumCredits === 0 && usageStats.highCredits === 0) && (
-            <div className="mt-3 p-2 bg-amber-50 border border-amber-200 rounded-lg">
-              <p className="text-sm text-amber-800">
-                📅 No credits remaining. Credits refill monthly or you can purchase boosters.
-              </p>
-            </div>
-          )}
-        </div>
+        {/* Progress Steps */}
+        <ProgressSteps steps={steps} currentStep={currentStep} />
+
+        {/* Usage Stats Display */}
+        <UsageStats usageStats={usageStats} />
 
         <form onSubmit={handleSubmit} className="space-y-8">
           {/* Step 1 */}
@@ -556,9 +580,9 @@ export default function DesignPage() {
 
           {/* Step 2 */}
           {currentStep === 2 && (
-            <div className="space-y-6">
-              <div>
-                <label className="block text-sm font-medium text-gray-900 mb-2">
+            <div className="space-y-8">
+              <div className="pt-4">
+                <label className="block text-sm font-medium text-gray-900 mb-3">
                   Clothing Item Design Prompt
                 </label>
                 <textarea
@@ -573,7 +597,7 @@ export default function DesignPage() {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-900 mb-2">
+                <label className="block text-sm font-medium text-gray-900 mb-3">
                   Primary Color
                 </label>
                 <input
@@ -587,10 +611,10 @@ export default function DesignPage() {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-900 mb-2">
+                <label className="block text-sm font-medium text-gray-900 mb-3">
                   Model and Additional Clothing Description
                 </label>
-                <p className="text-xs text-gray-600 mb-2">
+                <p className="text-xs text-gray-600 mb-3">
                   Describe the model's appearance, pose, styling, and any additional clothing items you'd like them to wear (pants, shoes, accessories, etc.). Leave blank for auto-generated professional model description.
                 </p>
                 <textarea
@@ -602,11 +626,14 @@ export default function DesignPage() {
                 />
               </div>
 
+              <div className="pt-2">
               <QualitySelector
                 quality={quality}
                 setQuality={setQuality}
                 disabled={loading}
+                  usageStats={usageStats}
               />
+              </div>
             </div>
           )}
 
@@ -841,6 +868,107 @@ export default function DesignPage() {
                   </div>
                 </div>
               </div>
+
+              {/* Challenge Submission Section */}
+              {activeChallenges.length > 0 && (
+                <div className="bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden">
+                  <div className="border-b border-gray-200 bg-indigo-50 px-6 py-4">
+                    <h3 className="text-lg font-semibold text-gray-900">🎯 Submit to Challenges</h3>
+                    <p className="text-sm text-gray-600 mt-1">
+                      Select which challenges you'd like to submit this design to:
+                    </p>
+                  </div>
+                  <div className="p-6">
+                    <div className="space-y-4">
+                      {activeChallenges.map((challenge) => {
+                        const isSelected = selectedChallengeIds.includes(challenge.id);
+                        const isMatchingTheme = userPrompt.toLowerCase().includes(challenge.theme.toLowerCase()) ||
+                                               (challenge.mainItem && itemType.toLowerCase().includes(challenge.mainItem.toLowerCase()));
+                        
+                        return (
+                          <div
+                            key={challenge.id}
+                            className={`border rounded-lg p-4 cursor-pointer transition-all duration-200 ${
+                              challenge.hasSubmitted
+                                ? 'border-gray-200 bg-gray-50 opacity-60'
+                                : isSelected
+                                ? 'border-indigo-500 bg-indigo-50'
+                                : 'border-gray-200 hover:border-indigo-300'
+                            }`}
+                            onClick={() => {
+                              if (challenge.hasSubmitted) return;
+                              
+                              if (isSelected) {
+                                setSelectedChallengeIds(prev => prev.filter(id => id !== challenge.id));
+                              } else {
+                                setSelectedChallengeIds(prev => [...prev, challenge.id]);
+                              }
+                            }}
+                          >
+                            <div className="flex items-start justify-between">
+                              <div className="flex-1">
+                                <div className="flex items-center space-x-3">
+                                  <div className={`w-5 h-5 rounded border-2 flex items-center justify-center ${
+                                    challenge.hasSubmitted
+                                      ? 'border-gray-300 bg-gray-100'
+                                      : isSelected
+                                      ? 'border-indigo-500 bg-indigo-500'
+                                      : 'border-gray-300'
+                                  }`}>
+                                    {challenge.hasSubmitted ? (
+                                      <svg className="w-3 h-3 text-gray-500" fill="currentColor" viewBox="0 0 20 20">
+                                        <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                                      </svg>
+                                    ) : isSelected ? (
+                                      <svg className="w-3 h-3 text-white" fill="currentColor" viewBox="0 0 20 20">
+                                        <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                                      </svg>
+                                    ) : null}
+                                  </div>
+                                  <div className="flex-1">
+                                    <div className="flex items-center space-x-2">
+                                      <h4 className="font-semibold text-gray-900">{challenge.theme}</h4>
+                                      {isMatchingTheme && !challenge.hasSubmitted && (
+                                        <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                                          Great match!
+                                        </span>
+                                      )}
+                                      {challenge.hasSubmitted && (
+                                        <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-600">
+                                          Already submitted
+                                        </span>
+                                      )}
+                                    </div>
+                                    {challenge.mainItem && (
+                                      <p className="text-sm text-gray-600 mt-1">
+                                        Required item: {challenge.mainItem}
+                                      </p>
+                                    )}
+                                    <div className="flex items-center justify-between mt-2">
+                                      <p className="text-xs text-gray-500">{challenge.group.name}</p>
+                                      <p className="text-xs text-gray-500">
+                                        Deadline: {dayjs.utc(challenge.submissionDeadline).tz(EASTERN_TIMEZONE).format('h:mm A')} ET
+                                      </p>
+                                    </div>
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                    
+                    {selectedChallengeIds.length > 0 && (
+                      <div className="mt-4 p-3 bg-indigo-50 border border-indigo-200 rounded-lg">
+                        <p className="text-sm text-indigo-700">
+                          ✓ Selected {selectedChallengeIds.length} challenge{selectedChallengeIds.length !== 1 ? 's' : ''} for submission
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
 
               {error && (
                 <div className="rounded-lg bg-red-50 p-4">

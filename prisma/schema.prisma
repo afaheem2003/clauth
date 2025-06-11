@@ -364,12 +364,14 @@ model UserCredits {
   id                    String   @id @default(cuid())
   user                  User     @relation(fields: [userId], references: [id])
   userId                String
+  lowCredits            Int      @default(0)  // Available low quality credits
   mediumCredits         Int      @default(0)  // Available medium quality credits
   highCredits           Int      @default(0)  // Available high quality credits
   lastMonthlyRefill     DateTime?             // When credits were last refilled
   
   // Subscription fields
   subscriptionType      String   @default("FREE")  // "FREE", "CREATOR", "CREATOR_PRO"
+  dailyLowCap           Int?                       // Daily limit for low credits
   dailyMediumCap        Int?                       // Daily limit for medium credits
   dailyHighCap          Int?                       // Daily limit for high credits  
   lastReset             DateTime?                  // When subscription was last reset
@@ -385,6 +387,7 @@ model DailyUsage {
   user                  User     @relation(fields: [userId], references: [id])
   userId                String
   date                  DateTime @db.Date  // Just the date (YYYY-MM-DD)
+  lowGenerations        Int      @default(0)  // Low quality generations used today
   mediumGenerations     Int      @default(0)  // Medium quality generations used today
   highGenerations       Int      @default(0)  // High quality generations used today
   createdAt             DateTime @default(now())
@@ -412,9 +415,10 @@ model DesignEditHistory {
 
 model BoosterPack {
   id                    String   @id @default(cuid())
-  name                  String   @unique  // "medium_micro", "medium_bulk", "high_micro", "high_bulk"
-  displayName           String             // "Medium Booster — Micro"
+  name                  String   @unique  // "low_micro", "medium_micro", "medium_bulk", "high_micro", "high_bulk"
+  displayName           String             // "Low Booster — Micro"
   price                 Decimal            // Price in dollars
+  lowCredits            Int      @default(0)  // Low credits provided
   mediumCredits         Int      @default(0)  // Medium credits provided
   highCredits           Int      @default(0)  // High credits provided
   isActive              Boolean  @default(true)
@@ -431,6 +435,7 @@ model BoosterPurchase {
   userId                String
   boosterPack           BoosterPack @relation(fields: [boosterPackId], references: [id])
   boosterPackId         String
+  lowCreditsAdded       Int         // Low credits added to user account
   mediumCreditsAdded    Int         // Medium credits added to user account
   highCreditsAdded      Int         // High credits added to user account
   amountPaid            Decimal     // Amount paid in dollars
@@ -447,6 +452,7 @@ model CreditTransaction {
   user                  User             @relation(fields: [userId], references: [id])
   userId                String
   type                  CreditTransactionType
+  lowCreditsChange      Int              @default(0)  // Can be positive or negative
   mediumCreditsChange   Int              @default(0)  // Can be positive or negative
   highCreditsChange     Int              @default(0)  // Can be positive or negative
   reason                String           // Description of the transaction

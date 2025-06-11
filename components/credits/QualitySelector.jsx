@@ -27,26 +27,37 @@ export default function QualitySelector({ quality, setQuality, disabled = false 
 
   const qualityOptions = [
     {
+      value: 'low',
+      label: 'Sketch',
+      description: 'Quick concept generation, perfect for ideation',
+      icon: '✏️',
+      credits: usageStats?.lowCredits || 0,
+      usedToday: usageStats?.lowUsedToday || 0,
+      dailyCap: usageStats?.dailyLowCap,
+      available: true,
+      costBadge: '1 Sketch Credit'
+    },
+    {
       value: 'medium',
-      label: 'Medium Quality',
-      description: 'Good quality, faster generation',
-      icon: '⚡',
+      label: 'Studio',
+      description: 'Professional studio quality, balanced results',
+      icon: '🎨',
       credits: usageStats?.mediumCredits || 0,
       usedToday: usageStats?.mediumUsedToday || 0,
       dailyCap: usageStats?.dailyMediumCap,
       available: true,
-      costBadge: '1 Medium Credit'
+      costBadge: '1 Studio Credit'
     },
     {
       value: 'high',
-      label: 'High Quality',
-      description: 'Premium quality, slower generation',
+      label: 'Runway',
+      description: 'Premium runway-ready designs, finest detail',
       icon: '✨',
       credits: usageStats?.highCredits || 0,
       usedToday: usageStats?.highUsedToday || 0,
       dailyCap: usageStats?.dailyHighCap,
       available: true,
-      costBadge: '1 High Credit'
+      costBadge: '1 Runway Credit'
     }
   ];
 
@@ -80,7 +91,7 @@ export default function QualitySelector({ quality, setQuality, disabled = false 
         Generation Quality
       </label>
       
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
         {qualityOptions.map((option) => {
           const isSelected = quality === option.value;
           const availabilityMessage = getAvailabilityMessage(option);
@@ -131,7 +142,9 @@ export default function QualitySelector({ quality, setQuality, disabled = false 
 
                 {/* Cost badge */}
                 <div className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium mb-2 ${
-                  option.value === 'medium'
+                  option.value === 'low'
+                    ? 'bg-orange-100 text-orange-800'
+                    : option.value === 'medium'
                     ? 'bg-blue-100 text-blue-800'
                     : 'bg-purple-100 text-purple-800'
                 }`}>
@@ -161,19 +174,20 @@ export default function QualitySelector({ quality, setQuality, disabled = false 
           <div className="text-sm text-blue-800">
             <p className="font-medium mb-1">Quality Comparison:</p>
             <ul className="text-xs space-y-1">
-              <li>• <strong>Medium:</strong> 1024×1024px, faster generation (~30s)</li>
-              <li>• <strong>High:</strong> 1024×1024px, enhanced detail (~60s)</li>
+              <li>• <strong>Sketch:</strong> Portrait mode, AI-edited back view (~20s)</li>
+              <li>• <strong>Studio:</strong> Portrait mode, AI-edited back view (~40s)</li>
+              <li>• <strong>Runway:</strong> Landscape split, enhanced detail (~60s)</li>
             </ul>
           </div>
         </div>
       </div>
 
       {/* No credits warning */}
-      {usageStats && usageStats.mediumCredits === 0 && usageStats.highCredits === 0 && (
+      {usageStats && usageStats.lowCredits === 0 && usageStats.mediumCredits === 0 && usageStats.highCredits === 0 && (
         <div className="bg-amber-50 border border-amber-200 rounded-lg p-3">
           <div className="flex items-center space-x-2">
             <svg className="w-4 h-4 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L5.082 16.5c-.77.833.192 2.5 1.732 2.5z" />
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0-2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L5.082 16.5c-.77.833.192 2.5 1.732 2.5z" />
             </svg>
             <div className="text-sm text-amber-800">
               <p className="font-medium">No credits remaining</p>
