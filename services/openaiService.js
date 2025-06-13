@@ -294,7 +294,7 @@ A clean, high-quality comparison of the same item viewed from front and back, ap
   }
 }
 
-export async function inpaintImageWithOpenAI(originalImage, maskImage, inpaintingData, options = {}) {
+export async function inpaintImageWithOpenAI(originalImage, maskImage, inpaintingData, options = {}, referenceImages = []) {
   if (!process.env.OPENAI_API_KEY) {
     console.error("OPENAI_API_KEY is not set.");
     throw new Error("OpenAI API key is not configured for image generation.");
@@ -317,36 +317,62 @@ export async function inpaintImageWithOpenAI(originalImage, maskImage, inpaintin
       size = "1536x1024",
       quality = process.env.OPENAI_IMAGE_QUALITY || "high",
       originalItemType = '',
-      originalColor = ''
+      originalColor = '',
+      view = '' // 'front' or 'back' (optional, for prompt logic)
     } = options;
 
-    // Map internal quality levels to OpenAI quality values
-    // Use quality parameter directly
-
     // Convert base64 strings to buffers
-    console.log("[OpenAI Service] Converting images to buffers...");
     const imageBuffer = Buffer.from(originalImage, 'base64');
     const maskBuffer = Buffer.from(maskImage, 'base64');
-    console.log("[OpenAI Service] Image buffer size:", imageBuffer.length, "Mask buffer size:", maskBuffer.length);
+    const referenceBuffers = referenceImages.map(img => Buffer.from(img, 'base64'));
 
     // Detect image format from size parameter to generate appropriate prompt
     const isPortrait = size === "1024x1536";
     const isLandscape = size === "1536x1024";
     
     let inpaintingPrompt;
-    if (isPortrait) {
-      // Portrait format: single image editing
-      console.log("[OpenAI Service] Generating portrait inpainting prompt");
+    if (isPortrait && view === 'back' && referenceImages.length > 0) {
+      // Portrait back view with style reference
       inpaintingPrompt = `
 Modify this ${size} portrait studio image of a ${originalItemType} in ${originalColor}.
 
-${inpaintingData.frontModifications !== 'No changes to front view.' ? inpaintingData.frontModifications : inpaintingData.backModifications}
+${inpaintingData.backModifications}
+
+STRICT REQUIREMENT: Match the style, color, and design elements of the provided front view image at all costs. The back view must look like the same garment as the front reference image. Only apply the requested edits to the back. Do not change the model, pose, or background.
+`.trim();
+    } else if (isPortrait && view === 'front') {
+      // Portrait front view editing
+      inpaintingPrompt = `
+Modify this ${size} portrait studio image of a ${originalItemType} in ${originalColor}.
+
+${inpaintingData.frontModifications}
+
+Preserve the original model pose, background, lighting, and color. Only modify the front view as described above. Do not change any other details. Avoid real-world brand references.
+`.trim();
+    } else if (isPortrait && view === 'back') {
+      // Portrait back view editing (no reference)
+      inpaintingPrompt = `
+Modify this ${size} portrait studio image of a ${originalItemType} in ${originalColor}.
+
+${inpaintingData.backModifications}
+
+Preserve the original model pose, background, lighting, and color. Only modify the back view as described above. Do not change any other details. Avoid real-world brand references.
+`.trim();
+    } else if (isPortrait) {
+      // Portrait format: single image editing (fallback)
+      const modifications = inpaintingData.frontModifications !== 'No changes to front view.' 
+        ? inpaintingData.frontModifications 
+        : inpaintingData.backModifications;
+      
+      inpaintingPrompt = `
+Modify this ${size} portrait studio image of a ${originalItemType} in ${originalColor}.
+
+${modifications}
 
 Preserve the original model pose, background, lighting, and color. Only modify as described above. Do not change any other details. Avoid real-world brand references.
 `.trim();
     } else if (isLandscape) {
       // Landscape format: split-panel editing
-      console.log("[OpenAI Service] Generating landscape split-panel inpainting prompt");
       inpaintingPrompt = `
 Modify this ${size} split-panel studio image of a ${originalItemType} in ${originalColor}.
 
@@ -360,7 +386,6 @@ Preserve the original model pose, background, lighting, garment structure, and c
 `.trim();
     } else {
       // Fallback for unknown sizes
-      console.log("[OpenAI Service] Unknown size format, using generic prompt");
       inpaintingPrompt = `
 Modify this ${size} studio image of a ${originalItemType} in ${originalColor}.
 
@@ -379,12 +404,33 @@ Preserve the original model pose, background, lighting, and color. Only modify a
       setTimeout(() => reject(new Error('Inpainting request timed out after 2 minutes')), 120000);
     });
 
-    // Make the API call with proper file objects
+    // For OpenAI images.edit API, we can pass multiple images including reference images
+    // Prepare image array for OpenAI API - main image first, then reference images
+    let imageArray = [new File([imageBuffer], 'image.png', { type: 'image/png' })];
+    
+    // Add reference images if provided
+    if (referenceBuffers.length > 0) {
+      console.log(`[OpenAI Service] Adding ${referenceBuffers.length} reference image(s) for style consistency`);
+      referenceBuffers.forEach((buf, idx) => {
+        imageArray.push(new File([buf], `reference${idx + 1}.png`, { type: 'image/png' }));
+      });
+    }
+
+    // Enhanced prompt when reference images are provided
+    let finalPrompt = inpaintingPrompt;
+    if (referenceBuffers.length > 0) {
+      finalPrompt += `\n\nIMPORTANT: Use the provided reference image(s) to maintain style consistency. Ensure the edited image matches the design elements, colors, and overall aesthetic of the reference images.`;
+    }
+
+    console.log(`[OpenAI Service] Sending ${imageArray.length} image(s) to OpenAI`);
+    console.log("[OpenAI Service] Final prompt:", finalPrompt);
+
+    // Make the API call with multiple images if needed
     const response = await Promise.race([
       openai.images.edit({
         model,
-        prompt: inpaintingPrompt,
-        image: new File([imageBuffer], 'image.png', { type: 'image/png' }),
+        prompt: finalPrompt,
+        image: imageArray,
         mask: new File([maskBuffer], 'mask.png', { type: 'image/png' }),
         n: 1,
         size,
@@ -451,8 +497,14 @@ CRITICAL GUIDELINES:
 4. If request mentions both clothing AND model changes, apply both appropriately
 5. Maintain the same ${originalItemType} base garment type unless explicitly changing it
 6. Focus on CONCRETE, VISUAL modifications only
-7. Specify exact changes needed for each view
-8. Provide a COMPLETE updated design description that reflects the final state after all changes
+7. IMPORTANT: If the user specifies "front", "back", or a specific location, apply changes ONLY to that view
+8. If no specific location is mentioned, determine the most logical placement
+
+PARSING RULES:
+- "add X to the back" → frontModifications: "No changes to front view.", backModifications: "Add X to the back"
+- "add X to the front" → frontModifications: "Add X to the front", backModifications: "No changes to back view."
+- "change color to Y" → Apply to both front and back
+- "make more realistic" → Apply to both front and back
 
 Your response must include:
 1. Clear front view modifications (what changes on the front view)

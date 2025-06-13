@@ -51,6 +51,7 @@ export default function DesignPage() {
   const [isInpaintingMode, setIsInpaintingMode] = useState(false);
   const [inpaintingPrompt, setInpaintingPrompt] = useState('');
   const [currentView, setCurrentView] = useState('front'); // 'front' or 'back'
+  const [targetQuality, setTargetQuality] = useState(''); // For cross-quality editing
 
   // Quality selection state
   const [quality, setQuality] = useState('low');
@@ -295,7 +296,8 @@ export default function DesignPage() {
         prompt: inpaintingPrompt,
         userId: session?.user?.id || session?.user?.uid,
         quality: quality,
-        originalDescription: aiDescription // Pass the current design description
+        originalDescription: aiDescription, // Pass the current design description
+        ...(targetQuality && { targetQuality }) // Include target quality if specified
       };
 
       // Add appropriate image data based on quality
@@ -325,23 +327,43 @@ export default function DesignPage() {
         throw new Error(data.error);
       }
 
+      console.log("[Frontend] 🔍 INPAINTING RESPONSE DATA:");
+      console.log("[Frontend]   Response keys:", Object.keys(data));
+      console.log("[Frontend]   angleUrls:", data.angleUrls ? Object.keys(data.angleUrls) : 'undefined');
+      console.log("[Frontend]   frontImage length:", data.frontImage?.length || 'undefined');
+      console.log("[Frontend]   backImage length:", data.backImage?.length || 'undefined');
+      console.log("[Frontend]   compositeImage length:", data.compositeImage?.length || 'undefined');
+      console.log("[Frontend]   Current quality:", quality);
+      console.log("[Frontend]   Target quality:", data.targetQuality);
+
       // Update with new images based on quality
       if (quality === 'low' || quality === 'medium') {
         // For low/medium, we get separate front and back images
+        console.log("[Frontend] 📸 UPDATING PORTRAIT IMAGES (low/medium quality)");
+        console.log("[Frontend]   Setting front image from:", data.angleUrls?.front ? 'angleUrls.front' : 'undefined');
+        console.log("[Frontend]   Setting back image from:", data.angleUrls?.back ? 'angleUrls.back' : 'undefined');
         setFrontImage(data.angleUrls.front);
         setBackImage(data.angleUrls.back);
         // No composite image for low/medium quality
       } else {
         // For high quality, we get a composite image and angle URLs
-      setCompositeImage(data.compositeImage);
-      setFrontImage(data.angleUrls.front);
-      setBackImage(data.angleUrls.back);
+        console.log("[Frontend] 🖼️ UPDATING LANDSCAPE IMAGES (high quality)");
+        setCompositeImage(data.compositeImage);
+        setFrontImage(data.angleUrls.front);
+        setBackImage(data.angleUrls.back);
       }
 
       setAiDescription(data.aiDescription);
 
+      // If we performed cross-quality editing, update the current quality
+      if (data.targetQuality && data.targetQuality !== quality) {
+        console.log(`Quality upgraded from ${quality} to ${data.targetQuality}`);
+        setQuality(data.targetQuality);
+      }
+
       // Clear the inpainting prompt and exit inpainting mode
       setInpaintingPrompt('');
+      setTargetQuality(''); // Reset target quality
       setIsInpaintingMode(false);
 
       // Refresh usage stats
@@ -851,6 +873,93 @@ export default function DesignPage() {
                             rows={4}
                             className="w-full px-4 py-3 border border-gray-300 rounded-md shadow-sm text-gray-900 placeholder-gray-500 text-base focus:ring-indigo-500 focus:border-indigo-500"
                           />
+                        </div>
+
+                        {/* Target Quality Selector for Cross-Quality Editing */}
+                        <div>
+                          <label className="block text-sm font-medium text-gray-900 mb-2">
+                            Target Quality (Optional)
+                          </label>
+                          <p className="text-xs text-gray-600 mb-3">
+                            Choose a different quality level for your edit. Leave blank to keep current quality ({quality}).
+                          </p>
+                          <div className="grid grid-cols-3 gap-3">
+                            <button
+                              type="button"
+                              onClick={() => setTargetQuality(targetQuality === 'low' ? '' : 'low')}
+                              disabled={quality === 'low'}
+                              className={`p-3 rounded-lg border text-sm font-medium transition-all ${
+                                targetQuality === 'low'
+                                  ? 'border-orange-500 bg-orange-50 text-orange-700'
+                                  : quality === 'low'
+                                  ? 'border-gray-200 bg-gray-100 text-gray-400 cursor-not-allowed'
+                                  : 'border-gray-300 bg-white text-gray-700 hover:border-orange-300 hover:bg-orange-50'
+                              }`}
+                            >
+                              <div className="flex items-center justify-center space-x-2">
+                                <span>✏️</span>
+                                <span>Sketch</span>
+                              </div>
+                              {quality === 'low' && (
+                                <div className="text-xs text-gray-500 mt-1">Current</div>
+                              )}
+                            </button>
+                            
+                            <button
+                              type="button"
+                              onClick={() => setTargetQuality(targetQuality === 'medium' ? '' : 'medium')}
+                              disabled={quality === 'medium'}
+                              className={`p-3 rounded-lg border text-sm font-medium transition-all ${
+                                targetQuality === 'medium'
+                                  ? 'border-blue-500 bg-blue-50 text-blue-700'
+                                  : quality === 'medium'
+                                  ? 'border-gray-200 bg-gray-100 text-gray-400 cursor-not-allowed'
+                                  : 'border-gray-300 bg-white text-gray-700 hover:border-blue-300 hover:bg-blue-50'
+                              }`}
+                            >
+                              <div className="flex items-center justify-center space-x-2">
+                                <span>🎨</span>
+                                <span>Studio</span>
+                              </div>
+                              {quality === 'medium' && (
+                                <div className="text-xs text-gray-500 mt-1">Current</div>
+                              )}
+                            </button>
+                            
+                            <button
+                              type="button"
+                              onClick={() => setTargetQuality(targetQuality === 'high' ? '' : 'high')}
+                              disabled={quality === 'high'}
+                              className={`p-3 rounded-lg border text-sm font-medium transition-all ${
+                                targetQuality === 'high'
+                                  ? 'border-purple-500 bg-purple-50 text-purple-700'
+                                  : quality === 'high'
+                                  ? 'border-gray-200 bg-gray-100 text-gray-400 cursor-not-allowed'
+                                  : 'border-gray-300 bg-white text-gray-700 hover:border-purple-300 hover:bg-purple-50'
+                              }`}
+                            >
+                              <div className="flex items-center justify-center space-x-2">
+                                <span>✨</span>
+                                <span>Runway</span>
+                              </div>
+                              {quality === 'high' && (
+                                <div className="text-xs text-gray-500 mt-1">Current</div>
+                              )}
+                            </button>
+                          </div>
+                          
+                          {targetQuality && targetQuality !== quality && (
+                            <div className="mt-3 p-3 bg-green-50 border border-green-200 rounded-lg">
+                              <div className="flex items-center space-x-2">
+                                <svg className="w-4 h-4 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7h8m0 0v8m0-8l-8 8-4-4-8 8" />
+                                </svg>
+                                <p className="text-sm text-green-700">
+                                  <strong>Quality Upgrade:</strong> Your design will be converted from {quality} to {targetQuality} quality.
+                                </p>
+                              </div>
+                            </div>
+                          )}
                         </div>
 
                         <div className="flex gap-3">
