@@ -231,11 +231,26 @@ export async function generateImageWithOpenAI(prompt, options = {}) {
     const basePrompt = `
 Generate a high-resolution horizontal (landscape) image, sized exactly 1536x1024 pixels, showing two views of the same model and clothing item positioned side by side.
 
+CRITICAL PHOTOREALISTIC REQUIREMENTS:
+- PHOTOREALISTIC quality is absolutely essential - the image must look like a real photograph
+- Hyperrealistic textures, lighting, shadows, and fabric details
+- Natural skin tones, realistic hair, and authentic human proportions
+- Professional photography-grade realism with no artificial or cartoon-like elements
+
 CRITICAL LAYOUT REQUIREMENTS:
 - NO dividers, borders, lines, or separators between the left and right areas
 - The background must flow seamlessly across the entire width of the image
 - Think of this as ONE continuous studio space photographed from two angles, not two separate panels
 - The lighting and studio environment should be consistent and uninterrupted across the full image width
+
+FASHION EDITORIAL STYLE REQUIREMENTS:
+- FULL-BODY shots showing the complete model from head to toe
+- Fashion magazine editorial photography style with professional runway model
+- Camera positioned at a LOWER ANGLE (slightly below eye level) to create a more flattering, elongated silhouette
+- Camera positioned at APPROPRIATE DISTANCE with generous spacing - ensure significant space between the top of the image and the model's head, and between the bottom of the image and the model's feet
+- The model should appear tall and elegant with proper proportions
+- Avoid close-up or cropped shots - show the complete figure and styling with ample breathing room
+- Professional fashion photography composition and lighting
 
 Both areas must feature the same hyperrealistic runway model wearing the exact same clothing item. The image should appear professionally photographed under consistent studio lighting with a clean, neutral background that extends seamlessly across the entire image width.
 
@@ -243,11 +258,11 @@ IMPORTANT BRAND SAFETY NOTE:
 Do **not** use or reference any real-world brand names, logos, university names, slogans, or trademarks (e.g., "Nike", "Harvard", "Burberry", "Fighting Irish"). Every design element, label, or text must be **original** and fictional. Use made-up names, slogans, or symbols that are safe for commercial use.
 
 Left Area (Front View):
-Display the model facing directly forward, showcasing the front of a ${itemDescription}.
+Display the model facing directly forward in a full-body pose, showcasing the complete front view of a ${itemDescription}.
 The front design should include: ${frontDesign}
 
 Right Area (Back View):
-Display the same model facing directly backward, showcasing the back of the same ${itemDescription}.
+Display the same model facing directly backward in a full-body pose, showcasing the complete back view of the same ${itemDescription}.
 The back design should include: ${backDesign}
 
 Model Appearance:
@@ -257,14 +272,18 @@ Image Requirements:
 - ONE continuous studio background that flows seamlessly across the entire 1536x1024 image
 - NO visual separators, dividers, lines, or borders anywhere in the image
 - Use identical studio conditions across both areas (lighting, pose style, camera distance, proportions)
-- Match professional fashion catalog or editorial photography standards
-- The clothing should be faithfully rendered from both sides
+- Match professional fashion magazine editorial photography standards
+- FULL-BODY composition showing complete model from head to toe with generous spacing around the figure
+- Camera angle slightly below eye level to create an elongated, flattering silhouette
+- Ensure ample space at top and bottom of frame - model should not fill the entire vertical space
+- PHOTOREALISTIC rendering of all elements - fabric textures, lighting, shadows, and human features
+- The clothing should be faithfully rendered from both sides with realistic material properties
 - Text or lettering printed on the clothing (e.g., logos, mottos, crests) is welcome and encouraged if described, but must be fictional and **not** resemble any existing brands or slogans
 - Do **not** include any unrelated UI text, captions, labels, borders, watermarks, shadows, or props
 - The background must be a single, continuous, clean neutral surface with no interruptions
 
 Final Output:
-A clean, high-quality comparison of the same item viewed from front and back, appearing as if photographed in one continuous studio space with no visual dividers or separations.
+A clean, high-quality, PHOTOREALISTIC full-body comparison of the same item viewed from front and back, appearing as if photographed for a fashion magazine editorial in one continuous studio space with no visual dividers or separations. The model should appear tall and elegant with proper spacing around the figure.
 `.trim();
 
     const requestOptions = {
@@ -622,11 +641,26 @@ export async function generatePortraitWithOpenAI(prompt, options = {}) {
       const portraitPrompt = `
 Generate a high-resolution vertical (portrait) image, sized exactly 1024x1536 pixels, showing a single model wearing a clothing item from the front view.
 
+CRITICAL PHOTOREALISTIC REQUIREMENTS:
+- PHOTOREALISTIC quality is absolutely essential - the image must look like a real photograph
+- Hyperrealistic textures, lighting, shadows, and fabric details
+- Natural skin tones, realistic hair, and authentic human proportions
+- Professional photography-grade realism with no artificial or cartoon-like elements
+
 LAYOUT REQUIREMENTS:
 - Single front-facing view only
 - Clean, professional studio background
 - Model positioned centrally in the frame
-- Professional fashion photography style
+- Professional fashion magazine editorial photography style
+
+FASHION EDITORIAL STYLE REQUIREMENTS:
+- FULL-BODY shot showing the complete model from head to toe
+- Fashion magazine editorial photography style with professional runway model
+- Camera positioned at a LOWER ANGLE (slightly below eye level) to create a more flattering, elongated silhouette
+- Camera positioned at APPROPRIATE DISTANCE with generous spacing - ensure significant space between the top of the image and the model's head, and between the bottom of the image and the model's feet
+- The model should appear tall and elegant with proper proportions
+- Avoid close-up or cropped shots - show the complete figure and styling with ample breathing room
+- Professional fashion photography composition and lighting
 
 The image should feature a hyperrealistic runway model wearing the clothing item described below, photographed under professional studio lighting with a clean, neutral background.
 
@@ -634,7 +668,7 @@ IMPORTANT BRAND SAFETY NOTE:
 Do **not** use or reference any real-world brand names, logos, university names, slogans, or trademarks (e.g., "Nike", "Harvard", "Burberry", "Fighting Irish"). Every design element, label, or text must be **original** and fictional. Use made-up names, slogans, or symbols that are safe for commercial use.
 
 Model View (Front):
-Display the model facing directly forward, showcasing the front of a ${itemDescription}.
+Display the model facing directly forward in a full-body pose, showcasing the complete front view of a ${itemDescription}.
 The front design should include: ${frontDesign}
 
 Model Appearance:
@@ -642,14 +676,19 @@ ${modelDetails}
 
 Image Requirements:
 - Professional studio lighting and background
-- Model should be well-positioned and proportioned
-- Clothing should be clearly visible and well-rendered
+- FULL-BODY composition showing complete model from head to toe with generous spacing around the figure
+- Camera angle slightly below eye level to create an elongated, flattering silhouette
+- Ensure ample space at top and bottom of frame - model should not fill the entire vertical space
+- PHOTOREALISTIC rendering of all elements - fabric textures, lighting, shadows, and human features
+- Model should be well-positioned and proportioned for fashion editorial style
+- Clothing should be clearly visible and well-rendered with realistic material properties
 - Text or lettering on clothing must be fictional/original
 - No unrelated UI elements, watermarks, or distractions
 - Clean, neutral background suitable for commercial use
+- Fashion magazine editorial photography standards
 
 Final Output:
-A clean, high-quality portrait image showing the clothing item from the front view only.
+A clean, high-quality, PHOTOREALISTIC full-body portrait image showing the clothing item from the front view only, shot in fashion magazine editorial style. The model should appear tall and elegant with proper spacing around the figure.
 `.trim();
 
       const requestOptions = {
@@ -741,28 +780,41 @@ export async function editPortraitToBackWithOpenAI(originalImage, options = {}) 
         originalColor = ''
       } = options;
 
-      // Map internal quality levels to OpenAI quality values
-      // Use quality parameter directly
-
       // Convert base64 string to buffer
       console.log("[OpenAI Service] Converting portrait image to buffer...");
       const imageBuffer = Buffer.from(originalImage, 'base64');
       console.log("[OpenAI Service] Portrait image buffer size:", imageBuffer.length);
 
-      // Create a full mask for complete image editing
+      // Create a smaller, targeted mask instead of full mask for better consistency
+      // This creates a mask that covers the main clothing area but preserves more context
       const maskBuffer = await sharp({
         create: {
           width: 1024,
           height: 1536,
           channels: 4,
-          background: { r: 255, g: 255, b: 255, alpha: 1 }
+          background: { r: 0, g: 0, b: 0, alpha: 0 } // Transparent background
         }
       })
+      .composite([{
+        input: Buffer.from(`
+          <svg width="1024" height="1536">
+            <rect x="200" y="300" width="624" height="1000" fill="white" />
+          </svg>
+        `),
+        top: 0,
+        left: 0
+      }])
       .png()
       .toBuffer();
 
       const backViewPrompt = `
 Transform this front-view portrait into a back-view portrait of the EXACT SAME model and clothing item. 
+
+CRITICAL PHOTOREALISTIC REQUIREMENTS:
+- PHOTOREALISTIC quality is absolutely essential - the image must look like a real photograph
+- Hyperrealistic textures, lighting, shadows, and fabric details
+- Natural skin tones, realistic hair, and authentic human proportions
+- Professional photography-grade realism with no artificial or cartoon-like elements
 
 CRITICAL REQUIREMENTS:
 - Keep the EXACT SAME model appearance, pose style, and studio environment
@@ -770,10 +822,20 @@ CRITICAL REQUIREMENTS:
 - Change ONLY the viewing angle from front to back
 - Maintain identical lighting, background, and proportions
 - Show the back design: ${backDesign}
+- Use the provided reference image to maintain perfect consistency with the front view
 
-The model should now be facing directly away from the camera, showing the back of the ${itemDescription} in ${originalColor}. Keep everything else identical to the original image - same model, same clothing item, same studio setup, same lighting conditions.
+FASHION EDITORIAL STYLE REQUIREMENTS:
+- FULL-BODY shot showing the complete model from head to toe
+- Fashion magazine editorial photography style with professional runway model
+- Camera positioned at a LOWER ANGLE (slightly below eye level) to create a more flattering, elongated silhouette
+- Camera positioned at APPROPRIATE DISTANCE with generous spacing - ensure significant space between the top of the image and the model's head, and between the bottom of the image and the model's feet
+- The model should appear tall and elegant with proper proportions
+- Avoid close-up or cropped shots - show the complete figure and styling with ample breathing room
+- Professional fashion photography composition and lighting
 
-IMPORTANT: Maintain all fictional branding and avoid any real-world brand references.
+The model should now be facing directly away from the camera in a full-body pose, showing the complete back view of the ${itemDescription} in ${originalColor}. Keep everything else identical to the original image - same model, same clothing item, same studio setup, same lighting conditions, same camera angle and framing.
+
+IMPORTANT: Use the provided reference image to maintain style consistency. Ensure the back view matches the design elements, colors, and overall aesthetic of the front reference image. Maintain all fictional branding and avoid any real-world brand references. Ensure PHOTOREALISTIC rendering of all elements.
 `.trim();
 
       console.log("[OpenAI Service] Making portrait back-view edit request to OpenAI...");
@@ -784,12 +846,21 @@ IMPORTANT: Maintain all fictional branding and avoid any real-world brand refere
         setTimeout(() => reject(new Error('Portrait editing request timed out after 5 minutes')), 300000);
       });
 
-      // Make the API call with proper file objects
+      // Prepare image array - original image first, then front image as reference
+      let imageArray = [new File([imageBuffer], 'portrait.png', { type: 'image/png' })];
+      
+      // Add the front image as a reference for consistency
+      console.log("[OpenAI Service] Adding front image as reference for style consistency");
+      imageArray.push(new File([imageBuffer], 'front_reference.png', { type: 'image/png' }));
+
+      console.log(`[OpenAI Service] Sending ${imageArray.length} image(s) to OpenAI (main + reference)`);
+
+      // Make the API call with the front image as reference
       const response = await Promise.race([
         openai.images.edit({
           model,
           prompt: backViewPrompt,
-          image: new File([imageBuffer], 'portrait.png', { type: 'image/png' }),
+          image: imageArray,
           mask: new File([maskBuffer], 'mask.png', { type: 'image/png' }),
           n: 1,
           size,
@@ -805,7 +876,7 @@ IMPORTANT: Maintain all fictional branding and avoid any real-world brand refere
       }
 
       const imageData = response.data[0];
-      console.log("[OpenAI Service] Successfully completed portrait back-view editing");
+      console.log("[OpenAI Service] Successfully completed portrait back-view editing with reference image");
       return imageData.b64_json;
 
     } catch (error) {

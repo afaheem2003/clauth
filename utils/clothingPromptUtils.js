@@ -84,14 +84,29 @@ export function generateLandscapePrompt(data) {
   return `
 Generate a high-resolution horizontal (landscape) image, sized exactly 1536x1024 pixels, divided into two vertical panels of equal width.
 
+CRITICAL PHOTOREALISTIC REQUIREMENTS:
+- PHOTOREALISTIC quality is absolutely essential - the image must look like a real photograph
+- Hyperrealistic textures, lighting, shadows, and fabric details
+- Natural skin tones, realistic hair, and authentic human proportions
+- Professional photography-grade realism with no artificial or cartoon-like elements
+
+FASHION EDITORIAL STYLE REQUIREMENTS:
+- FULL-BODY shots showing the complete model from head to toe
+- Fashion magazine editorial photography style with professional runway model
+- Camera positioned at a LOWER ANGLE (slightly below eye level) to create a more flattering, elongated silhouette
+- Camera positioned at APPROPRIATE DISTANCE with generous spacing - ensure significant space between the top of the image and the model's head, and between the bottom of the image and the model's feet
+- The model should appear tall and elegant with proper proportions
+- Avoid close-up or cropped shots - show the complete figure and styling with ample breathing room
+- Professional fashion photography composition and lighting
+
 Both panels must feature the same hyperrealistic runway model wearing the exact same clothing item. The image should appear professionally photographed under consistent **studio lighting** with a **clean, neutral background**. The background must be plain and free of any props, scenery, textures, or visual distractions.
 
 🔹 Left Panel (Front View):
-Display the model facing directly forward, showcasing the front of a ${mainClothingItem}.
+Display the model facing directly forward in a full-body pose, showcasing the complete front view of a ${mainClothingItem}.
 The front design should include: ${parsed.frontText}
 
 🔹 Right Panel (Back View):
-Display the same model facing directly backward, showcasing the back of the same ${mainClothingItem}.
+Display the same model facing directly backward in a full-body pose, showcasing the complete back view of the same ${mainClothingItem}.
 The back design should include: ${parsed.backText}
 
 🧍 Model Appearance:
@@ -99,14 +114,18 @@ The same model must appear in both panels. Appearance details: ${modelDescriptio
 
 🔧 Image Requirements:
 - Use identical studio conditions across both panels (lighting, pose style, camera distance, proportions)
-- Match professional fashion catalog or editorial photography standards
-- The clothing should be faithfully rendered from both sides
+- Match professional fashion magazine editorial photography standards
+- FULL-BODY composition showing complete model from head to toe with generous spacing around the figure
+- Camera angle slightly below eye level to create an elongated, flattering silhouette
+- Ensure ample space at top and bottom of frame - model should not fill the entire vertical space
+- PHOTOREALISTIC rendering of all elements - fabric textures, lighting, shadows, and human features
+- The clothing should be faithfully rendered from both sides with realistic material properties
 - Text or lettering printed on the clothing (e.g., logos, mottos, crests) is welcome and encouraged if described
 - Do **not** include any unrelated UI text, captions, labels, borders, watermarks, shadows, or props
 - The **background must remain clean and neutral** in both panels — no gradients, patterns, or depth of field effects
 
 Final Output:
-A clean, high-quality, side-by-side comparison of the same item viewed from front and back, using studio photography style and the same model throughout.
+A clean, high-quality, PHOTOREALISTIC full-body side-by-side comparison of the same item viewed from front and back, using fashion magazine editorial photography style and the same model throughout. The model should appear tall and elegant with proper spacing around the figure.
 `.trim();
 }
 

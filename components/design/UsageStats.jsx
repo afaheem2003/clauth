@@ -103,10 +103,6 @@ export default function UsageStats({ usageStats }) {
               <span className="font-medium text-gray-700">{usageStats.plan}</span>
             </div>
             <div className="flex justify-between">
-              <span>Edit limit per design:</span>
-              <span className="font-medium text-gray-700">{usageStats.editCapPerDesign}</span>
-            </div>
-            <div className="flex justify-between">
               <span>Credits reset:</span>
               <span className="font-medium text-gray-700">
                 {usageStats.creditsResetTime ? 

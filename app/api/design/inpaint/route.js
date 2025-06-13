@@ -362,9 +362,36 @@ export async function POST(req) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const body = await req.json();
-    console.log("[Inpaint API] Request body keys:", Object.keys(body));
-    const { originalImage, frontImage, backImage, prompt, userId, quality = 'medium', targetQuality, originalDescription } = body;
+    const { 
+      prompt, 
+      originalImage, 
+      frontImage, 
+      backImage, 
+      userId, 
+      quality, 
+      targetQuality, 
+      originalDescription,
+      isQualityUpgrade = false
+    } = await req.json();
+
+    console.log("[Inpaint API] Received inpainting request");
+    console.log("[Inpaint API] User ID:", userId);
+    console.log("[Inpaint API] Current Quality:", quality);
+    console.log("[Inpaint API] Target Quality:", targetQuality);
+    console.log("[Inpaint API] Is Quality Upgrade:", isQualityUpgrade);
+    console.log("[Inpaint API] Prompt length:", prompt?.length || 0);
+
+    // Validate required fields
+    if (!userId) {
+      console.log("[Inpaint API] Missing user ID");
+      return NextResponse.json({ error: 'User ID is required' }, { status: 400 });
+    }
+
+    // For quality-only upgrades, we don't need a prompt
+    if (!isQualityUpgrade && (!prompt || prompt.trim() === '')) {
+      console.log("[Inpaint API] Missing or empty prompt");
+      return NextResponse.json({ error: 'Edit instructions are required' }, { status: 400 });
+    }
 
     // If no target quality specified, use the same quality (normal editing)
     const finalTargetQuality = targetQuality || quality;
@@ -386,11 +413,6 @@ export async function POST(req) {
       return NextResponse.json({ error: error.message }, { status: 400 });
     }
 
-    if (!prompt || !prompt.trim()) {
-      console.log("[Inpaint API] Missing or empty prompt");
-      return NextResponse.json({ error: 'Edit instructions are required' }, { status: 400 });
-    }
-
     console.log("[Inpaint API] Available images - Original:", !!originalImage, "Front:", !!frontImage, "Back:", !!backImage);
     console.log("[Inpaint API] Checking user credits for target quality:", finalTargetQuality);
     // Check user credits and limits for the target quality
@@ -404,18 +426,33 @@ export async function POST(req) {
     console.log("[Inpaint API] Current Quality:", quality, "Target Quality:", finalTargetQuality);
     console.log("[Inpaint API] Prompt:", prompt);
 
-    // Step 1: Get AI insights for the inpainting request
+    // Step 1: Get AI insights for the inpainting request (skip for quality-only upgrades)
     let insights;
     try {
       console.log("[Inpaint API] Getting AI insights...");
-      insights = await getAIInpaintingInsights(prompt, 'clothing item', 'original color', originalDescription);
+      if (isQualityUpgrade && (!prompt || !prompt.trim())) {
+        // For quality-only upgrades, create default insights
+        console.log("[Inpaint API] Quality-only upgrade detected - using default insights");
+        insights = {
+          inpaintingData: {
+            frontModifications: "No changes to front view.",
+            backModifications: "No changes to back view.",
+            preservationNote: "Preserve all aspects of the original design while upgrading quality.",
+            modificationSummary: "Quality upgrade with no content changes.",
+            updatedDesignDescription: originalDescription || "High-quality clothing design"
+          }
+        };
+      } else {
+        // Normal editing with AI insights
+        insights = await getAIInpaintingInsights(prompt, 'clothing item', 'original color', originalDescription);
+      }
       console.log("[Inpaint API] AI insights received:", !!insights);
       console.log("[Inpaint API] 🔍 DETAILED AI INSIGHTS:");
-      console.log("[Inpaint API]   Front modifications:", insights.inpaintingData.frontModifications);
-      console.log("[Inpaint API]   Back modifications:", insights.inpaintingData.backModifications);
-      console.log("[Inpaint API]   Preservation note:", insights.inpaintingData.preservationNote);
-      console.log("[Inpaint API]   Modification summary:", insights.inpaintingData.modificationSummary);
-      console.log("[Inpaint API]   Updated design description:", insights.inpaintingData.updatedDesignDescription);
+      console.log("[Inpaint API]   Front modifications:", insights?.inpaintingData.frontModifications || 'N/A');
+      console.log("[Inpaint API]   Back modifications:", insights?.inpaintingData.backModifications || 'N/A');
+      console.log("[Inpaint API]   Preservation note:", insights?.inpaintingData.preservationNote || 'N/A');
+      console.log("[Inpaint API]   Modification summary:", insights?.inpaintingData.modificationSummary || 'N/A');
+      console.log("[Inpaint API]   Updated design description:", insights?.inpaintingData.updatedDesignDescription || 'N/A');
     } catch (error) {
       console.error('Error getting AI inpainting insights:', error);
       return NextResponse.json({ 
@@ -554,10 +591,10 @@ export async function POST(req) {
           
           // Edit front portrait (no reference needed)
           console.log("[Inpaint API] 🔄 EDITING FRONT PORTRAIT");
-          console.log("[Inpaint API] Front modifications:", insights.inpaintingData.frontModifications);
+          console.log("[Inpaint API] Front modifications:", insights?.inpaintingData.frontModifications || 'N/A');
           
           const frontInpaintingData = {
-            frontModifications: insights.inpaintingData.frontModifications,
+            frontModifications: insights?.inpaintingData.frontModifications || "No changes to front view.",
             backModifications: "No changes to back view.",
             preservationNote: "Preserve the original model pose, background, lighting, and color. Only modify the front view as specified."
           };
@@ -579,12 +616,12 @@ export async function POST(req) {
 
           // Edit back portrait (use new front as style reference)
           console.log("[Inpaint API] 🔄 EDITING BACK PORTRAIT");
-          console.log("[Inpaint API] Back modifications:", insights.inpaintingData.backModifications);
+          console.log("[Inpaint API] Back modifications:", insights?.inpaintingData.backModifications || 'N/A');
           console.log("[Inpaint API] Using front as reference:", !!frontEditedData);
           
           const backInpaintingData = {
             frontModifications: "No changes to front view.",
-            backModifications: insights.inpaintingData.backModifications,
+            backModifications: insights?.inpaintingData.backModifications || "No changes to back view.",
             preservationNote: "Preserve the original model pose, background, lighting, and color. Only modify the back view as specified."
           };
           console.log("[Inpaint API] 📋 BACK INPAINTING DATA:", backInpaintingData);
@@ -627,7 +664,7 @@ export async function POST(req) {
           console.log("[Inpaint API] Successfully completed portrait editing");
           return NextResponse.json({
             success: true,
-            aiDescription: insights.inpaintingData.updatedDesignDescription,
+            aiDescription: insights?.inpaintingData.updatedDesignDescription || originalDescription || "High-quality clothing design",
             angleUrls: {
               front: `data:image/png;base64,${frontEditedData}`,
               back: `data:image/png;base64,${backEditedData}`
@@ -656,7 +693,7 @@ export async function POST(req) {
           imageData = await inpaintImageWithOpenAI(
             originalImageBase64,
             landscapeMask,
-            insights.inpaintingData,
+            insights?.inpaintingData || {},
             {
               size: compositeSize,
               quality: finalTargetQuality,
@@ -704,7 +741,7 @@ export async function POST(req) {
           console.log("[Inpaint API] Successfully completed landscape composite editing");
           return NextResponse.json({
             success: true,
-            aiDescription: insights.inpaintingData.updatedDesignDescription,
+            aiDescription: insights?.inpaintingData.updatedDesignDescription || originalDescription || "High-quality clothing design",
             angleUrls,
             compositeImage: imageData,
             targetQuality: finalTargetQuality

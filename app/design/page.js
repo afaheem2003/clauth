@@ -283,8 +283,12 @@ export default function DesignPage() {
       }
     }
 
-    if (!inpaintingPrompt.trim()) {
-      setError('Please provide edit instructions');
+    // Allow blank edits only if target quality is specified (quality upgrade)
+    const isQualityUpgrade = targetQuality && targetQuality !== quality;
+    const hasEditInstructions = inpaintingPrompt.trim();
+    
+    if (!hasEditInstructions && !isQualityUpgrade) {
+      setError('Please provide edit instructions or select a target quality for upgrade');
       return;
     }
 
@@ -297,6 +301,7 @@ export default function DesignPage() {
         userId: session?.user?.id || session?.user?.uid,
         quality: quality,
         originalDescription: aiDescription, // Pass the current design description
+        isQualityUpgrade: isQualityUpgrade && !hasEditInstructions, // Flag for quality-only upgrades
         ...(targetQuality && { targetQuality }) // Include target quality if specified
       };
 
@@ -817,6 +822,18 @@ export default function DesignPage() {
                             </div>
                           </div>
                         </div>
+                        
+                        {/* Sketch quality warning */}
+                        {quality === 'low' && (
+                          <div className="mt-3 text-center">
+                            <p className="text-sm text-red-600 font-medium">
+                              ⚠️ Sketch Quality Design
+                            </p>
+                            <p className="text-xs text-red-500 mt-1">
+                              For better aesthetics and a more professional profile, we recommend using Studio or Runway quality for your published designs.
+                            </p>
+                          </div>
+                        )}
                       </div>
                     </div>
                   </div>
@@ -865,11 +882,18 @@ export default function DesignPage() {
                           </label>
                           <p className="text-xs text-gray-600 mb-2">
                             Describe what changes you want to make. Be specific about placement and appearance.
+                            {targetQuality && targetQuality !== quality && (
+                              <span className="text-green-600 font-medium"> Or leave blank to only upgrade quality.</span>
+                            )}
                           </p>
                           <textarea
                             value={inpaintingPrompt}
                             onChange={(e) => setInpaintingPrompt(e.target.value)}
-                            placeholder="e.g., 'Add a small red heart logo to the center of the chest' or 'Change the sleeves to long sleeves'"
+                            placeholder={
+                              targetQuality && targetQuality !== quality 
+                                ? "Optional: Add specific changes, or leave blank to only upgrade quality"
+                                : "e.g., 'Add a small red heart logo to the center of the chest' or 'Change the sleeves to long sleeves'"
+                            }
                             rows={4}
                             className="w-full px-4 py-3 border border-gray-300 rounded-md shadow-sm text-gray-900 placeholder-gray-500 text-base focus:ring-indigo-500 focus:border-indigo-500"
                           />
@@ -949,15 +973,45 @@ export default function DesignPage() {
                           </div>
                           
                           {targetQuality && targetQuality !== quality && (
-                            <div className="mt-3 p-3 bg-green-50 border border-green-200 rounded-lg">
-                              <div className="flex items-center space-x-2">
-                                <svg className="w-4 h-4 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7h8m0 0v8m0-8l-8 8-4-4-8 8" />
-                                </svg>
-                                <p className="text-sm text-green-700">
-                                  <strong>Quality Upgrade:</strong> Your design will be converted from {quality} to {targetQuality} quality.
-                                </p>
-                              </div>
+                            <div className="mt-3">
+                              {/* Check if it's an upgrade or downgrade */}
+                              {(() => {
+                                const qualityLevels = { 'low': 1, 'medium': 2, 'high': 3 };
+                                const currentLevel = qualityLevels[quality];
+                                const targetLevel = qualityLevels[targetQuality];
+                                const isUpgrade = targetLevel > currentLevel;
+                                const isDowngrade = targetLevel < currentLevel;
+                                
+                                if (isUpgrade) {
+                                  return (
+                                    <div className="p-3 bg-green-50 border border-green-200 rounded-lg">
+                                      <div className="flex items-center space-x-2">
+                                        <svg className="w-4 h-4 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7h8m0 0v8m0-8l-8 8-4-4-8 8" />
+                                        </svg>
+                                        <p className="text-sm text-green-700">
+                                          <strong>Quality Upgrade:</strong> Your design will be converted from {quality} to {targetQuality} quality.
+                                        </p>
+                                      </div>
+                                    </div>
+                                  );
+                                } else if (isDowngrade) {
+                                  return (
+                                    <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg">
+                                      <div className="flex items-start space-x-2">
+                                        <svg className="w-4 h-4 text-amber-600 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0-2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L5.082 16.5c-.77.833.192 2.5 1.732 2.5z" />
+                                        </svg>
+                                        <div className="text-sm text-amber-800">
+                                          <p className="font-medium">Quality Downgrade Warning</p>
+                                          <p className="text-xs mt-1">You're about to downgrade from {quality} to {targetQuality} quality. This will reduce the visual quality of your design.</p>
+                                        </div>
+                                      </div>
+                                    </div>
+                                  );
+                                }
+                                return null;
+                              })()}
                             </div>
                           )}
                         </div>
@@ -966,10 +1020,25 @@ export default function DesignPage() {
                           <button
                             type="button"
                             onClick={handleInpainting}
-                            disabled={!inpaintingPrompt.trim() || loading}
+                            disabled={(!inpaintingPrompt.trim() && !(targetQuality && targetQuality !== quality)) || loading}
                             className="flex-1 px-4 py-3 text-base font-medium rounded-md bg-indigo-600 text-white hover:bg-indigo-700 disabled:opacity-50"
                           >
-                            Apply Changes
+                            {(() => {
+                              if (targetQuality && targetQuality !== quality && !inpaintingPrompt.trim()) {
+                                const qualityLevels = { 'low': 1, 'medium': 2, 'high': 3 };
+                                const currentLevel = qualityLevels[quality];
+                                const targetLevel = qualityLevels[targetQuality];
+                                const isUpgrade = targetLevel > currentLevel;
+                                const qualityName = targetQuality.charAt(0).toUpperCase() + targetQuality.slice(1);
+                                
+                                if (isUpgrade) {
+                                  return `Upgrade to ${qualityName}`;
+                                } else {
+                                  return `Downgrade to ${qualityName}`;
+                                }
+                              }
+                              return 'Apply Changes';
+                            })()}
                           </button>
                         </div>
                       </div>
