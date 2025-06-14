@@ -7,20 +7,43 @@ import { slide as Menu } from "react-burger-menu";
 import { useRouter } from "next/navigation";
 import { useSession, signOut } from "next-auth/react";
 import { useCart } from "@/lib/CartContext";
-import { ShoppingBagIcon } from "@heroicons/react/24/outline";
+import { ShoppingBagIcon, ChevronDownIcon, Bars3Icon, XMarkIcon } from "@heroicons/react/24/outline";
 import CreditBalance from "@/components/credits/CreditBalance";
 
 /* react-burger-menu styles ----------------------------------------- */
 const menuStyles = {
-  bmMenuWrap: { top: 0 },
-  bmOverlay: { background: "rgba(0,0,0,.35)" },
-  bmMenu: { background: "#1F2937", padding: "1.5rem 1rem" },
+  bmMenuWrap: { 
+    top: 0,
+    zIndex: 9999,
+    position: 'fixed'
+  },
+  bmOverlay: { 
+    background: "rgba(0, 0, 0, 0.7)",
+    backdropFilter: "blur(4px)",
+    zIndex: 9998
+  },
+  bmMenu: { 
+    background: "linear-gradient(135deg, #000000 0%, #1a1a1a 100%)",
+    padding: "2rem 1.5rem",
+    boxShadow: "-10px 0 25px rgba(0, 0, 0, 0.5)",
+    width: '300px',
+    height: '100vh'
+  },
   bmItemList: {
     display: "flex",
     flexDirection: "column",
-    gap: "1rem",
+    gap: "0.75rem",
+    padding: 0
   },
-  bmCrossButton: { height: "36px", width: "36px" },
+  bmCrossButton: { 
+    height: "40px", 
+    width: "40px",
+    top: "1.5rem",
+    right: "1.5rem"
+  },
+  bmBurgerButton: {
+    display: 'none' // We're using our own burger button
+  }
 };
 
 /* helper ─ close dropdown on outside-click -------------------------- */
@@ -59,7 +82,7 @@ export default function Nav() {
 
   const links = [
     { href: '/discover', label: 'Discover' },
-    { href: '/shop', label: 'Shop' },
+    ...(isShopEnabled ? [{ href: '/shop', label: 'Shop' }] : []),
     { href: '/creators', label: 'Creators' },
     { href: '/design', label: 'Design' },
     { href: '/challenges', label: 'Challenges' },
@@ -73,45 +96,58 @@ export default function Nav() {
   const cartCount = getCartCount();
 
   return (
-    <header className="bg-white border-b sticky top-0 z-50">
-      <div className="container mx-auto px-6 h-14 flex items-center justify-between">
-        <Link href="/discover" className="text-2xl font-extrabold text-gray-900">
+    <header className="bg-white border-b border-gray-300 sticky top-0 z-40 shadow-md">
+      <div className="container mx-auto px-4 sm:px-6 h-16 flex items-center justify-between">
+        {/* LOGO */}
+        <Link 
+          href="/discover" 
+          className="text-2xl font-bold text-black hover:text-gray-700 transition-all duration-300"
+        >
           Clauth
         </Link>
 
         {/* DESKTOP NAV */}
-        <nav className="hidden md:flex items-center gap-8">
+        <nav className="hidden md:flex items-center gap-1">
           {allLinks.map((l) => (
             <Link
               key={l.href}
               href={l.href}
-              className="text-sm font-medium text-gray-700 hover:text-gray-900"
+              className="px-4 py-2 text-sm font-medium text-gray-700 hover:text-black hover:bg-gray-100 rounded-lg transition-all duration-200 relative group"
             >
               {l.label}
+              <span className="absolute bottom-0 left-1/2 w-0 h-0.5 bg-black group-hover:w-full group-hover:left-0 transition-all duration-300"></span>
             </Link>
           ))}
 
           {session?.user?.role === "ADMIN" && (
             <Link
               href="/admin"
-              className="text-sm font-medium text-yellow-500 hover:text-yellow-400"
+              className="px-4 py-2 text-sm font-medium text-gray-800 hover:text-black hover:bg-gray-100 rounded-lg transition-all duration-200 relative group"
             >
               Admin
+              <span className="absolute bottom-0 left-1/2 w-0 h-0.5 bg-gray-800 group-hover:w-full group-hover:left-0 transition-all duration-300"></span>
             </Link>
           )}
+        </nav>
 
+        {/* RIGHT SIDE ACTIONS */}
+        <div className="flex items-center gap-3">
           {/* Credit Balance - Only show for logged in users */}
-          {session?.user && <CreditBalance />}
+          {session?.user && (
+            <div className="hidden sm:block">
+              <CreditBalance />
+            </div>
+          )}
 
           {/* Cart Icon - Only show if shop is enabled */}
           {isShopEnabled && (
             <button
               onClick={() => setCartOpen(true)}
-              className="relative p-2 text-gray-700 hover:text-gray-900"
+              className="relative p-2.5 text-gray-600 hover:text-black hover:bg-gray-100 rounded-xl transition-all duration-200 group"
             >
-              <ShoppingBagIcon className="w-6 h-6" />
+              <ShoppingBagIcon className="w-5 h-5 group-hover:scale-110 transition-transform duration-200" />
               {cartCount > 0 && (
-                <span className="absolute -top-1 -right-1 bg-black text-white text-xs w-5 h-5 flex items-center justify-center rounded-full">
+                <span className="absolute -top-1 -right-1 bg-black text-white text-xs w-5 h-5 flex items-center justify-center rounded-full font-medium shadow-lg">
                   {cartCount}
                 </span>
               )}
@@ -121,100 +157,99 @@ export default function Nav() {
           {!session?.user ? (
             <button
               onClick={login}
-              className="text-sm font-medium text-gray-700 hover:text-gray-900"
+              className="hidden sm:flex items-center px-4 py-2 text-sm font-medium text-white bg-black hover:bg-gray-800 rounded-xl shadow-lg hover:shadow-xl transition-all duration-200 transform hover:scale-105"
             >
-              Log&nbsp;in
+              Sign In
             </button>
           ) : (
-            <div className="relative" ref={dropRef}>
+            <div className="hidden md:block relative" ref={dropRef}>
               <button
                 onClick={() => setDrop((prev) => !prev)}
-                className="flex items-center gap-1 text-sm font-medium text-gray-700 hover:text-gray-900"
+                className="flex items-center gap-2 px-4 py-2.5 text-sm font-medium text-gray-700 hover:text-black hover:bg-gray-100 rounded-xl transition-all duration-200 group"
               >
-                My&nbsp;Account
-                <svg className="w-4 h-4" viewBox="0 0 20 20" fill="currentColor">
-                  <path d="M6 8l4 4 4-4" />
-                </svg>
+                <div className="w-8 h-8 bg-black rounded-full flex items-center justify-center text-white font-semibold text-xs">
+                  {session.user.name?.charAt(0)?.toUpperCase() || 'U'}
+                </div>
+                <span className="hidden lg:block">Account</span>
+                <ChevronDownIcon className={`w-4 h-4 transition-transform duration-200 ${drop ? 'rotate-180' : ''}`} />
               </button>
 
               {drop && (
-                <div className="absolute right-0 mt-2 w-44 rounded-md shadow-lg bg-white ring-1 ring-gray-200 py-2 text-sm">
-                  <Link
-                    href="/my-likes"
-                    onClick={() => setDrop(false)}
-                    className="block px-4 py-2 text-gray-700 hover:bg-gray-50"
-                  >
-                    My Likes
-                  </Link>
-                  <Link
-                    href="/my-preorders"
-                    onClick={() => setDrop(false)}
-                    className="block px-4 py-2 text-gray-700 hover:bg-gray-50"
-                  >
-                    My Pre-orders
-                  </Link>
-                  <Link
-                    href="/wardrobes"
-                    onClick={() => setDrop(false)}
-                    className="block px-4 py-2 text-gray-700 hover:bg-gray-50"
-                  >
-                    My Wardrobes
-                  </Link>
-                  <Link
-                    href="/profile"
-                    onClick={() => setDrop(false)}
-                    className="block px-4 py-2 text-gray-700 hover:bg-gray-50"
-                  >
-                    My Profile
-                  </Link>
-                  <Link
-                    href="/settings"
-                    onClick={() => setDrop(false)}
-                    className="block px-4 py-2 text-gray-700 hover:bg-gray-50"
-                  >
-                    Settings
-                  </Link>
-                  <button
-                    onClick={logout}
-                    className="w-full text-left px-4 py-2 text-gray-700 hover:bg-gray-50"
-                  >
-                    Log&nbsp;out
-                  </button>
+                <div className="absolute right-0 mt-3 w-56 rounded-2xl shadow-xl bg-white ring-1 ring-gray-300 py-2 text-sm border border-gray-200 animate-in slide-in-from-top-2 duration-200">
+                  <div className="px-4 py-3 border-b border-gray-200">
+                    <p className="text-sm font-medium text-black">{session.user.name}</p>
+                    <p className="text-xs text-gray-600 truncate">{session.user.email}</p>
+                  </div>
+                  
+                  <div className="py-2">
+                    <Link
+                      href="/my-likes"
+                      onClick={() => setDrop(false)}
+                      className="flex items-center px-4 py-2.5 text-gray-700 hover:bg-gray-100 hover:text-black transition-colors duration-150"
+                    >
+                      <span className="w-2 h-2 bg-gray-400 rounded-full mr-3"></span>
+                      My Likes
+                    </Link>
+                    {isShopEnabled && (
+                      <Link
+                        href="/my-preorders"
+                        onClick={() => setDrop(false)}
+                        className="flex items-center px-4 py-2.5 text-gray-700 hover:bg-gray-100 hover:text-black transition-colors duration-150"
+                      >
+                        <span className="w-2 h-2 bg-gray-500 rounded-full mr-3"></span>
+                        My Pre-orders
+                      </Link>
+                    )}
+                    <Link
+                      href="/wardrobes"
+                      onClick={() => setDrop(false)}
+                      className="flex items-center px-4 py-2.5 text-gray-700 hover:bg-gray-100 hover:text-black transition-colors duration-150"
+                    >
+                      <span className="w-2 h-2 bg-gray-600 rounded-full mr-3"></span>
+                      My Wardrobes
+                    </Link>
+                    <Link
+                      href="/profile"
+                      onClick={() => setDrop(false)}
+                      className="flex items-center px-4 py-2.5 text-gray-700 hover:bg-gray-100 hover:text-black transition-colors duration-150"
+                    >
+                      <span className="w-2 h-2 bg-gray-700 rounded-full mr-3"></span>
+                      My Profile
+                    </Link>
+                    <Link
+                      href="/settings"
+                      onClick={() => setDrop(false)}
+                      className="flex items-center px-4 py-2.5 text-gray-700 hover:bg-gray-100 hover:text-black transition-colors duration-150"
+                    >
+                      <span className="w-2 h-2 bg-gray-800 rounded-full mr-3"></span>
+                      Settings
+                    </Link>
+                  </div>
+                  
+                  <div className="border-t border-gray-200 pt-2">
+                    <button
+                      onClick={logout}
+                      className="w-full text-left flex items-center px-4 py-2.5 text-gray-700 hover:bg-gray-100 hover:text-black transition-colors duration-150"
+                    >
+                      <span className="w-2 h-2 bg-gray-900 rounded-full mr-3"></span>
+                      Sign Out
+                    </button>
+                  </div>
                 </div>
               )}
             </div>
           )}
-        </nav>
 
-        {/* MOBILE BURGER */}
-        <div className="md:hidden flex items-center gap-4">
-          {/* Cart Icon - Only show if shop is enabled */}
-          {isShopEnabled && (
-            <button
-              onClick={() => setCartOpen(true)}
-              className="relative p-2 text-gray-700 hover:text-gray-900"
-            >
-              <ShoppingBagIcon className="w-6 h-6" />
-              {cartCount > 0 && (
-                <span className="absolute -top-1 -right-1 bg-black text-white text-xs w-5 h-5 flex items-center justify-center rounded-full">
-                  {cartCount}
-                </span>
-              )}
-            </button>
-          )}
-
+          {/* MOBILE BURGER */}
           <button
-            onClick={() => setOpen(true)}
-            className="text-gray-700 hover:text-gray-500 focus:outline-none"
+            onClick={() => {
+              console.log('Burger clicked, opening menu');
+              setOpen(true);
+            }}
+            className="md:hidden p-2 text-gray-600 hover:text-black hover:bg-gray-100 rounded-lg transition-all duration-200 flex items-center justify-center"
+            aria-label="Open mobile menu"
           >
-            <svg
-              className="w-8 h-8"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-            >
-              <path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h16M4 18h16" />
-            </svg>
+            <Bars3Icon className="w-6 h-6" />
           </button>
         </div>
       </div>
@@ -223,104 +258,136 @@ export default function Nav() {
       <Menu
         right
         isOpen={open}
-        onStateChange={({ isOpen }) => setOpen(isOpen)}
+        onStateChange={({ isOpen }) => {
+          console.log('Menu state changed:', isOpen);
+          setOpen(isOpen);
+        }}
         customBurgerIcon={false}
         customCrossIcon={false}
         styles={menuStyles}
+        pageWrapId="page-wrap"
+        outerContainerId="outer-container"
       >
-        <button onClick={close} className="mb-6 text-white hover:text-gray-300">
-          <svg
-            className="w-7 h-7"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
+        <div className="flex items-center justify-between mb-8">
+          <div className="text-2xl font-bold text-white">
+            Clauth
+          </div>
+          <button 
+            onClick={close} 
+            className="p-2 text-white/70 hover:text-white hover:bg-white/10 rounded-lg transition-all duration-200"
           >
-            <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-          </svg>
-        </button>
+            <XMarkIcon className="w-6 h-6" />
+          </button>
+        </div>
+
+        {session?.user && (
+          <div className="mb-6 p-4 bg-white/5 rounded-xl border border-white/10">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 bg-white rounded-full flex items-center justify-center text-black font-semibold">
+                {session.user.name?.charAt(0)?.toUpperCase() || 'U'}
+              </div>
+              <div>
+                <p className="text-white font-medium">{session.user.name}</p>
+                <p className="text-white/60 text-sm truncate">{session.user.email}</p>
+              </div>
+            </div>
+          </div>
+        )}
 
         {session?.user?.role === "ADMIN" && (
           <Link
             href="/admin"
             onClick={close}
-            className="bm-item text-xl text-yellow-400 hover:text-yellow-300"
+            className="flex items-center gap-3 p-3 mb-2 text-white hover:text-white hover:bg-white/10 rounded-xl transition-all duration-200"
           >
-            Admin Dashboard
+            <span className="w-2 h-2 bg-white rounded-full"></span>
+            <span className="text-lg font-medium">Admin Dashboard</span>
           </Link>
         )}
 
-        {allLinks.map((l) => (
-          <Link
-            key={l.href}
-            href={l.href}
-            onClick={close}
-            className="bm-item text-xl text-white hover:text-gray-300"
-          >
-            {l.label}
-          </Link>
-        ))}
+        <div className="space-y-1 mb-6">
+          {allLinks.map((l) => (
+            <Link
+              key={l.href}
+              href={l.href}
+              onClick={close}
+              className="flex items-center gap-3 p-3 text-white hover:text-white hover:bg-white/10 rounded-xl transition-all duration-200 group"
+            >
+              <span className="w-2 h-2 bg-white/60 rounded-full group-hover:bg-white transition-colors duration-200"></span>
+              <span className="text-lg font-medium">{l.label}</span>
+            </Link>
+          ))}
+        </div>
 
-        <div className="mt-6 flex flex-col gap-4">
+        <div className="border-t border-white/20 pt-6">
           {!session?.user ? (
-            <>
+            <div className="space-y-3">
               <button
                 onClick={login}
-                className="bm-item text-left text-xl text-white hover:text-gray-300"
+                className="w-full p-3 text-left text-black bg-white hover:bg-gray-200 rounded-xl transition-all duration-200 font-medium"
               >
-                Log in
+                Sign In
               </button>
               <Link
                 href="/signup"
                 onClick={close}
-                className="bm-item text-xl text-white hover:text-gray-300"
+                className="block p-3 text-white/80 hover:text-white hover:bg-white/5 rounded-xl transition-all duration-200"
               >
-                Sign up
+                Create Account
               </Link>
-            </>
+            </div>
           ) : (
-            <>
-              <Link
-                href="/my-preorders"
-                onClick={close}
-                className="bm-item text-xl text-white hover:text-gray-300"
-              >
-                My Pre-orders
-              </Link>
+            <div className="space-y-1">
+              {isShopEnabled && (
+                <Link
+                  href="/my-preorders"
+                  onClick={close}
+                  className="flex items-center gap-3 p-3 text-white/80 hover:text-white hover:bg-white/5 rounded-xl transition-all duration-200"
+                >
+                  <span className="w-2 h-2 bg-white/40 rounded-full"></span>
+                  My Pre-orders
+                </Link>
+              )}
               <Link
                 href="/wardrobes"
                 onClick={close}
-                className="bm-item text-xl text-white hover:text-gray-300"
+                className="flex items-center gap-3 p-3 text-white/80 hover:text-white hover:bg-white/5 rounded-xl transition-all duration-200"
               >
+                <span className="w-2 h-2 bg-white/50 rounded-full"></span>
                 My Wardrobes
               </Link>
               <Link
                 href="/profile"
                 onClick={close}
-                className="bm-item text-xl text-white hover:text-gray-300"
+                className="flex items-center gap-3 p-3 text-white/80 hover:text-white hover:bg-white/5 rounded-xl transition-all duration-200"
               >
+                <span className="w-2 h-2 bg-white/60 rounded-full"></span>
                 My Profile
               </Link>
               <Link
                 href="/settings"
                 onClick={close}
-                className="bm-item text-xl text-white hover:text-gray-300"
+                className="flex items-center gap-3 p-3 text-white/80 hover:text-white hover:bg-white/5 rounded-xl transition-all duration-200"
               >
+                <span className="w-2 h-2 bg-white/70 rounded-full"></span>
                 Settings
               </Link>
               <Link
                 href="/my-likes"
                 onClick={close}
-                className="bm-item text-xl text-white hover:text-gray-300"
+                className="flex items-center gap-3 p-3 text-white/80 hover:text-white hover:bg-white/5 rounded-xl transition-all duration-200"
               >
+                <span className="w-2 h-2 bg-white/80 rounded-full"></span>
                 My Likes
               </Link>
               <button
                 onClick={logout}
-                className="bm-item text-left text-xl text-white hover:text-gray-300"
+                className="w-full flex items-center gap-3 p-3 text-white/70 hover:text-white hover:bg-white/5 rounded-xl transition-all duration-200 mt-4"
               >
-                Log out
+                <span className="w-2 h-2 bg-white/90 rounded-full"></span>
+                Sign Out
               </button>
-            </>
+            </div>
           )}
         </div>
       </Menu>

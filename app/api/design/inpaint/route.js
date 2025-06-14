@@ -2,65 +2,8 @@ import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth/next';
 import { authOptions } from '@/lib/authOptions';
 import { getUserCredits, canUserGenerate, consumeCreditsForGeneration } from '@/lib/rateLimiting';
-import { getAIInpaintingInsights, inpaintImageWithOpenAI } from '@/services/openaiService';
+import { getAIInpaintingInsights, editPortraitFrontWithReference, editPortraitBackWithReference, editLandscapeWithReference } from '@/services/openaiService';
 import sharp from 'sharp';
-
-// Helper function to create a full mask for complete image editing
-async function createFullMask() {
-  const maskSize = 1536 * 1024 * 4; // RGBA
-  const maskBuffer = Buffer.alloc(maskSize, 255); // White mask
-  return maskBuffer.toString('base64');
-}
-
-// Helper function to create a portrait-sized mask for portrait editing
-async function createPortraitMask() {
-  try {
-    const maskBuffer = await sharp({
-      create: {
-        width: 1024,
-        height: 1536,
-        channels: 4,
-        background: { r: 255, g: 255, b: 255, alpha: 1 }
-      }
-    })
-    .png()
-    .toBuffer();
-    
-    return maskBuffer.toString('base64');
-  } catch (error) {
-    console.error('Error creating portrait mask:', error);
-    throw new Error(`Failed to create portrait mask: ${error.message}`);
-  }
-}
-
-// Helper function to create appropriately sized mask based on actual image dimensions
-async function createAppropriateNavigationMask(imageBase64) {
-  try {
-    // Convert base64 to buffer to check dimensions
-    const imageBuffer = Buffer.from(imageBase64, 'base64');
-    const metadata = await sharp(imageBuffer).metadata();
-    
-    console.log(`[Mask Creator] Detected image dimensions: ${metadata.width}x${metadata.height}`);
-    
-    // Create mask matching the exact image dimensions
-    const maskBuffer = await sharp({
-      create: {
-        width: metadata.width,
-        height: metadata.height,
-        channels: 4,
-        background: { r: 255, g: 255, b: 255, alpha: 1 }
-      }
-    })
-    .png()
-    .toBuffer();
-    
-    console.log(`[Mask Creator] Created mask: ${metadata.width}x${metadata.height}`);
-    return maskBuffer.toString('base64');
-  } catch (error) {
-    console.error('Error creating appropriate mask:', error);
-    throw new Error(`Failed to create appropriate mask: ${error.message}`);
-  }
-}
 
 // Helper function to convert image URL or data URI to base64
 async function convertImageToBase64(imageSource) {
@@ -578,10 +521,6 @@ export async function POST(req) {
           
           console.log(`[Inpaint API] Validating dimensions - Front: ${frontMeta.width}x${frontMeta.height}, Back: ${backMeta.width}x${backMeta.height}`);
           
-          // Create appropriate masks based on actual image dimensions
-          const frontMask = await createAppropriateNavigationMask(frontImageBase64);
-          const backMask = await createAppropriateNavigationMask(backImageBase64);
-          
           // Force correct dimensions for this approach
           const frontSize = validateAndCorrectDimensions(frontMeta.width, frontMeta.height, targetApproach);
           const backSize = validateAndCorrectDimensions(backMeta.width, backMeta.height, targetApproach);
@@ -589,55 +528,44 @@ export async function POST(req) {
           console.log(`[Inpaint API] Front image size: ${frontSize}`);
           console.log(`[Inpaint API] Back image size: ${backSize}`);
           
-          // Edit front portrait (no reference needed)
+          // Edit front portrait (use original front as reference for consistency)
           console.log("[Inpaint API] 🔄 EDITING FRONT PORTRAIT");
           console.log("[Inpaint API] Front modifications:", insights?.inpaintingData.frontModifications || 'N/A');
           
-          const frontInpaintingData = {
-            frontModifications: insights?.inpaintingData.frontModifications || "No changes to front view.",
-            backModifications: "No changes to back view.",
-            preservationNote: "Preserve the original model pose, background, lighting, and color. Only modify the front view as specified."
-          };
-          console.log("[Inpaint API] 📋 FRONT INPAINTING DATA:", frontInpaintingData);
+          const frontEditPrompt = insights?.inpaintingData.frontModifications || "No changes to front view.";
+          console.log("[Inpaint API] 📋 FRONT EDIT PROMPT:", frontEditPrompt);
           
-          const frontEditedData = await inpaintImageWithOpenAI(
+          const frontEditedData = await editPortraitFrontWithReference(
             frontImageBase64,
-            frontMask,
-            frontInpaintingData,
+            [frontImageBase64], // Use original front as reference for consistency
+            frontEditPrompt,
             {
               size: frontSize,
               quality: finalTargetQuality,
               originalItemType: 'clothing item',
-              originalColor: 'original color',
-              view: 'front'
+              originalColor: 'original color'
             }
           );
           console.log("[Inpaint API] ✅ FRONT PORTRAIT EDITED, data length:", frontEditedData?.length);
 
-          // Edit back portrait (use new front as style reference)
+          // Edit back portrait (use NEW FRONT as primary reference, original back as secondary)
           console.log("[Inpaint API] 🔄 EDITING BACK PORTRAIT");
           console.log("[Inpaint API] Back modifications:", insights?.inpaintingData.backModifications || 'N/A');
-          console.log("[Inpaint API] Using front as reference:", !!frontEditedData);
+          console.log("[Inpaint API] Using NEW FRONT as primary reference for design consistency");
           
-          const backInpaintingData = {
-            frontModifications: "No changes to front view.",
-            backModifications: insights?.inpaintingData.backModifications || "No changes to back view.",
-            preservationNote: "Preserve the original model pose, background, lighting, and color. Only modify the back view as specified."
-          };
-          console.log("[Inpaint API] 📋 BACK INPAINTING DATA:", backInpaintingData);
+          const backEditPrompt = insights?.inpaintingData.backModifications || "No changes to back view.";
+          console.log("[Inpaint API] 📋 BACK EDIT PROMPT:", backEditPrompt);
           
-          const backEditedData = await inpaintImageWithOpenAI(
+          const backEditedData = await editPortraitBackWithReference(
             backImageBase64,
-            backMask,
-            backInpaintingData,
+            [frontEditedData, backImageBase64], // NEW FRONT first (primary reference), original back second
+            backEditPrompt,
             {
               size: backSize,
               quality: finalTargetQuality,
               originalItemType: 'clothing item',
-              originalColor: 'original color',
-              view: 'back'
-            },
-            [frontEditedData] // Pass the new front as a style reference
+              originalColor: 'original color'
+            }
           );
           console.log("[Inpaint API] ✅ BACK PORTRAIT EDITED, data length:", backEditedData?.length);
 
@@ -684,16 +612,26 @@ export async function POST(req) {
         
         try {
           const originalImageBase64 = await convertImageToBase64(workingOriginalImage);
-          const landscapeMask = await createAppropriateNavigationMask(originalImageBase64);
           
           // Force correct dimensions for this approach
           const compositeSize = validateAndCorrectDimensions(1536, 1024, targetApproach);
           console.log(`[Inpaint API] Composite image size: ${compositeSize}`);
           
-          imageData = await inpaintImageWithOpenAI(
+          // Create edit prompt from inpainting data
+          const landscapeEditPrompt = `
+Left Panel (Front View):
+${insights?.inpaintingData.frontModifications || "No changes to front view."}
+
+Right Panel (Back View):
+${insights?.inpaintingData.backModifications || "No changes to back view."}
+          `.trim();
+          
+          console.log("[Inpaint API] 📋 LANDSCAPE EDIT PROMPT:", landscapeEditPrompt);
+          
+          imageData = await editLandscapeWithReference(
             originalImageBase64,
-            landscapeMask,
-            insights?.inpaintingData || {},
+            [originalImageBase64], // Use original as reference for consistency
+            landscapeEditPrompt,
             {
               size: compositeSize,
               quality: finalTargetQuality,

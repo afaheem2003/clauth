@@ -2,6 +2,14 @@ import { NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
 
 export async function GET(request) {
+  // Check if shop is enabled
+  if (process.env.NEXT_PUBLIC_ENABLE_SHOP !== 'true') {
+    return NextResponse.json(
+      { error: 'Shop is not available' },
+      { status: 404 }
+    );
+  }
+
   try {
     const { searchParams } = new URL(request.url);
     const view = searchParams.get('view') || 'available';

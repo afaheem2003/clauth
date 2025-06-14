@@ -31,7 +31,6 @@ export async function middleware(req: NextRequest) {
     // List of shop-related routes that should be redirected
     const shopRoutes = [
       '/shop',
-      '/clothing',
       '/api/checkout',
       '/api/clothing',
     ]
@@ -39,7 +38,11 @@ export async function middleware(req: NextRequest) {
     // Check if current path starts with any shop route
     const isShopRoute = shopRoutes.some((route) => path.startsWith(route))
 
-    if (isShopRoute) {
+    // Special handling: Allow individual clothing item pages (/clothing/[id]) even when shop is disabled
+    // These are part of the discovery experience, not the purchasing experience
+    const isClothingDetailPage = /^\/clothing\/[^\/]+$/.test(path)
+
+    if (isShopRoute && !isClothingDetailPage) {
       // If it's the main shop page, redirect to coming soon
       if (path === '/shop') {
         return NextResponse.rewrite(new URL('/shop/coming-soon', req.url))

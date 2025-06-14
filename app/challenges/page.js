@@ -194,7 +194,7 @@ export default function ChallengesPage() {
               </div>
               <div className="ml-4">
                 <h3 className="font-semibold text-gray-900">Create Group</h3>
-                <p className="text-sm text-gray-600">Start a new challenge group</p>
+                <p className="text-sm text-gray-600">Start a new friend group</p>
               </div>
             </div>
           </Link>

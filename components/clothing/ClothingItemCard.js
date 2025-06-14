@@ -77,8 +77,8 @@ export default function ClothingItemCard({
           />
         </div>
 
-        {/* Status Badge */}
-        <div className="absolute top-3 left-3 z-10">
+        {/* Status Badge - REMOVED */}
+        {/* <div className="absolute top-3 left-3 z-10">
           {clothingItem.status === 'CONCEPT' && (
             <span className="px-2 py-1 text-xs font-medium rounded-full bg-blue-500 text-white">
               Design
@@ -94,7 +94,7 @@ export default function ClothingItemCard({
               Available
             </span>
           )}
-        </div>
+        </div> */}
 
         {/* Like Button */}
         <button

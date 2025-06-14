@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { getAIDesignerInsights, generateImageWithOpenAI, generatePortraitWithOpenAI, editPortraitToBackWithOpenAI, inpaintImageWithOpenAI, getAIInpaintingInsights } from '@/services/openaiService';
+import { getAIDesignerInsights, generateImageWithOpenAI, generatePortraitWithOpenAI, editImageWithReference, editLandscapeWithReference, getAIInpaintingInsights } from '@/services/openaiService';
 import { createClient } from "@supabase/supabase-js";
 import { ANGLES, getAngleImagePath } from '@/utils/imageProcessing';
 import { canUserGenerate, consumeCreditsForGeneration } from '@/lib/rateLimiting';
@@ -57,32 +57,8 @@ function getEditingMethodForApproach(approach) {
     throw new Error(`Unknown approach: ${approach}. Supported: PORTRAIT, LANDSCAPE`);
   }
   
-  console.log(`[Method Lookup] ✅ Approach ${approach} → Method: ${method}`);
+  console.log(`[Editing Method] Approach ${approach} → Method: ${method}`);
   return method;
-}
-
-/**
- * Creates a full white mask for the entire image (1536x1024)
- */
-async function createFullMask() {
-  try {
-    // Server-side: create mask using sharp
-    const buffer = await sharp({
-      create: {
-        width: 1536,
-        height: 1024,
-        channels: 4,
-        background: { r: 255, g: 255, b: 255, alpha: 1 }
-      }
-    })
-    .png()
-    .toBuffer();
-    
-    return buffer.toString('base64');
-  } catch (error) {
-    console.error('Error creating full mask:', error);
-    throw new Error('Failed to create full mask');
-  }
 }
 
 /**
@@ -283,30 +259,28 @@ export async function POST(req) {
         }, { status: 500 });
       }
 
-      // Step 2: Create mask - use provided mask or create full mask if none provided
-      let maskToUse = inpaintingMask;
-      if (!maskToUse) {
-        console.log("[API] No mask provided, creating full mask for entire image");
-        try {
-          maskToUse = await createFullMask();
-        } catch (error) {
-          console.error('Error creating full mask:', error);
-          return NextResponse.json({ 
-            error: `Failed to create mask: ${error.message}` 
-          }, { status: 500 });
-        }
-      }
-
-      // Step 3: Perform inpainting based on approach
+      // Step 2: Perform editing based on approach (no masks needed with reference-based editing)
       let imageData, angleBuffers;
       try {
         if (editingMethod === 'EDIT_COMPOSITE_THEN_SPLIT') {
-          console.log("[API] ✅ CONFIRMED: Using landscape composite inpainting approach");
-          console.log("[API] Inpainting with itemType:", itemType, "color:", color, "quality:", quality);
-          imageData = await inpaintImageWithOpenAI(
+          console.log("[API] ✅ CONFIRMED: Using landscape composite editing approach");
+          console.log("[API] Editing with itemType:", itemType, "color:", color, "quality:", quality);
+          
+          // Create edit prompt from inpainting data
+          const landscapeEditPrompt = `
+Left Panel (Front View):
+${inpaintingInsights.inpaintingData.frontModifications || "No changes to front view."}
+
+Right Panel (Back View):
+${inpaintingInsights.inpaintingData.backModifications || "No changes to back view."}
+          `.trim();
+          
+          console.log("[API] 📋 LANDSCAPE EDIT PROMPT:", landscapeEditPrompt);
+          
+          imageData = await editLandscapeWithReference(
             originalImage,
-            maskToUse,
-            inpaintingInsights.inpaintingData,
+            [originalImage], // Use original as reference for consistency
+            landscapeEditPrompt,
             {
               size: "1536x1024",
               quality: quality,
@@ -446,15 +420,44 @@ export async function POST(req) {
             }
           );
 
-          // Step 2b: Edit portrait to show back view
-          const backImageData = await editPortraitToBackWithOpenAI(
+          // Step 2b: Edit portrait to show back view using reference-based editing
+          const backViewPrompt = `
+Transform this front-view portrait into a back-view portrait of the EXACT SAME model and clothing item.
+
+CRITICAL REQUIREMENTS:
+- Keep the EXACT SAME model appearance, pose style, and studio environment
+- Keep the EXACT SAME clothing item and color (${color})
+- Change ONLY the viewing angle from front to back
+- Maintain identical lighting, background, and proportions
+- Show the back design: ${insights.promptJsonData.backDetails}
+- Use the provided reference image to maintain perfect consistency with the front view
+
+CRITICAL PHOTOREALISTIC REQUIREMENTS:
+- PHOTOREALISTIC quality is absolutely essential - the image must look like a real photograph
+- Hyperrealistic textures, lighting, shadows, and fabric details
+- Natural skin tones, realistic hair, and authentic human proportions
+- Professional photography-grade realism with no artificial or cartoon-like elements
+
+FASHION EDITORIAL STYLE REQUIREMENTS:
+- FULL-BODY shot showing the complete model from head to toe
+- Fashion magazine editorial photography style with professional runway model
+- Camera positioned at a LOWER ANGLE (slightly below eye level) to create a more flattering, elongated silhouette
+- Camera positioned at APPROPRIATE DISTANCE with generous spacing - ensure significant space between the top of the image and the model's head, and between the bottom of the image and the model's feet
+- Avoid close-up or cropped shots - show the complete figure and styling with ample breathing room
+
+The model should now be facing directly away from the camera in a full-body pose, showing the complete back view of the ${itemType} in ${color}. Keep everything else identical to the original image.
+
+IMPORTANT: Use the provided reference image to maintain style consistency. Ensure the back view matches the design elements, colors, and overall aesthetic of the front reference image. Maintain all fictional branding and avoid any real-world brand references.
+          `.trim();
+
+          const backImageData = await editImageWithReference(
             frontImageData,
+            [frontImageData], // Use front image as reference for consistency
+            backViewPrompt,
             {
               size: "1024x1536", 
               quality: quality,
-              itemDescription: `${itemType} in ${color}`,
-              backDesign: insights.promptJsonData.backDetails,
-              modelDetails: insights.promptJsonData.modelDetails || "Professional model with neutral expression",
+              originalItemType: itemType,
               originalColor: color
             }
           );

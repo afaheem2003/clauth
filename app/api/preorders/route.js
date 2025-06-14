@@ -5,6 +5,14 @@ import prisma from "@/lib/prisma";
 import { authOptions } from "@/lib/authOptions";
 
 export async function GET(request) {
+  // Check if shop is enabled
+  if (process.env.NEXT_PUBLIC_ENABLE_SHOP !== 'true') {
+    return NextResponse.json(
+      { error: 'Shop is not available' },
+      { status: 404 }
+    );
+  }
+
   // 1) require logged‑in user
   const session = await getServerSession(authOptions);
   if (!session?.user?.uid) {

@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import ClothingItemCard from '@/components/clothing/ClothingItemCard';
 import { ITEM_TYPES } from '@/app/constants/options';
 import Footer from '@/components/common/Footer';
@@ -14,6 +15,16 @@ export default function ShopPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [isFilterOpen, setIsFilterOpen] = useState(false);
+  const router = useRouter();
+
+  // Check if shop is enabled, redirect if not
+  useEffect(() => {
+    const isShopEnabled = process.env.NEXT_PUBLIC_ENABLE_SHOP === 'true';
+    if (!isShopEnabled) {
+      router.push('/discover');
+      return;
+    }
+  }, [router]);
 
   // Filter states
   const [searchTerm, setSearchTerm] = useState('');

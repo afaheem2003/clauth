@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 import Link from 'next/link';
 import OrderDetailsModal from '../../components/common/OrderDetailsModal';
@@ -12,6 +13,16 @@ export default function MyPreOrdersPage() {
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selectedOrder, setSelectedOrder] = useState(null);
+  const router = useRouter();
+
+  // Check if shop is enabled, redirect if not
+  useEffect(() => {
+    const isShopEnabled = process.env.NEXT_PUBLIC_ENABLE_SHOP === 'true';
+    if (!isShopEnabled) {
+      router.push('/discover');
+      return;
+    }
+  }, [router]);
 
   const refreshOrders = async () => {
     setLoading(true);
