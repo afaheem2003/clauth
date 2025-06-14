@@ -5,17 +5,17 @@ export const CLOTHING_CATEGORIES = {
       { id: 'tshirt_short', name: 'T-Shirt (Short Sleeve)', gender: 'unisex' },
       { id: 'tshirt_long', name: 'T-Shirt (Long Sleeve)', gender: 'unisex' },
       { id: 'tank_top', name: 'Tank Top', gender: 'unisex' },
-      { id: 'polo', name: 'Polo Shirt', gender: 'unisex' },
+      { id: 'polo', name: 'Polo Shirt', gender: 'masculine' },
       { id: 'button_down', name: 'Button-Down Shirt', gender: 'unisex' },
-      { id: 'dress_shirt', name: 'Dress Shirt', gender: 'unisex' },
+      { id: 'dress_shirt', name: 'Dress Shirt', gender: 'masculine' },
       { id: 'blouse', name: 'Blouse', gender: 'feminine' },
       { id: 'crop_top', name: 'Crop Top', gender: 'feminine' },
       { id: 'turtleneck', name: 'Turtleneck', gender: 'unisex' },
       { id: 'sweater', name: 'Sweater', gender: 'unisex' },
-      { id: 'cardigan', name: 'Cardigan', gender: 'unisex' },
+      { id: 'cardigan', name: 'Cardigan', gender: 'feminine' },
       { id: 'hoodie', name: 'Hoodie', gender: 'unisex' },
       { id: 'sweatshirt', name: 'Sweatshirt', gender: 'unisex' },
-      { id: 'vest', name: 'Vest', gender: 'unisex' },
+      { id: 'vest', name: 'Vest', gender: 'masculine' },
       { id: 'tube_top', name: 'Tube Top', gender: 'feminine' },
       { id: 'camisole', name: 'Camisole', gender: 'feminine' },
       { id: 'bodysuit', name: 'Bodysuit', gender: 'feminine' },
@@ -26,15 +26,15 @@ export const CLOTHING_CATEGORIES = {
     name: 'Bottoms',
     subcategories: [
       { id: 'jeans', name: 'Jeans', gender: 'unisex' },
-      { id: 'dress_pants', name: 'Dress Pants', gender: 'unisex' },
-      { id: 'chinos', name: 'Chinos', gender: 'unisex' },
+      { id: 'dress_pants', name: 'Dress Pants', gender: 'masculine' },
+      { id: 'chinos', name: 'Chinos', gender: 'masculine' },
       { id: 'khakis', name: 'Khakis', gender: 'masculine' },
-      { id: 'cargo_pants', name: 'Cargo Pants', gender: 'unisex' },
+      { id: 'cargo_pants', name: 'Cargo Pants', gender: 'masculine' },
       { id: 'leggings', name: 'Leggings', gender: 'feminine' },
       { id: 'sweatpants', name: 'Sweatpants/Joggers', gender: 'unisex' },
       { id: 'shorts', name: 'Shorts', gender: 'unisex' },
       { id: 'cargo_shorts', name: 'Cargo Shorts', gender: 'masculine' },
-      { id: 'bermuda_shorts', name: 'Bermuda Shorts', gender: 'unisex' },
+      { id: 'bermuda_shorts', name: 'Bermuda Shorts', gender: 'masculine' },
       { id: 'skirt_mini', name: 'Mini Skirt', gender: 'feminine' },
       { id: 'skirt_midi', name: 'Midi Skirt', gender: 'feminine' },
       { id: 'skirt_maxi', name: 'Maxi Skirt', gender: 'feminine' },
@@ -53,7 +53,7 @@ export const CLOTHING_CATEGORIES = {
       { id: 'evening_gown', name: 'Evening Gown', gender: 'feminine' },
       { id: 'shirt_dress', name: 'Shirt Dress', gender: 'feminine' },
       { id: 'wrap_dress', name: 'Wrap Dress', gender: 'feminine' },
-      { id: 'jumpsuit', name: 'Jumpsuit', gender: 'unisex' },
+      { id: 'jumpsuit', name: 'Jumpsuit', gender: 'feminine' },
       { id: 'romper', name: 'Romper', gender: 'feminine' },
       { id: 'overalls', name: 'Overalls', gender: 'unisex' }
     ]
@@ -63,30 +63,30 @@ export const CLOTHING_CATEGORIES = {
     subcategories: [
       { id: 'blazer', name: 'Blazer', gender: 'unisex' },
       { id: 'sport_coat', name: 'Sport Coat', gender: 'masculine' },
-      { id: 'suit_jacket', name: 'Suit Jacket', gender: 'unisex' },
+      { id: 'suit_jacket', name: 'Suit Jacket', gender: 'masculine' },
       { id: 'denim_jacket', name: 'Denim Jacket', gender: 'unisex' },
       { id: 'leather_jacket', name: 'Leather Jacket', gender: 'unisex' },
       { id: 'bomber_jacket', name: 'Bomber Jacket', gender: 'unisex' },
       { id: 'parka', name: 'Parka', gender: 'unisex' },
-      { id: 'peacoat', name: 'Peacoat', gender: 'unisex' },
+      { id: 'peacoat', name: 'Peacoat', gender: 'masculine' },
       { id: 'trench_coat', name: 'Trench Coat', gender: 'unisex' },
       { id: 'windbreaker', name: 'Windbreaker', gender: 'unisex' },
       { id: 'puffer_jacket', name: 'Puffer Jacket', gender: 'unisex' },
       { id: 'rain_jacket', name: 'Rain Jacket', gender: 'unisex' },
-      { id: 'heavy_cardigan', name: 'Heavy Cardigan', gender: 'unisex' },
-      { id: 'poncho', name: 'Poncho', gender: 'unisex' },
+      { id: 'heavy_cardigan', name: 'Heavy Cardigan', gender: 'feminine' },
+      { id: 'poncho', name: 'Poncho', gender: 'feminine' },
       { id: 'cape', name: 'Cape', gender: 'feminine' }
     ]
   },
   FORMAL: {
     name: 'Formal Wear',
     subcategories: [
-      { id: 'full_suit', name: 'Full Suit', gender: 'unisex' },
+      { id: 'full_suit', name: 'Full Suit', gender: 'masculine' },
       { id: 'tuxedo', name: 'Tuxedo', gender: 'masculine' },
       { id: 'formal_dress', name: 'Formal Dress', gender: 'feminine' },
       { id: 'formal_skirt', name: 'Formal Skirt', gender: 'feminine' },
-      { id: 'formal_pants', name: 'Formal Pants', gender: 'unisex' },
-      { id: 'formal_vest', name: 'Formal Vest', gender: 'unisex' }
+      { id: 'formal_pants', name: 'Formal Pants', gender: 'masculine' },
+      { id: 'formal_vest', name: 'Formal Vest', gender: 'masculine' }
     ]
   },
   ACTIVEWEAR: {
@@ -95,12 +95,12 @@ export const CLOTHING_CATEGORIES = {
       { id: 'athletic_tshirt', name: 'Athletic T-Shirt', gender: 'unisex' },
       { id: 'athletic_tank', name: 'Athletic Tank Top', gender: 'unisex' },
       { id: 'sports_bra', name: 'Sports Bra', gender: 'feminine' },
-      { id: 'athletic_leggings', name: 'Athletic Leggings', gender: 'unisex' },
+      { id: 'athletic_leggings', name: 'Athletic Leggings', gender: 'feminine' },
       { id: 'running_shorts', name: 'Running Shorts', gender: 'unisex' },
       { id: 'track_pants', name: 'Track Pants', gender: 'unisex' },
       { id: 'track_jacket', name: 'Track Jacket', gender: 'unisex' },
       { id: 'workout_dress', name: 'Workout Dress', gender: 'feminine' },
-      { id: 'yoga_pants', name: 'Yoga Pants', gender: 'unisex' }
+      { id: 'yoga_pants', name: 'Yoga Pants', gender: 'feminine' }
     ]
   },
   SWIMWEAR: {

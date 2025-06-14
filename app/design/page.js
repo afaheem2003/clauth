@@ -18,6 +18,23 @@ import timezone from 'dayjs/plugin/timezone';
 dayjs.extend(utc);
 dayjs.extend(timezone);
 
+// Helper function to get suggested gender for an item type
+const getSuggestedGender = (itemTypeName) => {
+  for (const category of Object.values(CLOTHING_CATEGORIES)) {
+    const subcategory = category.subcategories.find(sub => sub.name === itemTypeName);
+    if (subcategory) {
+      // Convert the gender format from clothing categories to our enum format
+      switch (subcategory.gender) {
+        case 'masculine': return 'MASCULINE';
+        case 'feminine': return 'FEMININE';
+        case 'unisex': 
+        default: return 'UNISEX';
+      }
+    }
+  }
+  return 'UNISEX'; // Default fallback
+};
+
 export default function DesignPage() {
   const router = useRouter();
   const { data: session, status } = useSession();
@@ -36,6 +53,7 @@ export default function DesignPage() {
   // Form states
   const [itemName, setItemName] = useState('');
   const [itemType, setItemType] = useState('');
+  const [gender, setGender] = useState('UNISEX'); // Add gender state
   const [userPrompt, setUserPrompt] = useState(''); // User's original design prompt
   const [aiDescription, setAiDescription] = useState(''); // AI-generated description
   const [color, setColor] = useState('');
@@ -135,6 +153,14 @@ export default function DesignPage() {
     }
   }, [session?.user?.uid, status]);
 
+  // Auto-populate gender when item type changes
+  useEffect(() => {
+    if (itemType) {
+      const suggestedGender = getSuggestedGender(itemType);
+      setGender(suggestedGender);
+    }
+  }, [itemType]);
+
   // Handle redirect to login if not authenticated
   useEffect(() => {
     if (status === 'unauthenticated') {
@@ -196,6 +222,8 @@ export default function DesignPage() {
         },
         body: JSON.stringify({
           itemType: selectedCategory?.name || '',
+          itemTypeSpecific: itemType,
+          gender: gender,
           color: color || '',
           userPrompt: userPrompt,
           modelDescription: modelDescription || '',
@@ -419,6 +447,7 @@ export default function DesignPage() {
           name: itemName,
           description: aiDescription,
           itemType,
+          gender,
           promptRaw: userPrompt,
           imageUrls: {
             front: frontImage,
@@ -600,6 +629,37 @@ export default function DesignPage() {
                       </div>
                     </div>
                   )}
+
+                  {/* Gender Selection - Shows after item type is selected */}
+                  {itemType && (
+                    <div className="mt-6 p-4 bg-blue-50 rounded-lg border border-blue-200">
+                      <h4 className="text-sm font-medium text-gray-900 mb-3">Target Gender</h4>
+                      <p className="text-xs text-gray-600 mb-3">
+                        We've suggested a gender based on your item type, but you can change it to target a different audience.
+                      </p>
+                      <div className="grid grid-cols-3 gap-2">
+                        {[
+                          { value: 'MASCULINE', label: 'Men', icon: '👨' },
+                          { value: 'FEMININE', label: 'Women', icon: '👩' },
+                          { value: 'UNISEX', label: 'Unisex', icon: '👥' }
+                        ].map((option) => (
+                          <button
+                            key={option.value}
+                            type="button"
+                            onClick={() => setGender(option.value)}
+                            className={`p-3 text-sm font-medium rounded-lg transition-all duration-200 flex flex-col items-center gap-1 ${
+                              gender === option.value
+                                ? 'bg-black text-white'
+                                : 'bg-white text-gray-900 hover:bg-gray-50 border border-gray-200'
+                            }`}
+                          >
+                            <span className="text-lg">{option.icon}</span>
+                            <span>{option.label}</span>
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
@@ -712,6 +772,14 @@ export default function DesignPage() {
                             <div>
                               <dt className="text-sm font-medium text-gray-700">Type</dt>
                               <dd className="mt-1 text-sm text-gray-900">{itemType}</dd>
+                            </div>
+                            <div>
+                              <dt className="text-sm font-medium text-gray-700">Target Gender</dt>
+                              <dd className="mt-1 text-sm text-gray-900">
+                                {gender === 'MASCULINE' && '👨 Men'}
+                                {gender === 'FEMININE' && '👩 Women'}
+                                {gender === 'UNISEX' && '👥 Unisex'}
+                              </dd>
                             </div>
                             <div>
                               <div className="flex items-center justify-between">

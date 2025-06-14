@@ -109,10 +109,17 @@ enum ItemStatus {
   ARCHIVED    // Removed from shop but kept for reference
 }
 
+enum Gender {
+  MASCULINE
+  FEMININE
+  UNISEX
+}
+
 model ClothingItem {
   id               String         @id @default(cuid())
   name             String
   itemType         String        // Category/Type (e.g. Tops, Bottoms, Outerwear)
+  gender           Gender         @default(UNISEX) // Target gender for the item
   description      String?
   imageUrl         String?    // Keep for backward compatibility
   frontImage       String?    // Front view (optional for now)

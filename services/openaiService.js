@@ -148,7 +148,7 @@ export async function getAIDesignerInsights(structuredPrompt) {
     throw new Error('Structured prompt must be an object with required fields.');
   }
 
-  const { itemDescription, frontDesign, backDesign, modelDetails } = structuredPrompt;
+  const { itemDescription, frontDesign, backDesign, modelDetails, gender = 'UNISEX' } = structuredPrompt;
 
   if (!itemDescription || !frontDesign || !backDesign || !modelDetails) {
     throw new Error('All prompt fields (itemDescription, frontDesign, backDesign, modelDetails) are required.');
@@ -179,15 +179,16 @@ IMPORTANT GUIDELINES:
 7. Specify sizes of elements where relevant (e.g., "large 6-inch sunflower", "small 2-inch logo")
 
 MODEL DESCRIPTION GUIDELINES:
-- If modelDetails contains "Generate appropriate model description", create a professional model description that complements the clothing style
+- Consider the target gender (${gender}) when generating model descriptions
+- If modelDetails contains "Generate appropriate model description", create a professional model description that complements the clothing style and target gender
 - If modelDetails contains a user description, enhance and refine it for image generation
-- Focus on professional modeling appearance, pose, and styling that suits the garment
+- Focus on professional modeling appearance, pose, and styling that suits the garment and target audience
 
 Your response must include:
 1. A clear, factual description
 2. Precise front view details
 3. Precise back view details
-4. Professional model details for image generation
+4. Professional model details for image generation (considering target gender: ${gender})
 
 🚫 NO subjective descriptions, artistic interpretations, or non-visual elements.`
       },
@@ -195,11 +196,12 @@ Your response must include:
         role: "user",
         content: `Design Details:
 Main Item: ${itemDescription}
+Target Gender: ${gender}
 Front Design: ${frontDesign}
 Back Design: ${backDesign}
 Model: ${modelDetails}
 
-Generate a structured response focusing on CONCRETE, VISIBLE elements only.`
+Generate a structured response focusing on CONCRETE, VISIBLE elements only. Consider the target gender when describing the model and styling.`
       }
     ];
 
@@ -297,7 +299,7 @@ Generate a structured response focusing on CONCRETE, VISIBLE elements only.`
   return { promptJsonData };
 } 
 
-export async function generateImageWithOpenAI(prompt, options = {}) {
+export async function generateLandscapeImageWithOpenAI(prompt, options = {}) {
   if (!process.env.OPENAI_API_KEY) {
     console.error("OPENAI_API_KEY is not set.");
     throw new Error("OpenAI API key is not configured for image generation.");
@@ -314,11 +316,13 @@ export async function generateImageWithOpenAI(prompt, options = {}) {
       itemDescription = '',
       frontDesign = '',
       backDesign = '',
-      modelDetails = ''
+      modelDetails = '',
+      gender = 'UNISEX'
     } = options;
 
     // Map internal quality levels to OpenAI quality values
     // Use quality parameter directly
+
 
     const basePrompt = `
 Generate a high-resolution horizontal (landscape) image, sized exactly 1536x1024 pixels, showing two views of the same model and clothing item positioned side by side.
@@ -359,6 +363,8 @@ The back design should include: ${backDesign}
 
 Model Appearance:
 The same model must appear in both areas. Appearance details: ${modelDetails}
+
+Target Gender: ${gender}
 
 Image Requirements:
 - ONE continuous studio background that flows seamlessly across the entire 1536x1024 image
@@ -602,7 +608,7 @@ export async function generatePortraitWithOpenAI(prompt, options = {}) {
         quality = process.env.OPENAI_IMAGE_QUALITY || "high",
         itemDescription = '',
         frontDesign = '',
-        modelDetails = ''
+        modelDetails = '',
       } = options;
 
       // Map internal quality levels to OpenAI quality values
@@ -640,6 +646,8 @@ Do **not** use or reference any real-world brand names, logos, university names,
 Model View (Front):
 Display the model facing directly forward in a full-body pose, showcasing the complete front view of a ${itemDescription}.
 The front design should include: ${frontDesign}
+
+Target Gender: ${gender}
 
 Model Appearance:
 ${modelDetails}
@@ -950,8 +958,7 @@ FASHION EDITORIAL STYLE REQUIREMENTS:
 - FULL-BODY shots showing the complete model from head to toe in both panels
 - Fashion magazine editorial photography style with professional runway model
 - Camera positioned at a LOWER ANGLE (slightly below eye level) to create a more flattering, elongated silhouette
-- Camera positioned at APPROPRIATE DISTANCE with generous spacing - ensure significant space between the top of the image and the model's head, and between the bottom of the image and the model's feet
-- Ensure ample space at top and bottom of frame - model should not fill the entire vertical space
+- Framing must include the full body from head to toe with generous spacing above and below
 - Avoid close-up or cropped shots - show the complete figure and styling with ample breathing room
 
 This is a split-panel landscape image with front view (left) and back view (right). Preserve the original model pose, background, lighting, garment structure, and color. Only modify as described above. Do not change any other details.

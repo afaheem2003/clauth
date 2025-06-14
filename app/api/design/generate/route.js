@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { getAIDesignerInsights, generateImageWithOpenAI, generatePortraitWithOpenAI, editImageWithReference, editLandscapeWithReference, getAIInpaintingInsights } from '@/services/openaiService';
+import { getAIDesignerInsights, generateLandscapeImageWithOpenAI, generatePortraitWithOpenAI, editImageWithReference, editLandscapeWithReference, getAIInpaintingInsights } from '@/services/openaiService';
 import { createClient } from "@supabase/supabase-js";
 import { ANGLES, getAngleImagePath } from '@/utils/imageProcessing';
 import { canUserGenerate, consumeCreditsForGeneration } from '@/lib/rateLimiting';
@@ -196,7 +196,7 @@ async function createPortraitPanels(frontImageBuffer, backImageBuffer) {
 export async function POST(req) {
   try {
     const data = await req.json();
-    const { itemType, color, userPrompt, modelDescription, userId, inpaintingMask, originalImage, quality = 'medium' } = data;
+    const { itemType, itemTypeSpecific, gender = 'UNISEX', color, userPrompt, modelDescription, userId, inpaintingMask, originalImage, quality = 'medium' } = data;
 
     if (!userId) {
       return NextResponse.json({ error: "Missing user ID" }, { status: 401 });
@@ -347,7 +347,8 @@ ${inpaintingInsights.inpaintingData.backModifications || "No changes to back vie
           itemDescription: `${itemType} in ${color}`,
           frontDesign: userPrompt,
           backDesign: userPrompt,
-          modelDetails: modelDescription || "Generate appropriate model description" // Pass model description or flag for auto-generation
+          modelDetails: modelDescription || "Generate appropriate model description", // Pass model description or flag for auto-generation
+          gender: gender
         });
       } catch (error) {
         console.error('Error getting AI insights:', error);
@@ -380,7 +381,7 @@ ${inpaintingInsights.inpaintingData.backModifications || "No changes to back vie
         // LANDSCAPE: Use landscape composite approach
         try {
           console.log("[API] ✅ CONFIRMED: Generating landscape composite image");
-          imageData = await generateImageWithOpenAI(
+          imageData = await generateLandscapeImageWithOpenAI(
             insights.promptJsonData.description,
             {
               size: "1536x1024",
@@ -388,7 +389,8 @@ ${inpaintingInsights.inpaintingData.backModifications || "No changes to back vie
               itemDescription: `${itemType} in ${color}`,
               frontDesign: insights.promptJsonData.frontDetails,
               backDesign: insights.promptJsonData.backDetails,
-              modelDetails: insights.promptJsonData.modelDetails || "Professional model with neutral expression"
+              modelDetails: insights.promptJsonData.modelDetails || "Professional model with neutral expression",
+              gender: gender
             }
           );
 
@@ -416,7 +418,8 @@ ${inpaintingInsights.inpaintingData.backModifications || "No changes to back vie
               quality: quality,
               itemDescription: `${itemType} in ${color}`,
               frontDesign: insights.promptJsonData.frontDetails,
-              modelDetails: insights.promptJsonData.modelDetails || "Professional model with neutral expression"
+              modelDetails: insights.promptJsonData.modelDetails || "Professional model with neutral expression",
+              gender: gender
             }
           );
 
