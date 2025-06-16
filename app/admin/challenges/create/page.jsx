@@ -1,7 +1,7 @@
 'use client';
 
-import { useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useState, useEffect } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { ArrowLeftIcon } from '@heroicons/react/24/outline';
 import dayjs from 'dayjs';
@@ -14,6 +14,7 @@ dayjs.extend(timezone);
 
 export default function CreateChallengePage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [formData, setFormData] = useState({
     date: '',
     mainItem: '',
@@ -29,6 +30,18 @@ export default function CreateChallengePage() {
   const [error, setError] = useState('');
 
   const EASTERN_TIMEZONE = 'America/New_York';
+
+  // Check for date parameter in URL and pre-fill the form
+  useEffect(() => {
+    const dateParam = searchParams.get('date');
+    if (dateParam) {
+      // Validate the date format (YYYY-MM-DD)
+      const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
+      if (dateRegex.test(dateParam)) {
+        updateDefaultTimes(dateParam);
+      }
+    }
+  }, [searchParams]);
 
   // Generic clothing categories
   const itemTypes = [
@@ -56,16 +69,16 @@ export default function CreateChallengePage() {
       const [year, month, day] = date.split('-').map(Number);
       
       // Create times in Eastern timezone using explicit date components
-      const compStartET = dayjs.tz(new Date(year, month - 1, day, 10, 0, 0), EASTERN_TIMEZONE);
-      const deadlineET = dayjs.tz(new Date(year, month - 1, day, 22, 0, 0), EASTERN_TIMEZONE);
-      const compEndET = dayjs.tz(new Date(year, month - 1, day, 23, 0, 0), EASTERN_TIMEZONE);
+      const compStartET = dayjs.tz(new Date(year, month - 1, day, 9, 0, 0), EASTERN_TIMEZONE);  // 9:00 AM
+      const deadlineET = dayjs.tz(new Date(year, month - 1, day, 20, 0, 0), EASTERN_TIMEZONE);  // 8:00 PM
+      const compEndET = dayjs.tz(new Date(year, month - 1, day, 21, 0, 0), EASTERN_TIMEZONE);   // 9:00 PM
       
       setFormData(prev => ({
         ...prev,
         date,
-        competitionStart: compStartET.utc().format('YYYY-MM-DDTHH:mm'),
-        submissionDeadline: deadlineET.utc().format('YYYY-MM-DDTHH:mm'),
-        competitionEnd: compEndET.utc().format('YYYY-MM-DDTHH:mm')
+        competitionStart: compStartET.format('YYYY-MM-DDTHH:mm'),
+        submissionDeadline: deadlineET.format('YYYY-MM-DDTHH:mm'),
+        competitionEnd: compEndET.format('YYYY-MM-DDTHH:mm')
       }));
     }
   };
@@ -87,6 +100,13 @@ export default function CreateChallengePage() {
       const submitData = {
         ...formData,
         mainItem: mainItemText || null,
+        // Convert Eastern timezone inputs to UTC for storage
+        competitionStart: formData.competitionStart ? 
+          dayjs.tz(formData.competitionStart, EASTERN_TIMEZONE).utc().toISOString() : null,
+        submissionDeadline: formData.submissionDeadline ? 
+          dayjs.tz(formData.submissionDeadline, EASTERN_TIMEZONE).utc().toISOString() : null,
+        competitionEnd: formData.competitionEnd ? 
+          dayjs.tz(formData.competitionEnd, EASTERN_TIMEZONE).utc().toISOString() : null,
         isActive: true // Automatically set to active for properly scheduled challenges
       };
 
@@ -474,7 +494,7 @@ export default function CreateChallengePage() {
               <li>• <strong>Reveal → Submission Deadline:</strong> Users can see, submit, and vote</li>
               <li>• <strong>Submission → Voting Deadline:</strong> Only voting allowed</li>
               <li>• <strong>After Voting:</strong> Results announced, top 25% eligible for leaderboard</li>
-              <li>• <strong>Default Times:</strong> 10 AM reveal, 10 PM submission deadline, 11 PM voting end (all ET)</li>
+              <li>• <strong>Default Times:</strong> 9 AM reveal, 8 PM submission deadline, 9 PM voting end (all ET)</li>
             </ul>
           </div>
         </div>

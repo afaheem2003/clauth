@@ -6,6 +6,7 @@ import { getToken } from 'next-auth/jwt'
 export async function middleware(req: NextRequest) {
   const isMaintenance = process.env.MAINTENANCE_MODE === 'true'
   const isShopEnabled = process.env.ENABLE_SHOP === 'true'
+  const waitlistEnabled = process.env.WAITLIST_ENABLED === 'true'
   const token = await getToken({ req })
   const isAdmin = token?.role === 'ADMIN'
   const path = req.nextUrl.pathname
@@ -20,6 +21,26 @@ export async function middleware(req: NextRequest) {
     '/favicon.ico',
     '/images',
   ].some((prefix) => path.startsWith(prefix))
+
+  // Handle waitlist mode (highest priority)
+  if (waitlistEnabled) {
+    // Allow access to waitlist page, admin routes, all API routes, and static assets
+    if (
+      path === '/waitlist' ||
+      path.startsWith('/api') ||
+      path.startsWith('/admin') ||
+      path.startsWith('/_next') ||
+      path.startsWith('/favicon') ||
+      path.startsWith('/images') ||
+      path === '/robots.txt' ||
+      path === '/sitemap.xml'
+    ) {
+      return NextResponse.next()
+    }
+
+    // Redirect all other routes to waitlist
+    return NextResponse.redirect(new URL('/waitlist', req.url))
+  }
 
   // Handle maintenance mode
   if (isMaintenance && !isAdmin && !isBypassed) {

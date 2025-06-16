@@ -28,6 +28,66 @@ export default function ClothingItemClient({ clothingItem, initialComments, sess
   const isAdmin = session?.user?.role === 'ADMIN';
   const isCreator = session?.user?.uid === clothingItem.creator?.id;
 
+  // Challenge submission state
+  const [challengeEligibility, setChallengeEligibility] = useState(null);
+  const [isCheckingEligibility, setIsCheckingEligibility] = useState(false);
+  const [isSubmittingToChallenge, setIsSubmittingToChallenge] = useState(false);
+
+  // Check challenge eligibility when component mounts (only for creators)
+  useEffect(() => {
+    if (session?.user && isCreator) {
+      checkChallengeEligibility();
+    }
+  }, [session, isCreator]);
+
+  const checkChallengeEligibility = async () => {
+    setIsCheckingEligibility(true);
+    try {
+      const response = await fetch(`/api/challenges/check-eligibility?clothingItemId=${clothingItem.id}`);
+      const data = await response.json();
+      setChallengeEligibility(data);
+    } catch (error) {
+      console.error('Error checking challenge eligibility:', error);
+    } finally {
+      setIsCheckingEligibility(false);
+    }
+  };
+
+  const handleSubmitToChallenge = async () => {
+    if (!challengeEligibility?.challenge) return;
+    
+    setIsSubmittingToChallenge(true);
+    try {
+      const response = await fetch('/api/challenges/submit-existing', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          challengeId: challengeEligibility.challenge.id,
+          clothingItemId: clothingItem.id
+        }),
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        // Refresh eligibility to show updated state
+        await checkChallengeEligibility();
+        // Show success message or redirect
+        alert('Successfully submitted to challenge! You can now vote on other submissions to become eligible for rankings.');
+        router.push('/challenges');
+      } else {
+        alert(data.error || 'Failed to submit to challenge');
+      }
+    } catch (error) {
+      console.error('Error submitting to challenge:', error);
+      alert('Failed to submit to challenge. Please try again.');
+    } finally {
+      setIsSubmittingToChallenge(false);
+    }
+  };
+
   const handleLikeToggle = async () => {
     if (!session?.user) {
       router.push('/login');
@@ -190,11 +250,61 @@ export default function ClothingItemClient({ clothingItem, initialComments, sess
             )}
           </div>
 
+          {/* Challenge Submission Banner */}
+          {isCreator && challengeEligibility && (
+            <div className="mb-8">
+              {challengeEligibility.canSubmit ? (
+                <div className="bg-gradient-to-r from-indigo-600 to-purple-600 rounded-xl p-6 text-white">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h3 className="text-lg font-semibold mb-2">Submit to Today's Challenge!</h3>
+                      <p className="text-sm opacity-90 mb-1">
+                        <strong>{challengeEligibility.challenge.theme}</strong>
+                        {challengeEligibility.challenge.mainItem && (
+                          <span> • Focus: {challengeEligibility.challenge.mainItem}</span>
+                        )}
+                      </p>
+                      <p className="text-xs opacity-75">
+                        Deadline: {new Date(challengeEligibility.challenge.submissionDeadline).toLocaleString()}
+                      </p>
+                    </div>
+                    <button
+                      onClick={handleSubmitToChallenge}
+                      disabled={isSubmittingToChallenge}
+                      className="bg-white text-indigo-600 px-6 py-2 rounded-lg font-semibold hover:bg-gray-100 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      {isSubmittingToChallenge ? 'Submitting...' : 'Submit to Challenge'}
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <div className="bg-gray-100 rounded-xl p-6">
+                  <div className="flex items-start gap-3">
+                    <div className="w-10 h-10 bg-gray-300 rounded-full flex items-center justify-center flex-shrink-0">
+                      <svg className="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.732-.833-2.5 0L4.268 15.5c-.77.833.192 2.5 1.732 2.5z" />
+                      </svg>
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <h3 className="font-semibold text-gray-900 mb-1">Cannot Submit to Challenge</h3>
+                      <p className="text-sm text-gray-600 break-words">{challengeEligibility.reason}</p>
+                      {challengeEligibility.usedInChallenge && (
+                        <p className="text-xs text-gray-500 mt-2 break-words">
+                          Previously used in: {challengeEligibility.usedInChallenge.theme}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
           {/* Main Content */}
           <div className="flex flex-col lg:flex-row gap-8">
             {/* Left Column - Image */}
             <div className="lg:flex-1 lg:max-w-[50%]">
-              <div className="relative h-[90vh] overflow-hidden bg-gray-50">
+              <div className="relative aspect-[683/1024] overflow-hidden bg-gray-50 rounded-lg shadow-md">
                 <div className="w-full h-full relative group">
                   <Image
                     src={currentAngle === 'FRONT' ? 
@@ -252,6 +362,13 @@ export default function ClothingItemClient({ clothingItem, initialComments, sess
                         </svg>
                       </button>
                     </>
+                  )}
+
+                  {/* Admin-only Quality Tag */}
+                  {isAdmin && clothingItem.quality && (
+                    <div className="absolute top-4 left-4 bg-red-600 text-white px-3 py-1 rounded-full text-xs font-medium shadow-lg">
+                      Quality: {clothingItem.quality.charAt(0).toUpperCase() + clothingItem.quality.slice(1)}
+                    </div>
                   )}
                 </div>
               </div>

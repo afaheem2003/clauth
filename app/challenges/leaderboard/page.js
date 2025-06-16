@@ -2,17 +2,19 @@
 
 import { useState, useEffect } from 'react';
 import { useSession } from 'next-auth/react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
-import { ArrowLeftIcon, TrophyIcon, StarIcon } from '@heroicons/react/24/outline';
+import { ArrowLeftIcon, TrophyIcon, StarIcon, UsersIcon } from '@heroicons/react/24/outline';
 
 export default function LeaderboardPage() {
   const { data: session, status } = useSession();
   const router = useRouter();
+  const searchParams = useSearchParams();
+  
+  const challengeId = searchParams.get('challengeId');
   
   const [leaderboard, setLeaderboard] = useState([]);
-  const [challenges, setChallenges] = useState([]);
-  const [selectedChallenge, setSelectedChallenge] = useState('all');
+  const [roomInfo, setRoomInfo] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
@@ -23,17 +25,18 @@ export default function LeaderboardPage() {
     }
 
     if (status === 'authenticated') {
+      if (!challengeId) {
+        setError('Challenge ID is required');
+        setLoading(false);
+        return;
+      }
       fetchLeaderboard();
     }
-  }, [status, selectedChallenge, router]);
+  }, [status, challengeId, router]);
 
   const fetchLeaderboard = async () => {
     try {
-      const url = selectedChallenge === 'all' 
-        ? '/api/challenges/leaderboard'
-        : `/api/challenges/leaderboard?challengeId=${selectedChallenge}`;
-        
-      const response = await fetch(url);
+      const response = await fetch(`/api/challenges/leaderboard?challengeId=${challengeId}`);
       
       if (!response.ok) {
         setError('Failed to load leaderboard');
@@ -42,7 +45,7 @@ export default function LeaderboardPage() {
 
       const data = await response.json();
       setLeaderboard(data.leaderboard || []);
-      setChallenges(data.challenges || []);
+      setRoomInfo(data.roomInfo);
     } catch (error) {
       console.error('Error fetching leaderboard:', error);
       setError('Failed to load leaderboard');
@@ -108,34 +111,24 @@ export default function LeaderboardPage() {
           <div className="bg-gradient-to-r from-indigo-600 to-purple-600 rounded-2xl p-6 text-white mb-6">
             <div className="flex items-center mb-2">
               <TrophyIcon className="w-8 h-8 mr-3" />
-              <h1 className="text-2xl font-bold">Global Leaderboard</h1>
+              <h1 className="text-2xl font-bold">Room Leaderboard</h1>
             </div>
             <p className="opacity-90">
-              Top 25% of eligible participants ranked by community upvotes
+              Top 25% of eligible participants in your competition room
             </p>
+            {roomInfo && (
+              <div className="mt-3 flex items-center space-x-4 text-sm opacity-90">
+                <div className="flex items-center">
+                  <UsersIcon className="w-4 h-4 mr-1" />
+                  <span>Room {roomInfo.roomNumber}</span>
+                </div>
+                <span>•</span>
+                <span>{roomInfo.participantCount} participants</span>
+                <span>•</span>
+                <span>{roomInfo.submissionCount} submissions</span>
+              </div>
+            )}
           </div>
-
-          {/* Challenge Filter */}
-          {challenges.length > 0 && (
-            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 mb-6">
-              <label htmlFor="challenge-select" className="block text-sm font-medium text-gray-700 mb-2">
-                Filter by Challenge
-              </label>
-              <select
-                id="challenge-select"
-                value={selectedChallenge}
-                onChange={(e) => setSelectedChallenge(e.target.value)}
-                className="w-full md:w-auto px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-gray-900"
-              >
-                <option value="all">All Challenges</option>
-                {challenges.map((challenge) => (
-                  <option key={challenge.id} value={challenge.id}>
-                    {challenge.theme} ({new Date(challenge.date).toLocaleDateString()})
-                  </option>
-                ))}
-              </select>
-            </div>
-          )}
         </div>
 
         {/* Leaderboard */}
@@ -164,17 +157,12 @@ export default function LeaderboardPage() {
                         </span>
                       </div>
                       
-                      {selectedChallenge !== 'all' && (
-                        <p className="text-sm text-gray-600 mt-1 italic">
-                          "{entry.outfitDescription}"
-                        </p>
-                      )}
+                      <p className="text-sm text-gray-600 mt-1 italic">
+                        "{entry.outfitDescription}"
+                      </p>
                       
                       <div className="flex items-center space-x-4 mt-2 text-sm text-gray-500">
                         <span>{entry.group.name}</span>
-                        {selectedChallenge === 'all' && entry.challenge && (
-                          <span>• {entry.challenge.theme}</span>
-                        )}
                         <span>• {new Date(entry.submittedAt).toLocaleDateString()}</span>
                       </div>
                     </div>
@@ -210,25 +198,24 @@ export default function LeaderboardPage() {
             <TrophyIcon className="w-16 h-16 text-gray-400 mx-auto mb-4" />
             <h3 className="text-lg font-medium text-gray-900 mb-2">No Rankings Yet</h3>
             <p className="text-gray-600">
-              {selectedChallenge === 'all' 
-                ? 'No eligible submissions found across all challenges.'
-                : 'No eligible submissions found for this challenge.'
-              }
+              No eligible submissions found in your competition room.
             </p>
             <p className="text-sm text-gray-500 mt-2">
-              Participants need to upvote 3+ submissions to be eligible for rankings.
+              Participants need to upvote 3+ submissions in their room to be eligible for rankings.
             </p>
           </div>
         )}
 
         {/* Info Box */}
         <div className="mt-8 bg-blue-50 border border-blue-200 rounded-lg p-4">
-          <h4 className="font-medium text-blue-900 mb-2">How Rankings Work</h4>
+          <h4 className="font-medium text-blue-900 mb-2">How Room Rankings Work</h4>
           <ul className="text-sm text-blue-800 space-y-1">
-            <li>• Only participants who upvoted 3+ other submissions are eligible</li>
-            <li>• Rankings are based on community upvotes received</li>
-            <li>• Only the top 25% of eligible participants are shown</li>
+            <li>• You compete against 20-30 other participants in your assigned room</li>
+            <li>• Only participants who upvoted 3+ other submissions in their room are eligible</li>
+            <li>• Rankings are based on upvotes received from room participants</li>
+            <li>• Only the top 25% of eligible participants in your room are shown</li>
             <li>• Ties are broken by submission time (earlier submissions rank higher)</li>
+            <li>• Room assignments rotate for each new challenge</li>
           </ul>
         </div>
       </div>

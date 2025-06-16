@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth/next';
 import { authOptions } from '@/lib/authOptions';
 import prisma from '@/lib/prisma';
+import { getUserCompetitionRoom } from '@/services/competitionRoomService';
 
 export async function GET(request) {
   try {
@@ -10,21 +11,50 @@ export async function GET(request) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
+    // Get user from database
+    const user = await prisma.user.findFirst({
+      where: {
+        OR: [
+          { id: session.user.uid },
+          { email: session.user.email }
+        ]
+      }
+    });
+
+    if (!user) {
+      return NextResponse.json({ error: 'User not found' }, { status: 404 });
+    }
+
     const { searchParams } = new URL(request.url);
     const challengeId = searchParams.get('challengeId');
 
-    // Build where clause for submissions
-    let whereClause = {
+    if (!challengeId) {
+      return NextResponse.json({ error: 'Challenge ID is required' }, { status: 400 });
+    }
+
+    // Get user's competition room for this challenge
+    const userRoom = await getUserCompetitionRoom(user.id, challengeId);
+    
+    if (!userRoom) {
+      return NextResponse.json({
+        success: true,
+        leaderboard: [],
+        roomInfo: null,
+        totalEligible: 0,
+        showingTop25Percent: 0,
+        message: 'You are not assigned to a competition room for this challenge yet. Submit a design to join!'
+      });
+    }
+
+    // Build where clause for submissions in the user's room
+    const whereClause = {
+      competitionRoomId: userRoom.id,
       isPublic: true,
-      isEligibleForGlobal: true, // Only show eligible participants
+      isEligibleForCompetition: true, // Only show eligible participants
       generationStatus: 'COMPLETED' // Only completed submissions
     };
 
-    if (challengeId) {
-      whereClause.challengeId = challengeId;
-    }
-
-    // Get all eligible submissions with upvote counts
+    // Get all eligible submissions in the user's room with upvote counts
     const submissions = await prisma.challengeSubmission.findMany({
       where: whereClause,
       include: {
@@ -61,27 +91,20 @@ export async function GET(request) {
       ]
     });
 
-    // If no submissions found, still return empty leaderboard with challenges for filter
+    // If no submissions found, still return empty leaderboard
     if (submissions.length === 0) {
-      const challenges = await prisma.dailyChallenge.findMany({
-        select: {
-          id: true,
-          theme: true,
-          mainItem: true,
-          date: true
-        },
-        orderBy: {
-          date: 'desc'
-        }
-      });
-
       return NextResponse.json({
         success: true,
         leaderboard: [],
-        challenges,
+        roomInfo: {
+          id: userRoom.id,
+          roomNumber: userRoom.roomNumber,
+          participantCount: userRoom._count.participants,
+          submissionCount: userRoom._count.submissions
+        },
         totalEligible: 0,
         showingTop25Percent: 0,
-        message: 'No eligible submissions found. Users need to upvote 3+ submissions and have completed designs to appear on the leaderboard.'
+        message: 'No eligible submissions found in your competition room. Users need to upvote 3+ submissions to be eligible for rankings.'
       });
     }
 
@@ -108,40 +131,23 @@ export async function GET(request) {
       upvotes: submission._count.upvotes,
       user: submission.user,
       group: submission.group,
-      challenge: challengeId ? null : submission.challenge // Don't include challenge info if filtering by specific challenge
+      challenge: submission.challenge
     }));
-
-    // Get available challenges for filter dropdown (only challenges with eligible submissions)
-    const challenges = await prisma.dailyChallenge.findMany({
-      where: {
-        submissions: {
-          some: {
-            isEligibleForGlobal: true,
-            isPublic: true,
-            generationStatus: 'COMPLETED'
-          }
-        }
-      },
-      select: {
-        id: true,
-        theme: true,
-        mainItem: true,
-        date: true
-      },
-      orderBy: {
-        date: 'desc'
-      }
-    });
 
     return NextResponse.json({
       success: true,
       leaderboard,
-      challenges,
+      roomInfo: {
+        id: userRoom.id,
+        roomNumber: userRoom.roomNumber,
+        participantCount: userRoom._count.participants,
+        submissionCount: userRoom._count.submissions
+      },
       totalEligible: rankedSubmissions.length,
       showingTop25Percent: top25PercentCount
     });
   } catch (error) {
-    console.error('Error fetching leaderboard:', error);
+    console.error('Error fetching room leaderboard:', error);
     return NextResponse.json(
       { error: 'Failed to fetch leaderboard', details: error.message },
       { status: 500 }

@@ -16,7 +16,7 @@ export default function ImageGallery({ images, onImageClick }) {
 
   if (availableImages.length === 0) {
     return (
-      <div className="relative aspect-[3/4]">
+      <div className="relative aspect-[683/1024]">
         <Image
           src="/images/clothing-item-placeholder.png"
           alt="No image available"
@@ -37,7 +37,7 @@ export default function ImageGallery({ images, onImageClick }) {
   };
 
   return (
-    <div className="relative aspect-[3/4] group">
+    <div className="relative aspect-[683/1024] group">
       <div 
         className="relative h-full cursor-pointer"
         onClick={() => onImageClick?.(currentImageIndex)}

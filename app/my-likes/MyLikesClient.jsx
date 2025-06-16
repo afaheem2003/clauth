@@ -9,7 +9,12 @@ import AnimatedCard from '@/components/common/AnimatedCard';
 export default function MyLikesClient({ initialLikedItems }) {
   const router = useRouter();
   const { data: session } = useSession();
-  const [likedItems] = useState(initialLikedItems);
+  const [likedItems, setLikedItems] = useState(initialLikedItems);
+
+  // Handle when an item is unliked - remove it from the list
+  const handleItemUnliked = (itemId) => {
+    setLikedItems(prevItems => prevItems.filter(item => item.id !== itemId));
+  };
 
   if (likedItems.length === 0) {
     return (
@@ -50,14 +55,17 @@ export default function MyLikesClient({ initialLikedItems }) {
         <div className="mt-12 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-8">
           {likedItems.map((item) => (
             <AnimatedCard key={item.id}>
-              <ClothingItemCard clothingItem={{
-                ...item,
-                likes: item.likes || [], // Use the likes array from the server
-                creator: {
-                  ...item.creator,
-                  id: item.creator.id
-                }
-              }} />
+              <ClothingItemCard 
+                clothingItem={{
+                  ...item,
+                  likes: item.likes || [], // Use the likes array from the server
+                  creator: {
+                    ...item.creator,
+                    id: item.creator.id
+                  }
+                }}
+                onItemUnliked={handleItemUnliked}
+              />
             </AnimatedCard>
           ))}
         </div>

@@ -198,7 +198,7 @@ export default async function ProductionPage() {
                   <p className="text-sm text-gray-600">Total</p>
                 </div>
                 <div className="text-center">
-                  <p className="text-2xl font-semibold text-green-600">${item.price}</p>
+                  <p className="text-2xl font-semibold text-green-600">${item.price?.toFixed(2) || '0.00'}</p>
                   <p className="text-sm text-gray-600">Price</p>
                 </div>
               </div>

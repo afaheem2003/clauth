@@ -19,6 +19,7 @@ export default function UpvotePage() {
   const [submissions, setSubmissions] = useState([]);
   const [userUpvotes, setUserUpvotes] = useState(new Set());
   const [userSubmission, setUserSubmission] = useState(null);
+  const [roomInfo, setRoomInfo] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [upvoting, setUpvoting] = useState(null);
@@ -48,6 +49,7 @@ export default function UpvotePage() {
       setSubmissions(data.submissions);
       setUserUpvotes(new Set(data.userUpvotes));
       setUserSubmission(data.userSubmission);
+      setRoomInfo(data.roomInfo);
     } catch (error) {
       console.error('Error fetching submissions:', error);
       setError('Failed to load challenge submissions');
@@ -100,8 +102,8 @@ export default function UpvotePage() {
       ));
 
       // Check if user is now eligible and update user submission
-      if (!isUpvoted && newUpvotes.size >= 3 && userSubmission && !userSubmission.isEligibleForGlobal) {
-        setUserSubmission(prev => ({ ...prev, isEligibleForGlobal: true }));
+      if (!isUpvoted && newUpvotes.size >= 3 && userSubmission && !userSubmission.isEligibleForCompetition) {
+        setUserSubmission(prev => ({ ...prev, isEligibleForCompetition: true }));
       }
 
     } catch (error) {
@@ -180,6 +182,9 @@ export default function UpvotePage() {
                 <p><span className="font-semibold">Item:</span> {challenge.mainItem}</p>
               )}
               <p><span className="font-semibold">Theme:</span> {challenge.theme}</p>
+              {roomInfo && (
+                <p><span className="font-semibold">Competition Room:</span> Room {roomInfo.roomNumber} ({roomInfo.participantCount} participants)</p>
+              )}
             </div>
           </div>
 
@@ -207,8 +212,8 @@ export default function UpvotePage() {
                   isEligible ? 'text-green-700' : 'text-yellow-700'
                 }`}>
                   {isEligible 
-                    ? 'Your submission is now eligible for global competition rankings.' 
-                    : `Upvote ${upvotesNeeded} more design${upvotesNeeded !== 1 ? 's' : ''} to be eligible for competition rankings.`
+                    ? 'Your submission is now eligible for room competition rankings.' 
+                    : `Upvote ${upvotesNeeded} more design${upvotesNeeded !== 1 ? 's' : ''} in your room to be eligible for competition rankings.`
                   }
                 </p>
               </div>
@@ -240,10 +245,10 @@ export default function UpvotePage() {
         {/* Navigation */}
         <div className="mt-8 flex justify-center">
           <Link
-            href="/challenges/leaderboard"
+            href={`/challenges/leaderboard?challengeId=${challengeId}`}
             className="inline-flex items-center px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700"
           >
-            View Global Leaderboard
+            View Room Leaderboard
           </Link>
         </div>
       </div>

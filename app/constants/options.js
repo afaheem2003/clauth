@@ -17,6 +17,36 @@ export const SIZES = [
   { value: 'XXL', label: 'XXL' }
 ];
 
+export const TEXTURES = [
+  { value: 'cotton', label: 'Cotton' },
+  { value: 'silk', label: 'Silk' },
+  { value: 'wool', label: 'Wool' },
+  { value: 'linen', label: 'Linen' },
+  { value: 'denim', label: 'Denim' },
+  { value: 'leather', label: 'Leather' },
+  { value: 'velvet', label: 'Velvet' },
+  { value: 'satin', label: 'Satin' },
+  { value: 'polyester', label: 'Polyester' },
+  { value: 'nylon', label: 'Nylon' },
+  { value: 'fleece', label: 'Fleece' },
+  { value: 'knit', label: 'Knit' }
+];
+
+export const MATERIALS = [
+  { value: 'cotton', label: 'Cotton' },
+  { value: 'silk', label: 'Silk' },
+  { value: 'wool', label: 'Wool' },
+  { value: 'linen', label: 'Linen' },
+  { value: 'denim', label: 'Denim' },
+  { value: 'leather', label: 'Leather' },
+  { value: 'velvet', label: 'Velvet' },
+  { value: 'satin', label: 'Satin' },
+  { value: 'polyester', label: 'Polyester' },
+  { value: 'nylon', label: 'Nylon' },
+  { value: 'fleece', label: 'Fleece' },
+  { value: 'knit', label: 'Knit' }
+];
+
 export const PRICE_RANGES = [
   { min: 0, max: 50, label: 'Under $50' },
   { min: 50, max: 100, label: '$50-$100' },

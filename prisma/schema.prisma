@@ -60,6 +60,7 @@ model User {
   groupMemberships  GroupMember[]
   challengeSubmissions ChallengeSubmission[]
   submissionUpvotes    SubmissionUpvote[]
+  competitionParticipations CompetitionParticipant[]
 }
 
 model Account {
@@ -136,6 +137,7 @@ model ClothingItem {
   fit              String?    // Fit/Cut (e.g. Slim, Regular, Relaxed)
   brand            String?    // Brand/Designer name
   promptJsonData   String?
+  quality          String?    // Generation quality: 'low', 'medium', 'high'
   price            Decimal?   // Price of the item (only set when status becomes SELECTED)
   cost             Decimal?   // AI-estimated cost of the item
   isPublished      Boolean    @default(false)
@@ -154,6 +156,7 @@ model ClothingItem {
   inStock          Boolean    @default(true) // Availability
   wardrobeItems    WardrobeItem[]
   designEdits      DesignEditHistory[]
+  challengeSubmissions ChallengeSubmission[] // Challenge submissions using this item
   
   // Drop-based system fields
   status           ItemStatus @default(CONCEPT)
@@ -328,6 +331,15 @@ model Wardrobe {
   style       String?       // e.g., "Casual", "Formal", "Streetwear"
   season      String?       // e.g., "Summer", "Winter", "All Season"
   occasion    String?       // e.g., "Work", "Party", "Everyday"
+  
+  // Template system - ADD THIS LINE
+  templateType   String?       @default("gallery") // "minimalist", "gallery", "grid", "magazine"
+  
+  // Banner customization fields
+  bannerType     String?       // "image", "color", "gradient"
+  bannerImage    String?       // Supabase storage URL for custom banner image
+  bannerColor    String?       // Single color hex code (e.g., "#667eea")
+  bannerGradient String[]      // Array of hex colors for gradient (e.g., ["#667eea", "#764ba2"])
   
   creator     User          @relation(fields: [creatorId], references: [id])
   creatorId   String
@@ -544,37 +556,77 @@ model DailyChallenge {
   updatedAt       DateTime @updatedAt
   
   submissions     ChallengeSubmission[]
+  competitionRooms CompetitionRoom[]
   
   @@index([date])
+}
+
+model CompetitionRoom {
+  id              String   @id @default(cuid())
+  challenge       DailyChallenge @relation(fields: [challengeId], references: [id])
+  challengeId     String
+  roomNumber      Int      // Room 1, Room 2, etc. for this challenge
+  maxParticipants Int      @default(30) // Maximum participants (20-30 range)
+  
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  
+  participants    CompetitionParticipant[]
+  submissions     ChallengeSubmission[]
+  
+  @@unique([challengeId, roomNumber]) // Unique room numbers per challenge
+  @@index([challengeId])
+}
+
+model CompetitionParticipant {
+  id              String   @id @default(cuid())
+  room            CompetitionRoom @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  roomId          String
+  user            User     @relation(fields: [userId], references: [id])
+  userId          String
+  
+  assignedAt      DateTime @default(now())
+  
+  @@unique([roomId, userId]) // One assignment per user per room
+  @@index([userId])
 }
 
 model ChallengeSubmission {
   id              String   @id @default(cuid())
   challenge       DailyChallenge @relation(fields: [challengeId], references: [id])
   challengeId     String
-  group           Group    @relation(fields: [groupId], references: [id], onDelete: Cascade)
-  groupId         String
+  group           Group?   @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  groupId         String?
   user            User     @relation(fields: [userId], references: [id])
   userId          String
+  
+  // Competition room assignment
+  competitionRoom CompetitionRoom? @relation(fields: [competitionRoomId], references: [id])
+  competitionRoomId String?
+  
+  // Link to clothing item if submitting existing design
+  clothingItem    ClothingItem? @relation(fields: [clothingItemId], references: [id])
+  clothingItemId  String?
   
   outfitDescription String // User's text description of their outfit
   generatedImageUrl String? // AI-generated image URL
   generationStatus  SubmissionStatus @default(PENDING)
   
-  // Global competition fields
-  isPublic        Boolean  @default(true) // Visible in global feed
-  isEligibleForGlobal Boolean @default(false) // True when user has upvoted 3+ others
-  globalRank      Int?     // Calculated rank based on upvotes
+  // Competition fields (now room-specific instead of global)
+  isPublic        Boolean  @default(true) // Visible in room feed
+  isEligibleForCompetition Boolean @default(false) // True when user has upvoted 3+ others in their room
+  roomRank        Int?     // Calculated rank within their competition room
   
   submittedAt     DateTime @default(now())
   updatedAt       DateTime @updatedAt
   
   upvotes         SubmissionUpvote[] // Upvotes received
   
-  @@unique([challengeId, groupId, userId]) // One submission per user per challenge per group
+  @@unique([challengeId, userId]) // One submission per user per challenge (removed groupId)
   @@index([challengeId, groupId])
   @@index([userId])
-  @@index([challengeId, isEligibleForGlobal]) // For global leaderboard queries
+  @@index([challengeId, competitionRoomId]) // For room leaderboard queries
+  @@index([competitionRoomId, isEligibleForCompetition]) // For room rankings
 }
 
 model SubmissionUpvote {
@@ -595,4 +647,15 @@ enum SubmissionStatus {
   GENERATING   // AI is generating the image
   COMPLETED    // Image generated successfully
   FAILED       // Generation failed
+}
+
+/* ────────────────────────────────────────────────────────────
+   Waitlist model
+────────────────────────────────────────────────────────────── */
+model WaitlistEntry {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  createdAt DateTime @default(now())
+  
+  @@map("WaitlistEntry")
 }

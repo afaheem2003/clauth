@@ -5,6 +5,7 @@ import prisma from '@/lib/prisma';
 import dayjs from 'dayjs';
 import timezone from 'dayjs/plugin/timezone';
 import utc from 'dayjs/plugin/utc';
+import { assignUserToCompetitionRoom } from '@/services/competitionRoomService';
 
 dayjs.extend(timezone);
 dayjs.extend(utc);
@@ -40,10 +41,10 @@ export async function POST(request) {
       generatedImageUrl 
     } = await request.json();
 
-    // Validate required fields
-    if (!challengeId || !groupId || !outfitDescription?.trim()) {
+    // Validate required fields - groupId is now optional
+    if (!challengeId || !outfitDescription?.trim()) {
       return NextResponse.json({ 
-        error: 'Challenge ID, group ID, and outfit description are required' 
+        error: 'Challenge ID and outfit description are required' 
       }, { status: 400 });
     }
 
@@ -77,39 +78,38 @@ export async function POST(request) {
       }, { status: 400 });
     }
 
-    // Verify the group exists and user is a member
-    const groupMember = await prisma.groupMember.findUnique({
-      where: {
-        groupId_userId: {
-          groupId,
-          userId: user.id
+    // Verify the group exists and user is a member (only if groupId is provided)
+    if (groupId) {
+      const groupMember = await prisma.groupMember.findUnique({
+        where: {
+          groupId_userId: {
+            groupId,
+            userId: user.id
+          }
+        },
+        include: {
+          group: true
         }
-      },
-      include: {
-        group: true
-      }
-    });
+      });
 
-    if (!groupMember) {
-      return NextResponse.json({ 
-        error: 'You are not a member of this group' 
-      }, { status: 403 });
+      if (!groupMember) {
+        return NextResponse.json({ 
+          error: 'You are not a member of this group' 
+        }, { status: 403 });
+      }
     }
 
-    // Check if user has already submitted for this challenge and group
-    const existingSubmission = await prisma.challengeSubmission.findUnique({
+    // Check if user already has a submission for this challenge
+    const existingSubmission = await prisma.challengeSubmission.findFirst({
       where: {
-        challengeId_groupId_userId: {
-          challengeId,
-          groupId,
-          userId: user.id
-        }
+        challengeId,
+        userId: user.id
       }
     });
 
     if (existingSubmission) {
       return NextResponse.json({ 
-        error: 'You have already submitted for this challenge in this group' 
+        error: 'You have already submitted to this challenge' 
       }, { status: 400 });
     }
 
@@ -126,17 +126,22 @@ export async function POST(request) {
       }
     }
 
+    // Assign user to a competition room for this challenge
+    const competitionRoom = await assignUserToCompetitionRoom(user.id, challengeId);
+
     // Create challenge submission
     const submission = await prisma.challengeSubmission.create({
       data: {
         challengeId,
-        groupId,
+        groupId: groupId || null,
         userId: user.id,
+        competitionRoomId: competitionRoom.id,
+        clothingItemId: clothingItemId || null,
         outfitDescription: outfitDescription.trim(),
         generatedImageUrl: generatedImageUrl || null,
         generationStatus: generatedImageUrl ? 'COMPLETED' : 'PENDING',
         isPublic: true,
-        isEligibleForGlobal: false // Will become true when they upvote 3 others
+        isEligibleForCompetition: false // Will become true when they upvote 3 others in their room
       },
       include: {
         challenge: {
@@ -147,13 +152,13 @@ export async function POST(request) {
             date: true
           }
         },
-        group: {
+        group: groupId ? {
           select: {
             id: true,
             name: true,
             handle: true
           }
-        },
+        } : false,
         user: {
           select: {
             id: true,
@@ -170,11 +175,12 @@ export async function POST(request) {
         id: submission.id,
         outfitDescription: submission.outfitDescription,
         generatedImageUrl: submission.generatedImageUrl,
+        clothingItemId: submission.clothingItemId,
         submittedAt: submission.submittedAt,
         challenge: submission.challenge,
         group: submission.group,
         user: submission.user,
-        isEligibleForGlobal: submission.isEligibleForGlobal
+        isEligibleForCompetition: submission.isEligibleForCompetition
       }
     });
   } catch (error) {

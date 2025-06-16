@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { PlusIcon, CalendarIcon, TrashIcon, PencilIcon, ChevronLeftIcon, ChevronRightIcon } from '@heroicons/react/24/outline';
 import dayjs from 'dayjs';
 import utc from 'dayjs/plugin/utc';
@@ -12,6 +13,7 @@ dayjs.extend(utc);
 dayjs.extend(timezone);
 
 export default function AdminChallengesPage() {
+  const router = useRouter();
   const [challenges, setChallenges] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selectedMonth, setSelectedMonth] = useState(new Date());
@@ -65,6 +67,12 @@ export default function AdminChallengesPage() {
     const newMonth = new Date(selectedMonth);
     newMonth.setMonth(newMonth.getMonth() + direction);
     setSelectedMonth(newMonth);
+  };
+
+  const handleDateClick = (date) => {
+    // Format date as YYYY-MM-DD for the URL parameter
+    const formattedDate = dayjs(date).format('YYYY-MM-DD');
+    router.push(`/admin/challenges/create?date=${formattedDate}`);
   };
 
   const getDaysInMonth = () => {
@@ -196,13 +204,25 @@ export default function AdminChallengesPage() {
           
           {/* Calendar days */}
           {days.map((dayData, index) => (
-            <div key={index} className="min-h-24 p-2 border border-gray-100 hover:bg-gray-50">
+            <div 
+              key={index} 
+              className={`min-h-24 p-2 border border-gray-100 ${
+                dayData && !dayData.challenge 
+                  ? 'hover:bg-indigo-50 cursor-pointer transition-colors' 
+                  : 'hover:bg-gray-50'
+              }`}
+              onClick={() => {
+                if (dayData && !dayData.challenge) {
+                  handleDateClick(dayData.date);
+                }
+              }}
+            >
               {dayData ? (
                 <>
                   <div className="text-sm text-gray-900 font-medium mb-1">
                     {dayData.day}
                   </div>
-                  {dayData.challenge && (
+                  {dayData.challenge ? (
                     <div className={`text-xs p-2 rounded-md ${getChallengeStatus(dayData.challenge).bg}`}>
                       <div className="font-semibold truncate text-gray-900">
                         {dayData.challenge.mainItem || 'General Challenge'}
@@ -227,6 +247,10 @@ export default function AdminChallengesPage() {
                           </button>
                         </div>
                       </div>
+                    </div>
+                  ) : (
+                    <div className="text-xs text-gray-400 text-center py-4 border-2 border-dashed border-gray-200 rounded-md hover:border-indigo-300 hover:text-indigo-600 transition-colors">
+                      Click to schedule
                     </div>
                   )}
                 </>

@@ -6,7 +6,7 @@ import ClothingItemClient from './ClothingItemClient';
 
 export default async function ClothingItemPage({ params }) {
   const session = await getServerSession(authOptions);
-  const id = await params.id;
+  const { id } = await params;
   
   // Get clothing item with creator and likes
   const clothingItem = await prisma.clothingItem.findUnique({

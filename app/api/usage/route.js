@@ -63,7 +63,6 @@ export async function GET(request) {
       
       // Plan info from centralized config
       plan: plan.displayName,
-      editCapPerDesign: plan.editCapPerDesign,
       
       // Reset times
       creditsResetTime: new Date(today.getFullYear(), today.getMonth() + 1, 1), // Next month

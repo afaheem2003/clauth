@@ -63,6 +63,7 @@ function getEditingMethodForApproach(approach) {
 
 /**
  * Splits a landscape image into two vertical panels (front and back views)
+ * For landscape generations, crops panels to match portrait aspect ratio
  */
 async function splitCompositeImage(imageBuffer) {
   try {
@@ -80,28 +81,55 @@ async function splitCompositeImage(imageBuffer) {
       metadata.height = 1024;
     }
     
-    // For a 1536x1024 image, each panel should be exactly 768x1024
-    const trimPixels = 2; // Pixels to trim from each edge where panels meet
-    const panelWidth = Math.floor(metadata.width / 2);
-    const panelHeight = metadata.height;
+    // Calculate dimensions for aspect ratio matching
+    // Portrait images are 1024x1536 (aspect ratio: 1024/1536 = 0.6667)
+    // For 1024 height, width should be: 1024 * (1024/1536) = 682.67px
+    // Round to 683px for clean dimensions
+    const targetPanelWidth = 683;
+    const targetPanelHeight = 1024;
     
-    // Calculate starting positions with trim offsets
+    // For a 1536x1024 image, each half is 768px wide
+    // We need to crop from 768px to 683px, so remove 85px total (42.5px from each side)
+    const originalPanelWidth = Math.floor(metadata.width / 2); // 768px
+    const cropAmount = originalPanelWidth - targetPanelWidth; // 85px
+    const cropFromEachSide = Math.floor(cropAmount / 2); // 42px from each side
+    
+    console.log(`[Image Split] Cropping landscape panels:`);
+    console.log(`[Image Split]   Original panel size: ${originalPanelWidth}x${metadata.height}`);
+    console.log(`[Image Split]   Target panel size: ${targetPanelWidth}x${targetPanelHeight}`);
+    console.log(`[Image Split]   Crop amount: ${cropAmount}px (${cropFromEachSide}px from each side)`);
+    
+    const trimPixels = 2; // Pixels to trim from center seam where panels meet
+    
+    // Calculate starting positions with crop and trim offsets
     const positions = [
-      { left: 0, width: panelWidth - trimPixels, name: 'front' },           // Left Panel (Front)
-      { left: metadata.width/2 + trimPixels, width: panelWidth - trimPixels, name: 'back' }  // Right Panel (Back)
+      { 
+        left: cropFromEachSide, 
+        width: targetPanelWidth, 
+        name: 'front',
+        description: `Front panel: crop ${cropFromEachSide}px from left edge`
+      },
+      { 
+        left: metadata.width/2 + trimPixels + cropFromEachSide, 
+        width: targetPanelWidth, 
+        name: 'back',
+        description: `Back panel: start at center + ${trimPixels + cropFromEachSide}px`
+      }
     ];
 
-    // Extract each panel with trimming
-    const extractPanel = async (left, width, name) => {
-      console.log(`[Image Split] Extracting ${name} panel from position:`, { left, width, height: panelHeight });
+    // Extract each panel with cropping
+    const extractPanel = async (left, width, name, description) => {
+      console.log(`[Image Split] Extracting ${name} panel: ${description}`);
+      console.log(`[Image Split]   Extract region: left=${left}, width=${width}, height=${targetPanelHeight}`);
+      
       const panel = await sharp(imageBuffer)
         .extract({
           left: Math.max(0, left),
           top: 0,
           width: Math.min(width, metadata.width - left),
-          height: panelHeight
+          height: targetPanelHeight
         })
-        .resize(768, 1024, { // Resize to exact dimensions
+        .resize(targetPanelWidth, targetPanelHeight, { // Ensure exact dimensions
           fit: 'fill',
           position: 'center'
         })
@@ -109,8 +137,10 @@ async function splitCompositeImage(imageBuffer) {
       
       // Validate panel dimensions
       const panelMetadata = await sharp(panel).metadata();
-      if (panelMetadata.width !== 768 || panelMetadata.height !== 1024) {
-        throw new Error(`Invalid panel dimensions after split: ${panelMetadata.width}x${panelMetadata.height}`);
+      console.log(`[Image Split]   Final ${name} panel: ${panelMetadata.width}x${panelMetadata.height}`);
+      
+      if (panelMetadata.width !== targetPanelWidth || panelMetadata.height !== targetPanelHeight) {
+        throw new Error(`Invalid ${name} panel dimensions: ${panelMetadata.width}x${panelMetadata.height}, expected ${targetPanelWidth}x${targetPanelHeight}`);
       }
       
       return panel;
@@ -118,10 +148,10 @@ async function splitCompositeImage(imageBuffer) {
 
     // Extract both panels in parallel
     const panels = await Promise.all(
-      positions.map(pos => extractPanel(pos.left, pos.width, pos.name))
+      positions.map(pos => extractPanel(pos.left, pos.width, pos.name, pos.description))
     );
 
-    console.log('[Image Split] Successfully split landscape image into panels');
+    console.log(`[Image Split] Successfully split and cropped landscape image into ${targetPanelWidth}x${targetPanelHeight} panels`);
     return {
       [ANGLES.FRONT]: panels[0],
       [ANGLES.BACK]: panels[1]
@@ -164,25 +194,48 @@ async function uploadPanelsToStorage(angleBuffers, userId) {
 
 /**
  * Creates portrait panels from front and back portrait images
+ * Resizes to match the same dimensions as landscape-split panels
  */
 async function createPortraitPanels(frontImageBuffer, backImageBuffer) {
   try {
-    // Resize both images to ensure consistent dimensions (768x1024)
+    // Use the same target dimensions as landscape splitting for consistency
+    // This ensures both generation methods produce the same final panel sizes
+    const targetPanelWidth = 683;  // Matches landscape split dimensions
+    const targetPanelHeight = 1024;
+    
+    console.log(`[Portrait Panels] Resizing portrait images to ${targetPanelWidth}x${targetPanelHeight}`);
+    
+    // Resize both images to ensure consistent dimensions
     const frontPanel = await sharp(frontImageBuffer)
-      .resize(768, 1024, { 
+      .resize(targetPanelWidth, targetPanelHeight, { 
         fit: 'fill',
         position: 'center'
       })
       .toBuffer();
 
     const backPanel = await sharp(backImageBuffer)
-      .resize(768, 1024, { 
+      .resize(targetPanelWidth, targetPanelHeight, { 
         fit: 'fill',
         position: 'center'
       })
       .toBuffer();
 
-    console.log('[Portrait Panels] Successfully created portrait panels');
+    // Validate panel dimensions
+    const frontMetadata = await sharp(frontPanel).metadata();
+    const backMetadata = await sharp(backPanel).metadata();
+    
+    console.log(`[Portrait Panels] Front panel: ${frontMetadata.width}x${frontMetadata.height}`);
+    console.log(`[Portrait Panels] Back panel: ${backMetadata.width}x${backMetadata.height}`);
+    
+    if (frontMetadata.width !== targetPanelWidth || frontMetadata.height !== targetPanelHeight) {
+      throw new Error(`Invalid front panel dimensions: ${frontMetadata.width}x${frontMetadata.height}, expected ${targetPanelWidth}x${targetPanelHeight}`);
+    }
+    
+    if (backMetadata.width !== targetPanelWidth || backMetadata.height !== targetPanelHeight) {
+      throw new Error(`Invalid back panel dimensions: ${backMetadata.width}x${backMetadata.height}, expected ${targetPanelWidth}x${targetPanelHeight}`);
+    }
+
+    console.log(`[Portrait Panels] Successfully created ${targetPanelWidth}x${targetPanelHeight} portrait panels`);
     return {
       [ANGLES.FRONT]: frontPanel,
       [ANGLES.BACK]: backPanel

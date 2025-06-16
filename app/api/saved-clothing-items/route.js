@@ -5,6 +5,63 @@ import { prisma } from '@/lib/prisma';
 import { Filter } from 'bad-words';
 import { ANGLES } from '@/utils/imageProcessing';
 
+export async function GET(req) {
+  const session = await getServerSession(authOptions);
+  if (!session?.user?.uid) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
+  try {
+    const { searchParams } = new URL(req.url);
+    const published = searchParams.get('published');
+    
+    const whereClause = {
+      creatorId: session.user.uid,
+      isDeleted: false,
+    };
+
+    // If published=true is specified, only return published items
+    if (published === 'true') {
+      whereClause.isPublished = true;
+    }
+
+    const clothingItems = await prisma.clothingItem.findMany({
+      where: whereClause,
+      orderBy: {
+        createdAt: 'desc',
+      },
+      include: {
+        creator: {
+          select: {
+            id: true,
+            displayName: true,
+            name: true,
+          }
+        },
+        likes: true,
+      }
+    });
+
+    // Process the clothing items for serialization
+    const processedClothingItems = clothingItems.map(item => ({
+      ...item,
+      price: item.price?.toString() ?? null,
+      cost: item.cost?.toString() ?? null,
+      imageUrls: {
+        front: item.frontImage,
+        back: item.backImage,
+        left: item.leftImage,
+        right: item.rightImage,
+      }
+    }));
+
+    return NextResponse.json({ clothingItems: processedClothingItems });
+  } catch (err) {
+    console.error('❌ Failed to fetch clothing items:', err);
+    return NextResponse.json({ error: 'Failed to fetch clothing items' }, { status: 500 });
+  }
+}
+
 export async function POST(req) {
   const session = await getServerSession(authOptions);
   if (!session?.user?.uid) {
@@ -30,6 +87,7 @@ export async function POST(req) {
     texture,
     size,
     color = '',
+    quality = 'medium',
     isPublished = false,
     promptJsonData = null,
     price,
@@ -76,6 +134,7 @@ export async function POST(req) {
             promptSanitized,
             size,
             color,
+            quality,
             promptJsonData,
             isPublished: Boolean(isPublished),
             expiresAt,
@@ -98,6 +157,7 @@ export async function POST(req) {
             promptSanitized,
             size,
             color,
+            quality,
             promptJsonData,
             isPublished: Boolean(isPublished),
             expiresAt,

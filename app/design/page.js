@@ -437,67 +437,68 @@ export default function DesignPage() {
       setLoading(true);
       setError(null);
 
-      // First, create the clothing item
+      const imageUrls = {};
+      if (frontImage) imageUrls[ANGLES.FRONT] = frontImage;
+      if (backImage) imageUrls[ANGLES.BACK] = backImage;
+
       const response = await fetch('/api/saved-clothing-items', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           name: itemName,
           description: aiDescription,
           itemType,
           gender,
+          imageUrls,
           promptRaw: userPrompt,
-          imageUrls: {
-            front: frontImage,
-            back: backImage
-          },
-          isPublished: true,
-          size: '',
+          promptSanitized: aiDescription,
           color,
+          quality,
+          isPublished: true,
+          promptJsonData: JSON.stringify({
+            itemDescription: `${itemType} in ${color}`,
+            designDetails: aiDescription,
+            frontText: aiDescription,
+            backText: '',
+            modelDetails: modelDescription || 'Professional model',
+            style: itemType,
+            color,
+            texture: 'Premium fabric'
+          })
         }),
       });
 
       if (!response.ok) {
-        const data = await response.json();
-        throw new Error(data.error || 'Failed to save design');
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to publish item');
       }
 
-      const { clothingItem } = await response.json();
-
-      // Submit to selected challenges
+      const data = await response.json();
+      
+      // Add to selected challenge if any are selected
       if (selectedChallengeIds.length > 0) {
-        const challengeSubmissions = selectedChallengeIds.map(challengeId => {
-          const challenge = activeChallenges.find(c => c.id === challengeId);
-          return fetch('/api/challenges/submit', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-              challengeId,
-              groupId: challenge.group.id,
-              outfitDescription: aiDescription,
-              clothingItemId: clothingItem.id,
-              generatedImageUrl: frontImage
-            }),
-          });
-        });
-
-        try {
-          await Promise.all(challengeSubmissions);
-        } catch (challengeError) {
-          console.error('Error submitting to challenges:', challengeError);
-          // Don't fail the whole process if challenge submission fails
+        for (const challengeId of selectedChallengeIds) {
+          try {
+            await fetch('/api/challenges/submit', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                challengeId,
+                clothingItemId: data.clothingItem.id
+              }),
+            });
+          } catch (challengeError) {
+            console.error('Failed to submit to challenge:', challengeError);
+            // Don't fail the entire publish process for challenge submission errors
+          }
         }
       }
 
-      // Redirect to the clothing item page
-      router.push(`/clothing/${clothingItem.id}`);
-    } catch (err) {
-      console.error('Error saving design:', err);
-      setError(err.message || 'Failed to save design');
+      router.push(`/clothing/${data.clothingItem.id}?from=design`);
+    } catch (error) {
+      console.error('Failed to publish item:', error);
+      setError(error.message || 'Failed to publish item. Please try again.');
+    } finally {
       setLoading(false);
     }
   };
@@ -515,49 +516,73 @@ export default function DesignPage() {
       <div className="max-w-3xl mx-auto">
         {/* Active Challenges Banner */}
         {!challengesLoading && activeChallenges.length > 0 && (
-          <div className="mb-8 bg-gradient-to-r from-indigo-600 to-purple-600 rounded-2xl p-6 text-white">
-            <div className="flex items-start justify-between">
-              <div className="flex-1">
-                <h2 className="text-xl font-bold mb-2">🎯 Active Challenges</h2>
-                <p className="text-indigo-100 mb-4">
-                  You have {activeChallenges.filter(c => !c.hasSubmitted).length} active challenge{activeChallenges.filter(c => !c.hasSubmitted).length !== 1 ? 's' : ''} today! 
-                  Design something that matches the themes below.
-                </p>
-                <div className="space-y-2">
-                  {activeChallenges.slice(0, 3).map((challenge) => (
-                    <div key={challenge.id} className="bg-white bg-opacity-20 rounded-lg p-3">
-          <div className="flex items-center justify-between">
-              <div>
-                          <p className="font-semibold">{challenge.theme}</p>
-                          {challenge.mainItem && (
-                            <p className="text-sm opacity-90">Required: {challenge.mainItem}</p>
-                          )}
-                          <p className="text-xs opacity-75">{challenge.group.name}</p>
-            </div>
-            <div className="text-right">
-                          <p className="text-xs opacity-75">Deadline:</p>
-                          <p className="text-sm">
-                            {dayjs.utc(challenge.submissionDeadline).tz(EASTERN_TIMEZONE).format('h:mm A')} ET
-                          </p>
-                          {challenge.hasSubmitted && (
-                            <span className="inline-block px-2 py-1 bg-green-500 bg-opacity-30 rounded text-xs mt-1">
-                              Submitted ✓
-                            </span>
-                          )}
+          <div className="mb-8 bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 rounded-2xl overflow-hidden shadow-xl border border-slate-700">
+            <div className="relative p-8">
+              {/* Background pattern */}
+              <div className="absolute inset-0 opacity-5">
+                <div className="absolute inset-0" style={{
+                  backgroundImage: `url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23ffffff' fill-opacity='0.1'%3E%3Ccircle cx='30' cy='30' r='2'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")`,
+                  backgroundSize: '60px 60px'
+                }}></div>
+              </div>
+              
+              <div className="relative">
+                <div className="flex items-start justify-between">
+                  <div className="flex-1">
+                    <div className="flex items-center mb-4">
+                      <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-purple-600 rounded-xl flex items-center justify-center mr-4 shadow-lg">
+                        <span className="text-2xl">🎯</span>
+                      </div>
+                      <div>
+                        <h2 className="text-2xl font-bold text-white mb-1">Active Challenges</h2>
+                        <p className="text-slate-300 text-sm">
+                          {activeChallenges.filter(c => !c.hasSubmitted).length} challenge{activeChallenges.filter(c => !c.hasSubmitted).length !== 1 ? 's' : ''} available today
+                        </p>
+                      </div>
+                    </div>
+                    
+                    <div className="space-y-3">
+                      {activeChallenges.slice(0, 3).map((challenge) => (
+                        <div key={challenge.id} className="bg-white/10 backdrop-blur-sm rounded-xl p-4 border border-white/20">
+                          <div className="flex items-center justify-between">
+                            <div className="flex-1">
+                              <div className="flex items-center space-x-3 mb-2">
+                                <h3 className="font-semibold text-white text-lg">{challenge.theme}</h3>
+                                {challenge.hasSubmitted && (
+                                  <span className="inline-flex items-center px-2 py-1 bg-green-500/20 text-green-300 rounded-full text-xs font-medium border border-green-500/30">
+                                    ✓ Submitted
+                                  </span>
+                                )}
+                              </div>
+                              {challenge.mainItem && (
+                                <p className="text-slate-300 text-sm mb-2">Required: {challenge.mainItem}</p>
+                              )}
+                              <p className="text-slate-400 text-xs">
+                                Global Challenge
+                              </p>
+                            </div>
+                            <div className="text-right ml-4">
+                              <p className="text-slate-400 text-xs mb-1">Deadline:</p>
+                              <p className="text-white font-medium">
+                                {dayjs.utc(challenge.submissionDeadline).tz(EASTERN_TIMEZONE).format('h:mm A')} ET
+                              </p>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                    
+                    {activeChallenges.length > 3 && (
+                      <p className="text-slate-400 text-sm mt-3">
+                        + {activeChallenges.length - 3} more challenge{activeChallenges.length - 3 !== 1 ? 's' : ''}
+                      </p>
+                    )}
                   </div>
                 </div>
-                  </div>
-                  ))}
-                </div>
-                {activeChallenges.length > 3 && (
-                  <p className="text-sm text-indigo-100 mt-2">
-                    + {activeChallenges.length - 3} more challenge{activeChallenges.length - 3 !== 1 ? 's' : ''}
-                  </p>
-                )}
-                  </div>
-                  </div>
+              </div>
             </div>
-          )}
+          </div>
+        )}
           
         {/* Progress Steps */}
         <ProgressSteps steps={steps} currentStep={currentStep} />
@@ -766,16 +791,16 @@ export default function DesignPage() {
                                   autoFocus
                                 />
                               ) : (
-                                <dd className="mt-1 text-sm text-gray-900">{itemName}</dd>
+                                <dd className="mt-1 text-sm text-gray-900 font-medium">{itemName}</dd>
                               )}
                             </div>
                             <div>
                               <dt className="text-sm font-medium text-gray-700">Type</dt>
-                              <dd className="mt-1 text-sm text-gray-900">{itemType}</dd>
+                              <dd className="mt-1 text-sm text-gray-900 font-medium">{itemType}</dd>
                             </div>
                             <div>
                               <dt className="text-sm font-medium text-gray-700">Target Gender</dt>
-                              <dd className="mt-1 text-sm text-gray-900">
+                              <dd className="mt-1 text-sm text-gray-900 font-medium">
                                 {gender === 'MASCULINE' && '👨 Men'}
                                 {gender === 'FEMININE' && '👩 Women'}
                                 {gender === 'UNISEX' && '👥 Unisex'}
@@ -807,7 +832,7 @@ export default function DesignPage() {
                                   autoFocus
                                 />
                               ) : (
-                                <dd className="mt-1 text-sm text-gray-900">{color}</dd>
+                                <dd className="mt-1 text-sm text-gray-900 font-medium">{color}</dd>
                               )}
                             </div>
                           </div>
@@ -835,7 +860,7 @@ export default function DesignPage() {
                                 className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-gray-900 text-sm"
                               />
                             ) : (
-                              <p className="text-sm text-gray-900 bg-gray-50 rounded-lg p-4">{aiDescription}</p>
+                              <p className="text-sm text-gray-900 bg-gray-50 rounded-lg p-4 font-medium leading-relaxed">{aiDescription}</p>
                             )}
                           </div>
                         </div>
@@ -847,7 +872,7 @@ export default function DesignPage() {
                       <h4 className="text-sm font-medium text-gray-500 uppercase tracking-wider mb-4">Generated Design</h4>
                       <div className="relative">
                         <div className="relative">
-                          <div className="relative aspect-[3/4] bg-gray-100 rounded-lg overflow-hidden shadow-md">
+                          <div className="relative aspect-[683/1024] bg-gray-100 rounded-lg overflow-hidden shadow-md">
                             <Image
                               src={currentView === 'front' ? (frontImage || '/images/placeholder-front.png') : (backImage || '/images/placeholder-back.png')}
                               alt={`${currentView} view`}
@@ -1118,91 +1143,120 @@ export default function DesignPage() {
               {/* Challenge Submission Section */}
               {activeChallenges.length > 0 && (
                 <div className="bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden">
-                  <div className="border-b border-gray-200 bg-indigo-50 px-6 py-4">
-                    <h3 className="text-lg font-semibold text-gray-900">🎯 Submit to Challenges</h3>
+                  <div className="border-b border-gray-200 bg-slate-50 px-6 py-4">
+                    <h3 className="text-lg font-semibold text-gray-900">🎯 Challenge Submission (Optional)</h3>
                     <p className="text-sm text-gray-600 mt-1">
-                      Select which challenges you'd like to submit this design to:
+                      You can submit this design to challenges or just publish it normally to your profile.
                     </p>
                   </div>
                   <div className="p-6">
                     <div className="space-y-4">
-                      {activeChallenges.map((challenge) => {
-                        const isSelected = selectedChallengeIds.includes(challenge.id);
-                        const isMatchingTheme = userPrompt.toLowerCase().includes(challenge.theme.toLowerCase()) ||
-                                               (challenge.mainItem && itemType.toLowerCase().includes(challenge.mainItem.toLowerCase()));
-                        
-                        return (
-                          <div
-                            key={challenge.id}
-                            className={`border rounded-lg p-4 cursor-pointer transition-all duration-200 ${
-                              challenge.hasSubmitted
-                                ? 'border-gray-200 bg-gray-50 opacity-60'
-                                : isSelected
-                                ? 'border-indigo-500 bg-indigo-50'
-                                : 'border-gray-200 hover:border-indigo-300'
-                            }`}
-                            onClick={() => {
-                              if (challenge.hasSubmitted) return;
-                              
-                              if (isSelected) {
-                                setSelectedChallengeIds(prev => prev.filter(id => id !== challenge.id));
-                              } else {
-                                setSelectedChallengeIds(prev => [...prev, challenge.id]);
-                              }
-                            }}
+                      {/* Option to skip challenges */}
+                      <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                        <div className="flex items-center space-x-3">
+                          <div className={`w-5 h-5 rounded border-2 flex items-center justify-center cursor-pointer ${
+                            selectedChallengeIds.length === 0
+                              ? 'border-blue-500 bg-blue-500'
+                              : 'border-gray-300'
+                          }`}
+                          onClick={() => setSelectedChallengeIds([])}
                           >
-                            <div className="flex items-start justify-between">
-                              <div className="flex-1">
-                                <div className="flex items-center space-x-3">
-                                  <div className={`w-5 h-5 rounded border-2 flex items-center justify-center ${
-                                    challenge.hasSubmitted
-                                      ? 'border-gray-300 bg-gray-100'
-                                      : isSelected
-                                      ? 'border-indigo-500 bg-indigo-500'
-                                      : 'border-gray-300'
-                                  }`}>
-                                    {challenge.hasSubmitted ? (
-                                      <svg className="w-3 h-3 text-gray-500" fill="currentColor" viewBox="0 0 20 20">
-                                        <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                                      </svg>
-                                    ) : isSelected ? (
-                                      <svg className="w-3 h-3 text-white" fill="currentColor" viewBox="0 0 20 20">
-                                        <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                                      </svg>
-                                    ) : null}
-                                  </div>
-                                  <div className="flex-1">
-                                    <div className="flex items-center space-x-2">
-                                      <h4 className="font-semibold text-gray-900">{challenge.theme}</h4>
-                                      {isMatchingTheme && !challenge.hasSubmitted && (
-                                        <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
-                                          Great match!
-                                        </span>
-                                      )}
-                                      {challenge.hasSubmitted && (
-                                        <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-600">
-                                          Already submitted
-                                        </span>
-                                      )}
+                            {selectedChallengeIds.length === 0 && (
+                              <svg className="w-3 h-3 text-white" fill="currentColor" viewBox="0 0 20 20">
+                                <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                              </svg>
+                            )}
+                          </div>
+                          <div className="flex-1">
+                            <h4 className="font-medium text-gray-900">Just publish to my profile</h4>
+                            <p className="text-sm text-gray-600">Don't submit to any challenges, just add to my clothing collection</p>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Challenge options */}
+                      <div className="space-y-3">
+                        <h4 className="font-medium text-gray-900 text-sm uppercase tracking-wide">Or submit to challenges:</h4>
+                        {activeChallenges.map((challenge) => {
+                          const isSelected = selectedChallengeIds.includes(challenge.id);
+                          const isMatchingTheme = userPrompt.toLowerCase().includes(challenge.theme.toLowerCase()) ||
+                                                 (challenge.mainItem && itemType.toLowerCase().includes(challenge.mainItem.toLowerCase()));
+                          
+                          return (
+                            <div
+                              key={challenge.id}
+                              className={`border rounded-lg p-4 cursor-pointer transition-all duration-200 ${
+                                challenge.hasSubmitted
+                                  ? 'border-gray-200 bg-gray-50 opacity-60'
+                                  : isSelected
+                                  ? 'border-indigo-500 bg-indigo-50'
+                                  : 'border-gray-200 hover:border-indigo-300'
+                              }`}
+                              onClick={() => {
+                                if (challenge.hasSubmitted) return;
+                                
+                                if (isSelected) {
+                                  setSelectedChallengeIds(prev => prev.filter(id => id !== challenge.id));
+                                } else {
+                                  setSelectedChallengeIds(prev => [...prev, challenge.id]);
+                                }
+                              }}
+                            >
+                              <div className="flex items-start justify-between">
+                                <div className="flex-1">
+                                  <div className="flex items-center space-x-3">
+                                    <div className={`w-5 h-5 rounded border-2 flex items-center justify-center ${
+                                      challenge.hasSubmitted
+                                        ? 'border-gray-300 bg-gray-100'
+                                        : isSelected
+                                        ? 'border-indigo-500 bg-indigo-500'
+                                        : 'border-gray-300'
+                                    }`}>
+                                      {challenge.hasSubmitted ? (
+                                        <svg className="w-3 h-3 text-gray-500" fill="currentColor" viewBox="0 0 20 20">
+                                          <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                                        </svg>
+                                      ) : isSelected ? (
+                                        <svg className="w-3 h-3 text-white" fill="currentColor" viewBox="0 0 20 20">
+                                          <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                                        </svg>
+                                      ) : null}
                                     </div>
-                                    {challenge.mainItem && (
-                                      <p className="text-sm text-gray-600 mt-1">
-                                        Required item: {challenge.mainItem}
-                                      </p>
-                                    )}
-                                    <div className="flex items-center justify-between mt-2">
-                                      <p className="text-xs text-gray-500">{challenge.group.name}</p>
-                                      <p className="text-xs text-gray-500">
-                                        Deadline: {dayjs.utc(challenge.submissionDeadline).tz(EASTERN_TIMEZONE).format('h:mm A')} ET
-                                      </p>
+                                    <div className="flex-1">
+                                      <div className="flex items-center space-x-2">
+                                        <h4 className="font-semibold text-gray-900">{challenge.theme}</h4>
+                                        {isMatchingTheme && !challenge.hasSubmitted && (
+                                          <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                                            Great match!
+                                          </span>
+                                        )}
+                                        {challenge.hasSubmitted && (
+                                          <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-600">
+                                            Already submitted
+                                          </span>
+                                        )}
+                                      </div>
+                                      {challenge.mainItem && (
+                                        <p className="text-sm text-gray-600 mt-1">
+                                          Required item: {challenge.mainItem}
+                                        </p>
+                                      )}
+                                      <div className="flex items-center justify-between mt-2">
+                                        <p className="text-xs text-gray-500">
+                                          Global Challenge
+                                        </p>
+                                        <p className="text-xs text-gray-500">
+                                          Deadline: {dayjs.utc(challenge.submissionDeadline).tz(EASTERN_TIMEZONE).format('h:mm A')} ET
+                                        </p>
+                                      </div>
                                     </div>
                                   </div>
                                 </div>
                               </div>
                             </div>
-                          </div>
-                        );
-                      })}
+                          );
+                        })}
+                      </div>
                     </div>
                     
                     {selectedChallengeIds.length > 0 && (

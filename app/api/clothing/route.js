@@ -26,6 +26,7 @@ export async function POST(req) {
     promptRaw,
     promptSanitized = "",
     color = "",
+    quality = "medium",
     isPublished = false,
     price = 0,
     status = "CONCEPT"
@@ -57,6 +58,7 @@ export async function POST(req) {
         promptRaw,
         promptSanitized,
         color,
+        quality,
         isPublished: Boolean(isPublished),
         price: Number(price),
         status,

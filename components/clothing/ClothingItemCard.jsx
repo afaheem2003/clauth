@@ -17,7 +17,7 @@ function calculateTimeLeft(expiresAt) {
   return days;
 }
 
-export default function ClothingItemCard({ clothingItem, onItemSoftDeleted }) {
+export default function ClothingItemCard({ clothingItem, onItemSoftDeleted, onItemUnliked }) {
   const router = useRouter();
   const { data: session } = useSession();
   const { id, name, imageUrl, frontImage, backImage, creator, goal, pledged, price } = clothingItem;
@@ -63,12 +63,14 @@ export default function ClothingItemCard({ clothingItem, onItemSoftDeleted }) {
     }
     if (isLiking) return;
 
+    const wasLiked = isLiked; // Store the current state before optimistic update
+
     try {
       setIsLiking(true);
       
       // Optimistically update UI immediately
       setIsLiked(prevLiked => !prevLiked);
-      setLikesCount(prevCount => prevCount + (isLiked ? -1 : 1));
+      setLikesCount(prevCount => prevCount + (wasLiked ? -1 : 1));
       
       const res = await fetch(`/api/clothing/${id}/like`, {
         method: 'POST',
@@ -78,9 +80,16 @@ export default function ClothingItemCard({ clothingItem, onItemSoftDeleted }) {
 
       if (!res.ok) {
         // Revert optimistic update on error
-        setIsLiked(prevLiked => !prevLiked);
-        setLikesCount(prevCount => prevCount + (isLiked ? 1 : -1));
+        setIsLiked(wasLiked);
+        setLikesCount(prevCount => prevCount + (wasLiked ? 1 : -1));
         throw new Error('Failed to update like');
+      }
+
+      // Check if this was an unlike action (status 200) and the item was previously liked
+      const wasUnlikeAction = res.status === 200; // API returns 200 for unlike, 201 for like
+      
+      if (wasUnlikeAction && onItemUnliked) {
+        onItemUnliked(id);
       }
 
     } catch (err) {
@@ -209,7 +218,7 @@ export default function ClothingItemCard({ clothingItem, onItemSoftDeleted }) {
           <button
             onClick={(e) => {
               e.stopPropagation();
-              router.push(`/wardrobes?addItem=${id}`);
+              router.push(`/collections?addItem=${id}`);
             }}
             className="bg-white/90 backdrop-blur-sm p-2 rounded-full shadow-md transform transition-all duration-200 hover:scale-110"
             aria-label="Add to wardrobe"

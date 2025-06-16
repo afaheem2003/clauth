@@ -64,30 +64,60 @@ async function splitCompositeImage(imageBuffer) {
   const panels = {};
   
   try {
-    const extractPanel = async (left, width, name) => {
-      const panel = await sharp(imageBuffer)
-        .extract({ 
-          left: left, 
-          top: 0, 
-          width: width, 
-          height: metadata.height 
-        })
-        .png()
-        .toBuffer();
-      
-      console.log(`[Inpaint Splitter] Extracted ${name} panel: ${width}x${metadata.height}`);
-      return panel;
-    };
-
     // Split into front and back (landscape format)
     if (metadata.width === 1536 && metadata.height === 1024) {
-      panels.front = await extractPanel(0, 768, 'front');
-      panels.back = await extractPanel(768, 768, 'back');
+      // Use the same cropping logic as the generate route for consistency
+      // Calculate dimensions for aspect ratio matching
+      const targetPanelWidth = 683;  // Matches generate route dimensions
+      const targetPanelHeight = 1024;
+      
+      // For a 1536x1024 image, each half is 768px wide
+      // We need to crop from 768px to 683px, so remove 85px total (42.5px from each side)
+      const originalPanelWidth = Math.floor(metadata.width / 2); // 768px
+      const cropFromEachSide = Math.floor((originalPanelWidth - targetPanelWidth) / 2); // 42px from each side
+      
+      console.log(`[Inpaint Splitter] Cropping panels from ${originalPanelWidth}px to ${targetPanelWidth}px`);
+      console.log(`[Inpaint Splitter] Removing ${cropFromEachSide}px from each side`);
+      
+      const trimPixels = 2; // Pixels to trim from center seam where panels meet
+      
+      const extractPanel = async (left, width, name) => {
+        console.log(`[Inpaint Splitter] Extracting ${name} panel from left=${left}, width=${width}`);
+        
+        const panel = await sharp(imageBuffer)
+          .extract({ 
+            left: left, 
+            top: 0, 
+            width: width, 
+            height: metadata.height 
+          })
+          .resize(targetPanelWidth, targetPanelHeight, {
+            fit: 'fill',
+            position: 'center'
+          })
+          .png()
+          .toBuffer();
+        
+        // Validate panel dimensions
+        const panelMetadata = await sharp(panel).metadata();
+        console.log(`[Inpaint Splitter] Final ${name} panel: ${panelMetadata.width}x${panelMetadata.height}`);
+        
+        if (panelMetadata.width !== targetPanelWidth || panelMetadata.height !== targetPanelHeight) {
+          throw new Error(`Invalid ${name} panel dimensions: ${panelMetadata.width}x${panelMetadata.height}, expected ${targetPanelWidth}x${targetPanelHeight}`);
+        }
+        
+        return panel;
+      };
+
+      // Extract panels with cropping
+      panels.front = await extractPanel(cropFromEachSide, targetPanelWidth, 'front');
+      panels.back = await extractPanel(metadata.width/2 + trimPixels + cropFromEachSide, targetPanelWidth, 'back');
+      
     } else {
       throw new Error(`Unexpected image dimensions: ${metadata.width}x${metadata.height}`);
     }
 
-    console.log("[Inpaint Splitter] Successfully split composite image");
+    console.log(`[Inpaint Splitter] Successfully split and cropped composite image into ${targetPanelWidth}x${targetPanelHeight} panels`);
     return panels;
   } catch (error) {
     console.error("[Inpaint Splitter] Error splitting image:", error);
@@ -252,21 +282,45 @@ async function splitLandscapeToPortraits(landscapeImageBase64) {
     
     console.log(`[Landscape Splitter] Input image: ${metadata.width}x${metadata.height}`);
     
-    // Extract front panel (left half)
+    // Use the same cropping logic as other splitting functions
+    const targetPanelWidth = 683;  // Matches other functions
+    const targetPanelHeight = 1024;
+    
+    // For a 1536x1024 image, each half is 768px wide
+    // We need to crop from 768px to 683px, so remove 85px total (42.5px from each side)
+    const originalPanelWidth = Math.floor(metadata.width / 2); // 768px
+    const cropFromEachSide = Math.floor((originalPanelWidth - targetPanelWidth) / 2); // 42px from each side
+    
+    console.log(`[Landscape Splitter] Cropping panels from ${originalPanelWidth}px to ${targetPanelWidth}px`);
+    console.log(`[Landscape Splitter] Removing ${cropFromEachSide}px from each side`);
+    
+    const trimPixels = 2; // Pixels to trim from center seam where panels meet
+    
+    // Extract front panel (left half) with cropping
     const frontBuffer = await sharp(imageBuffer)
-      .extract({ left: 0, top: 0, width: 768, height: 1024 })
+      .extract({ 
+        left: cropFromEachSide, 
+        top: 0, 
+        width: targetPanelWidth, 
+        height: targetPanelHeight 
+      })
       .resize(1024, 1536) // Convert to standard portrait size
       .png()
       .toBuffer();
       
-    // Extract back panel (right half)  
+    // Extract back panel (right half) with cropping
     const backBuffer = await sharp(imageBuffer)
-      .extract({ left: 768, top: 0, width: 768, height: 1024 })
+      .extract({ 
+        left: metadata.width/2 + trimPixels + cropFromEachSide, 
+        top: 0, 
+        width: targetPanelWidth, 
+        height: targetPanelHeight 
+      })
       .resize(1024, 1536) // Convert to standard portrait size
       .png()
       .toBuffer();
     
-    console.log("[Landscape Splitter] Successfully split landscape into portraits");
+    console.log(`[Landscape Splitter] Successfully split and cropped landscape into ${targetPanelWidth}x${targetPanelHeight} panels, then resized to portraits`);
     return {
       front: frontBuffer.toString('base64'),
       back: backBuffer.toString('base64')

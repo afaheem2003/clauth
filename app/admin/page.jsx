@@ -165,8 +165,8 @@ export default async function AdminDashboard() {
             {data.topClothingItems.map((item, i) => (
               <tr key={item.id} className="border-t last:border-b">
                 <td className="px-4 py-3 text-gray-900">
-                  <Link href={`/admin/clothing/${item.id}`} legacyBehavior>
-                    <a className="hover:underline">{item.name}</a>
+                  <Link href={`/admin/clothing/${item.id}`} className="hover:underline">
+                    {item.name}
                   </Link>
                 </td>
                 <td className="px-4 py-3 text-gray-900">{item.creator?.displayName ?? 'Unknown Artist'}</td>

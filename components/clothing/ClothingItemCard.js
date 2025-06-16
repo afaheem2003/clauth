@@ -63,7 +63,7 @@ export default function ClothingItemCard({
 
   return (
     <div onClick={handleCardClick} className="cursor-pointer group">
-      <div className="relative aspect-[3/4] rounded-lg overflow-hidden bg-white">
+      <div className="relative aspect-[683/1024] rounded-lg overflow-hidden bg-white">
         {/* Main Image */}
         <div className="relative w-full h-full">
           <Image

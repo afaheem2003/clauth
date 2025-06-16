@@ -477,3 +477,24 @@ Argument `reason` is missing.
 2025-06-08T01:11:34.274Z: 🔄 Processing event type: checkout.session.expired
 2025-06-08T01:11:34.274Z: 🔄 Unhandled event type: checkout.session.expired
 2025-06-08T01:11:34.274Z: ✅ Webhook processing completed successfully
+2025-06-14T20:59:48.897Z: 🚀 WEBHOOK RECEIVED - Starting processing
+2025-06-14T20:59:48.898Z: 🔐 Stripe signature found: t=1749934788,v1=3bd0...
+2025-06-14T20:59:48.898Z: 📝 Raw body length: 1115
+2025-06-14T20:59:48.899Z: ✅ Webhook event parsed successfully: {"type":"customer.created","id":"evt_1Ra1B2RgxXa12fTwyT5TCj1V","created":1749934787}
+2025-06-14T20:59:48.899Z: 🔄 Processing event type: customer.created
+2025-06-14T20:59:48.899Z: 🔄 Unhandled event type: customer.created
+2025-06-14T20:59:48.899Z: ✅ Webhook processing completed successfully
+2025-06-15T01:30:25.920Z: 🚀 WEBHOOK RECEIVED - Starting processing
+2025-06-15T01:30:25.921Z: 🔐 Stripe signature found: t=1749951025,v1=7dd0...
+2025-06-15T01:30:25.921Z: 📝 Raw body length: 1202
+2025-06-15T01:30:25.921Z: ✅ Webhook event parsed successfully: {"type":"payout.paid","id":"evt_1Ra5OvRgxXa12fTw9byDymrh","created":1749951025}
+2025-06-15T01:30:25.921Z: 🔄 Processing event type: payout.paid
+2025-06-15T01:30:25.921Z: 🔄 Unhandled event type: payout.paid
+2025-06-15T01:30:25.921Z: ✅ Webhook processing completed successfully
+2025-06-16T00:15:34.910Z: 🚀 WEBHOOK RECEIVED - Starting processing
+2025-06-16T00:15:34.911Z: 🔐 Stripe signature found: t=1750032933,v1=5a0a...
+2025-06-16T00:15:34.911Z: 📝 Raw body length: 956
+2025-06-16T00:15:34.911Z: ✅ Webhook event parsed successfully: {"type":"balance.available","id":"evt_1RaQi1RgxXa12fTwx0fVhjk5","created":1750032933}
+2025-06-16T00:15:34.911Z: 🔄 Processing event type: balance.available
+2025-06-16T00:15:34.911Z: 🔄 Unhandled event type: balance.available
+2025-06-16T00:15:34.911Z: ✅ Webhook processing completed successfully

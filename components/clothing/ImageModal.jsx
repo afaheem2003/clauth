@@ -34,7 +34,7 @@ export default function ImageModal({ images, onClose }) {
       {availableImages.length >= 2 ? (
         <div className="w-full max-w-6xl grid grid-cols-2 gap-4">
           {availableImages.slice(0, 2).map((img, idx) => (
-            <div key={idx} className="relative aspect-[3/4]">
+            <div key={idx} className="relative aspect-[683/1024]">
               <Image
                 src={img.url}
                 alt={`${img.label} view`}
@@ -51,7 +51,7 @@ export default function ImageModal({ images, onClose }) {
         </div>
       ) : (
         // If we only have one image, show it full width
-        <div className="w-full max-w-3xl aspect-[3/4] relative">
+        <div className="w-full max-w-3xl aspect-[683/1024] relative">
           <Image
             src={availableImages[0].url}
             alt={`${availableImages[0].label} view`}

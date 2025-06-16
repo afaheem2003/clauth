@@ -16,11 +16,13 @@ export default async function MyLikesPage() {
     redirect("/login");
   }
 
+  const userId = session.user.uid || session.user.id || session.user.sub || session.user.userId;
+
   const likedItems = await prisma.clothingItem.findMany({
     where: {
       likes: {
         some: {
-          userId: session.user.id
+          userId: userId
         }
       },
       isDeleted: false,

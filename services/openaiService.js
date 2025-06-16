@@ -609,6 +609,7 @@ export async function generatePortraitWithOpenAI(prompt, options = {}) {
         itemDescription = '',
         frontDesign = '',
         modelDetails = '',
+        gender = 'UNISEX'
       } = options;
 
       // Map internal quality levels to OpenAI quality values
@@ -959,7 +960,6 @@ FASHION EDITORIAL STYLE REQUIREMENTS:
 - Fashion magazine editorial photography style with professional runway model
 - Camera positioned at a LOWER ANGLE (slightly below eye level) to create a more flattering, elongated silhouette
 - Framing must include the full body from head to toe with generous spacing above and below
-- Avoid close-up or cropped shots - show the complete figure and styling with ample breathing room
 
 This is a split-panel landscape image with front view (left) and back view (right). Preserve the original model pose, background, lighting, garment structure, and color. Only modify as described above. Do not change any other details.
 

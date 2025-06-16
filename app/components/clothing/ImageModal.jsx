@@ -48,7 +48,7 @@ export default function ImageModal({ images, initialIndex = 0, onClose }) {
       </button>
 
       {imageToShow ? (
-        <div className="w-full max-w-3xl aspect-[3/4] relative"> {/* Adjusted for single image and portrait aspect */}
+        <div className="w-full max-w-3xl aspect-[683/1024] relative"> {/* Adjusted for single image and portrait aspect */}
           <Image
             src={imageToShow.url}
             alt={`${imageToShow.label} view`}

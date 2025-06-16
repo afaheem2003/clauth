@@ -36,7 +36,8 @@ export async function POST(request) {
     const submission = await prisma.challengeSubmission.findUnique({
       where: { id: submissionId },
       include: {
-        challenge: true
+        competitionRoom: true,
+        clothingItem: true
       }
     });
 
@@ -75,34 +76,59 @@ export async function POST(request) {
       }, { status: 400 });
     }
 
-    // Create the upvote
-    await prisma.submissionUpvote.create({
-      data: {
-        submissionId,
-        userId: user.id
-      }
-    });
+    // Create the upvote and potentially like the clothing item in a transaction
+    await prisma.$transaction(async (tx) => {
+      // Create the upvote
+      await tx.submissionUpvote.create({
+        data: {
+          submissionId,
+          userId: user.id
+        }
+      });
 
-    // Check if user now has 3+ upvotes for this challenge
-    const userUpvoteCount = await prisma.submissionUpvote.count({
-      where: {
-        userId: user.id,
-        submission: {
-          challengeId: submission.challengeId
+      // If this submission has a clothing item, also like it (if not already liked)
+      if (submission.clothingItemId) {
+        const existingLike = await tx.clothingItemLike.findUnique({
+          where: {
+            clothingItemId_userId: {
+              clothingItemId: submission.clothingItemId,
+              userId: user.id
+            }
+          }
+        });
+
+        if (!existingLike) {
+          await tx.clothingItemLike.create({
+            data: {
+              clothingItemId: submission.clothingItemId,
+              userId: user.id
+            }
+          });
         }
       }
     });
 
-    // If user has 3+ upvotes, make all their submissions for this challenge eligible for global competition
+    // Check if user now has 3+ upvotes for this challenge within their competition room
+    const userUpvoteCount = await prisma.submissionUpvote.count({
+      where: {
+        userId: user.id,
+        submission: {
+          challengeId: submission.challengeId,
+          competitionRoomId: submission.competitionRoomId
+        }
+      }
+    });
+
+    // If user has 3+ upvotes in their room, make all their submissions for this challenge eligible for competition
     if (userUpvoteCount >= 3) {
       await prisma.challengeSubmission.updateMany({
         where: {
           challengeId: submission.challengeId,
           userId: user.id,
-          isEligibleForGlobal: false
+          isEligibleForCompetition: false
         },
         data: {
-          isEligibleForGlobal: true
+          isEligibleForCompetition: true
         }
       });
     }
@@ -110,7 +136,7 @@ export async function POST(request) {
     return NextResponse.json({
       success: true,
       upvoteCount: userUpvoteCount,
-      isEligibleForGlobal: userUpvoteCount >= 3
+      isEligibleForCompetition: userUpvoteCount >= 3
     });
   } catch (error) {
     console.error('Error creating upvote:', error);
@@ -161,7 +187,8 @@ export async function DELETE(request) {
       include: {
         submission: {
           include: {
-            challenge: true
+            competitionRoom: true,
+            clothingItem: true
           }
         }
       }
@@ -173,36 +200,63 @@ export async function DELETE(request) {
       }, { status: 404 });
     }
 
-    // Delete the upvote
-    await prisma.submissionUpvote.delete({
-      where: {
-        submissionId_userId: {
-          submissionId,
-          userId: user.id
+    // Delete the upvote and potentially unlike the clothing item in a transaction
+    await prisma.$transaction(async (tx) => {
+      // Delete the upvote
+      await tx.submissionUpvote.delete({
+        where: {
+          submissionId_userId: {
+            submissionId,
+            userId: user.id
+          }
+        }
+      });
+
+      // If this submission has a clothing item, also unlike it (if liked)
+      if (existingUpvote.submission.clothingItemId) {
+        const existingLike = await tx.clothingItemLike.findUnique({
+          where: {
+            clothingItemId_userId: {
+              clothingItemId: existingUpvote.submission.clothingItemId,
+              userId: user.id
+            }
+          }
+        });
+
+        if (existingLike) {
+          await tx.clothingItemLike.delete({
+            where: {
+              clothingItemId_userId: {
+                clothingItemId: existingUpvote.submission.clothingItemId,
+                userId: user.id
+              }
+            }
+          });
         }
       }
     });
 
-    // Check if user now has less than 3 upvotes for this challenge
+    // Check if user now has less than 3 upvotes for this challenge within their competition room
     const userUpvoteCount = await prisma.submissionUpvote.count({
       where: {
         userId: user.id,
         submission: {
-          challengeId: existingUpvote.submission.challengeId
+          challengeId: existingUpvote.submission.challengeId,
+          competitionRoomId: existingUpvote.submission.competitionRoomId
         }
       }
     });
 
-    // If user has less than 3 upvotes, make all their submissions for this challenge ineligible for global competition
+    // If user has less than 3 upvotes in their room, make all their submissions for this challenge ineligible for competition
     if (userUpvoteCount < 3) {
       await prisma.challengeSubmission.updateMany({
         where: {
           challengeId: existingUpvote.submission.challengeId,
           userId: user.id,
-          isEligibleForGlobal: true
+          isEligibleForCompetition: true
         },
         data: {
-          isEligibleForGlobal: false
+          isEligibleForCompetition: false
         }
       });
     }
@@ -210,7 +264,7 @@ export async function DELETE(request) {
     return NextResponse.json({
       success: true,
       upvoteCount: userUpvoteCount,
-      isEligibleForGlobal: userUpvoteCount >= 3
+      isEligibleForCompetition: userUpvoteCount >= 3
     });
   } catch (error) {
     console.error('Error deleting upvote:', error);

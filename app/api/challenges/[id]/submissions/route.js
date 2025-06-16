@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth/next';
 import { authOptions } from '@/lib/authOptions';
 import prisma from '@/lib/prisma';
+import { getUserCompetitionRoom } from '@/services/competitionRoomService';
 
 export async function GET(request, { params }) {
   try {
@@ -37,10 +38,31 @@ export async function GET(request, { params }) {
       }, { status: 404 });
     }
 
-    // Get all public submissions for this challenge
+    // Get user's competition room for this challenge
+    const userRoom = await getUserCompetitionRoom(user.id, challengeId);
+    
+    if (!userRoom) {
+      return NextResponse.json({
+        success: true,
+        challenge: {
+          id: challenge.id,
+          mainItem: challenge.mainItem,
+          theme: challenge.theme,
+          description: challenge.description,
+          date: challenge.date
+        },
+        submissions: [],
+        userUpvotes: [],
+        userSubmission: null,
+        roomInfo: null,
+        message: 'You are not assigned to a competition room for this challenge yet. Submit a design to join!'
+      });
+    }
+
+    // Get all public submissions in the user's competition room
     const submissions = await prisma.challengeSubmission.findMany({
       where: {
-        challengeId,
+        competitionRoomId: userRoom.id,
         isPublic: true
       },
       include: {
@@ -69,12 +91,12 @@ export async function GET(request, { params }) {
       ]
     });
 
-    // Get user's upvotes for this challenge
+    // Get user's upvotes for submissions in this room
     const userUpvotes = await prisma.submissionUpvote.findMany({
       where: {
         userId: user.id,
         submission: {
-          challengeId
+          competitionRoomId: userRoom.id
         }
       },
       select: {
@@ -90,7 +112,7 @@ export async function GET(request, { params }) {
       },
       select: {
         id: true,
-        isEligibleForGlobal: true
+        isEligibleForCompetition: true
       }
     });
 
@@ -113,7 +135,13 @@ export async function GET(request, { params }) {
         _count: submission._count
       })),
       userUpvotes: userUpvotes.map(upvote => upvote.submissionId),
-      userSubmission
+      userSubmission,
+      roomInfo: {
+        id: userRoom.id,
+        roomNumber: userRoom.roomNumber,
+        participantCount: userRoom._count.participants,
+        submissionCount: userRoom._count.submissions
+      }
     });
   } catch (error) {
     console.error('Error fetching challenge submissions:', error);

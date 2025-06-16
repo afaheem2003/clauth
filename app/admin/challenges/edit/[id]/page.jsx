@@ -239,7 +239,7 @@ export default function EditChallengePage({ params }) {
           </Link>
           <h1 className="text-3xl font-bold text-gray-900">Edit Challenge</h1>
           <p className="text-gray-600 mt-2">
-            Modify the challenge for {new Date(formData.date).toLocaleDateString()}
+            Modify the challenge for {dayjs(formData.date).format('M/D/YYYY')}
           </p>
         </div>
       </div>

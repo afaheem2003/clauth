@@ -201,12 +201,12 @@ export default function Nav() {
                       </Link>
                     )}
                     <Link
-                      href="/wardrobes"
+                      href="/collections"
                       onClick={() => setDrop(false)}
                       className="flex items-center px-4 py-2.5 text-gray-700 hover:bg-gray-100 hover:text-black transition-colors duration-150"
                     >
                       <span className="w-2 h-2 bg-gray-600 rounded-full mr-3"></span>
-                      My Wardrobes
+                      My Collections
                     </Link>
                     <Link
                       href="/profile"
@@ -349,12 +349,12 @@ export default function Nav() {
                 </Link>
               )}
               <Link
-                href="/wardrobes"
+                href="/collections"
                 onClick={close}
                 className="flex items-center gap-3 p-3 text-white/80 hover:text-white hover:bg-white/5 rounded-xl transition-all duration-200"
               >
                 <span className="w-2 h-2 bg-white/50 rounded-full"></span>
-                My Wardrobes
+                My Collections
               </Link>
               <Link
                 href="/profile"

@@ -48,7 +48,7 @@ export default function AuthGuard({ children }) {
     }
 
     /* ───────── 4) WARDROBE ACCESS ───────── */
-    if (pathname.startsWith("/wardrobes") && !session) {
+    if (pathname.startsWith("/collections") && !session) {
       router.replace("/login");
       return;
     }

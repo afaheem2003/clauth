@@ -230,7 +230,7 @@ export default function SavedClothingItemCard({ clothingItem, setClothingItems }
   return (
     <>
       <div className="relative w-full overflow-hidden rounded-lg bg-white shadow-lg group cursor-pointer transform transition-all duration-300 hover:shadow-2xl" onClick={() => setIsModalOpen(true)}>
-        <div className="relative w-full aspect-[3/4] overflow-hidden rounded-lg">
+        <div className="relative w-full aspect-[683/1024] overflow-hidden rounded-lg">
           <Image 
             src={imageUrl || '/images/clothing-item-placeholder.png'} 
             alt={itemName || itemType || 'Clothing item draft'} 
