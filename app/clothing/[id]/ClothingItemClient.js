@@ -257,7 +257,7 @@ export default function ClothingItemClient({ clothingItem, initialComments, sess
                 <div className="bg-gradient-to-r from-indigo-600 to-purple-600 rounded-xl p-6 text-white">
                   <div className="flex items-center justify-between">
                     <div>
-                      <h3 className="text-lg font-semibold mb-2">Submit to Today's Challenge!</h3>
+                      <h3 className="text-lg font-semibold mb-2">Submit to Today&apos;s Challenge!</h3>
                       <p className="text-sm opacity-90 mb-1">
                         <strong>{challengeEligibility.challenge.theme}</strong>
                         {challengeEligibility.challenge.mainItem && (

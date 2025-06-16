@@ -293,7 +293,7 @@ export default function PastChallengesPage() {
                                 You competed in <span className="font-semibold">Room #{userRoom.roomNumber}</span>
                               </p>
                               <p className="text-xs text-gray-500 mt-1">
-                                View your room's results and rankings
+                                View your room&apos;s results and rankings
                               </p>
                             </div>
                             <Link
