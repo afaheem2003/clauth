@@ -226,7 +226,7 @@ export default function CompetitionRoomPage() {
                   }
                 </p>
                 <p className="text-xs text-gray-600 mt-1">
-                  You've voted on {userVoteCount} submissions in this room.
+                  You&apos;ve voted on {userVoteCount} submissions in this room.
                 </p>
               </div>
             </div>
@@ -280,8 +280,8 @@ export default function CompetitionRoomPage() {
                   <h3 className="text-lg font-semibold text-gray-900 mb-2">
                     Other Submissions
                   </h3>
-                  <p className="text-sm text-gray-600 mb-4">
-                    These submissions are not eligible for competition rankings because the creators haven't voted on enough other submissions in this room.
+                  <p className="text-gray-600 text-sm">
+                    You didn&apos;t submit to this challenge
                   </p>
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                     {unqualifiedSubmissions.map((submission, index) => (

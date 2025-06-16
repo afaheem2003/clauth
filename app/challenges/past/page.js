@@ -340,7 +340,7 @@ export default function PastChallengesPage() {
                                     </span>
                                   </div>
                                   <p className="text-sm text-gray-700 italic">
-                                    "{winner.outfitDescription}"
+                                    &quot;{winner.outfitDescription}&quot;
                                   </p>
                                 </div>
                                 {winner.generatedImageUrl && (
@@ -420,7 +420,7 @@ export default function PastChallengesPage() {
                 <CalendarIcon className="w-16 h-16 text-gray-300 mx-auto mb-4" />
                 <h3 className="text-lg font-medium text-gray-900 mb-2">Select a Date</h3>
                 <p className="text-gray-600">
-                  Click on a highlighted date in the calendar to view that day's challenge and top submissions
+                  Click on a highlighted date in the calendar to view that day&apos;s challenge and top submissions
                 </p>
               </div>
             )}

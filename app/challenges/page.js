@@ -185,7 +185,7 @@ export default function ChallengesPage() {
                     <div className="bg-white rounded-full p-2 mr-4">
                       <CalendarIcon className="w-6 h-6 text-gray-900" />
                     </div>
-                    <h2 className="text-3xl font-bold text-white">Today's Challenge</h2>
+                    <h2 className="text-3xl font-bold text-white">Today&apos;s Challenge</h2>
                   </div>
                   
                   {/* Challenge Details */}
@@ -505,8 +505,8 @@ export default function ChallengesPage() {
                     </svg>
                   </button>
                 </div>
-                <p className="text-sm text-gray-600 mt-1">
-                  Choose from your published designs to submit to today's challenge: {currentChallenge?.theme}
+                <p className="text-gray-600 text-sm">
+                  Choose from your published designs to submit to today&apos;s challenge: &quot;{currentChallenge?.theme}&quot;
                 </p>
               </div>
               

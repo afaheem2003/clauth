@@ -1169,7 +1169,9 @@ export default function DesignPage() {
                           </div>
                           <div className="flex-1">
                             <h4 className="font-medium text-gray-900">Just publish to my profile</h4>
-                            <p className="text-sm text-gray-600">Don't submit to any challenges, just add to my clothing collection</p>
+                            <p className="text-gray-600 text-sm">
+                              Don't submit to any challenges, just add to my clothing collection
+                            </p>
                           </div>
                         </div>
                       </div>

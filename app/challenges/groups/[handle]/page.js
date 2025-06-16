@@ -635,7 +635,7 @@ export default function GroupDetailByHandlePage({ params }) {
             <div className="bg-white rounded-lg max-w-md w-full p-6">
               <h3 className="text-lg font-medium text-gray-900 mb-4">Delete Group</h3>
               <p className="text-sm text-gray-600 mb-6">
-                Are you sure you want to delete "{group.name}"? This action cannot be undone. 
+                Are you sure you want to delete &quot;{group.name}&quot;? This action cannot be undone. 
                 All members will be removed and all submissions will be deleted.
               </p>
               <div className="flex space-x-3">

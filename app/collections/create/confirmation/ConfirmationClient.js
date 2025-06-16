@@ -53,8 +53,8 @@ export default function ConfirmationClient({ collection }) {
           <CheckCircleIcon className="h-8 w-8 text-green-600" />
         </div>
         <h1 className="text-3xl font-bold text-gray-900 mb-2">Collection Created Successfully!</h1>
-        <p className="text-lg text-gray-600">
-          Your collection "{collection.name}" has been created and is ready to use.
+        <p className="text-gray-600 mb-8">
+          Your collection &quot;{collection.name}&quot; has been created successfully!
         </p>
       </div>
 

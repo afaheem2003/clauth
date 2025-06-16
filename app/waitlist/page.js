@@ -126,7 +126,7 @@ export default function WaitlistPage() {
             </div>
 
             <p className="text-sm text-gray-400 font-light tracking-wide">
-              "You don't have to be a designer — just bring your taste."
+              &quot;You don&apos;t have to be a designer — just bring your taste.&quot;
             </p>
           </div>
         </div>
@@ -182,8 +182,8 @@ export default function WaitlistPage() {
       <div className="bg-black text-white py-24">
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
           <blockquote className="text-2xl md:text-3xl font-light italic mb-8 leading-relaxed">
-            "Fashion is not something that exists in dresses only. Fashion is in the sky, in the street, 
-            fashion has to do with ideas, the way we live, what is happening."
+            &quot;Fashion is not something that exists in dresses only. Fashion is in the sky, in the street, 
+            fashion has to do with ideas, the way we live, what is happening.&quot;
           </blockquote>
           <cite className="text-gray-400 font-light tracking-widest">— COCO CHANEL</cite>
         </div>
