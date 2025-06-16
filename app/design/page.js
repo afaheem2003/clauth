@@ -1097,7 +1097,7 @@ export default function DesignPage() {
                                         </svg>
                                         <div className="text-sm text-amber-800">
                                           <p className="font-medium">Quality Downgrade Warning</p>
-                                          <p className="text-xs mt-1">You're about to downgrade from {quality} to {targetQuality} quality. This will reduce the visual quality of your design.</p>
+                                          <p className="text-xs mt-1">You&apos;re about to downgrade from {quality} to {targetQuality} quality. This will reduce the visual quality of your design.</p>
                                         </div>
                                       </div>
                                     </div>

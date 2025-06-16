@@ -181,9 +181,9 @@ export default function JoinGroupPage() {
             <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
               <h3 className="font-medium text-blue-900 mb-2">What happens when you join?</h3>
               <ul className="text-sm text-blue-800 space-y-1">
-                <li>• You'll be added to the group immediately</li>
+                <li>• You&apos;ll be added to the group immediately</li>
                 <li>• You can participate in daily challenges with the group</li>
-                <li>• You'll see your friends' creative outfit submissions</li>
+                <li>• You&apos;ll see your friends&apos; creative outfit submissions</li>
                 <li>• Share your own outfits and get inspired by others</li>
                 <li>• The group creator can remove members if needed</li>
               </ul>

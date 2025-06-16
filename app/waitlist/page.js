@@ -48,7 +48,7 @@ export default function WaitlistPage() {
               <CheckIcon className="w-8 h-8 text-white" />
             </div>
             <h1 className="text-3xl font-light text-black mb-6 tracking-wide">
-              You're In The Game
+              You&apos;re In The Game
             </h1>
             <p className="text-gray-600 mb-8 font-light">
               Welcome to the fashion playground. Get ready to show off your style 
@@ -169,7 +169,7 @@ export default function WaitlistPage() {
               <h3 className="text-xl font-light text-black mb-6 tracking-wide">EARN RECOGNITION</h3>
               <p className="text-gray-600 font-light leading-relaxed">
                 Build your status as a style icon. Get featured, earn badges, and join the ranks 
-                of fashion's most influential voices.
+                of fashion&apos;s most influential voices.
               </p>
             </div>
           </div>
