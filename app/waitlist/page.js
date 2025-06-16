@@ -144,8 +144,7 @@ export default function WaitlistPage() {
               </div>
               <h3 className="text-xl font-light text-black mb-6 tracking-wide">DISCOVER & CONNECT</h3>
               <p className="text-gray-600 font-light leading-relaxed">
-                Explore fresh styles, get inspired by others, and share your unique fashion perspective 
-                with a community that gets it.
+                Explore styles, get inspired, and share your perspective with a community that values creativity over credentials.
               </p>
             </div>
 
@@ -157,8 +156,7 @@ export default function WaitlistPage() {
               </div>
               <h3 className="text-xl font-light text-black mb-6 tracking-wide">COMPETE & WIN</h3>
               <p className="text-gray-600 font-light leading-relaxed">
-                Take on daily style challenges, showcase your creativity, and watch your reputation 
-                grow as you outshine the competition.
+                Daily challenges, showcase your creativity, and grow your reputation in the fashion world.
               </p>
             </div>
 

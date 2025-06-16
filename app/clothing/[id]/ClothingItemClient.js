@@ -287,7 +287,7 @@ export default function ClothingItemClient({ clothingItem, initialComments, sess
                     </div>
                     <div className="flex-1 min-w-0">
                       <h3 className="font-semibold text-gray-900 mb-1">Cannot Submit to Challenge</h3>
-                      <p className="text-gray-600 text-sm">
+                      <p className="text-sm text-gray-600 break-words">
                         You can&apos;t submit this design to challenges because it was created before the current challenge system.
                       </p>
                       {challengeEligibility.usedInChallenge && (

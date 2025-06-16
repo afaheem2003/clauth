@@ -189,7 +189,7 @@ function PlanCard({ plan, currentPlan, onSelect, loading }) {
         </div>
         
         <div className="mb-6 flex-1">
-          <h4 className="text-sm font-semibold text-gray-900 mb-3">What's included</h4>
+          <h4 className="text-sm font-semibold text-gray-900 mb-3">What&apos;s included</h4>
           <ul className="space-y-2">
             {plan.features.map((feature, index) => (
               <li key={index} className="flex items-start">

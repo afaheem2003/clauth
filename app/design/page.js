@@ -734,7 +734,7 @@ export default function DesignPage() {
                   onChange={(e) => setModelDescription(e.target.value)}
                   rows={3}
                   className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-black focus:border-transparent text-gray-900 placeholder-gray-500"
-                  placeholder="e.g., 'Athletic young woman in black jeans and white sneakers with confident pose' or 'Mature professional wearing dark slacks and dress shoes with formal styling'"
+                  placeholder="e.g., &apos;Athletic young woman in black jeans and white sneakers with confident pose&apos; or &apos;Mature professional wearing dark slacks and dress shoes with formal styling&apos;"
                 />
               </div>
 
@@ -1170,7 +1170,7 @@ export default function DesignPage() {
                           <div className="flex-1">
                             <h4 className="font-medium text-gray-900">Just publish to my profile</h4>
                             <p className="text-gray-600 text-sm">
-                              Don't submit to any challenges, just add to my clothing collection
+                              Don&apos;t submit to any challenges, just add to my clothing collection
                             </p>
                           </div>
                         </div>

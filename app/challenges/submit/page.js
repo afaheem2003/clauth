@@ -386,7 +386,7 @@ export default function SubmitChallengePage() {
                 <ul className="text-sm text-blue-800 space-y-1">
                   <li>• AI will generate your design based on your description</li>
                   <li>• Your design will be added to the discover page</li>
-                  <li>• You'll be prompted to upvote 3 other submissions to be eligible for rankings</li>
+                  <li>• You&apos;ll be prompted to upvote 3 other submissions to be eligible for rankings</li>
                   <li>• Competition rankings will be determined by community upvotes</li>
                 </ul>
               </div>

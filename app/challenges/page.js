@@ -306,7 +306,7 @@ export default function ChallengesPage() {
                         </span>
                       </div>
                       <p className="text-gray-700 mb-4 leading-relaxed">
-                        "{mySubmission.outfitDescription}"
+                        &quot;{mySubmission.outfitDescription}&quot;
                       </p>
                       <div className="flex items-center space-x-4 text-sm text-gray-500">
                         <span className="flex items-center">
@@ -356,7 +356,7 @@ export default function ChallengesPage() {
                       </span>
                     </div>
                     <p className="text-gray-700 mb-4 leading-relaxed">
-                      "{mySubmission.outfitDescription}"
+                      &quot;{mySubmission.outfitDescription}&quot;
                     </p>
                     <div className="flex items-center space-x-4 text-sm text-gray-500">
                       <span className="flex items-center">
