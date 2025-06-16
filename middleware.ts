@@ -23,7 +23,7 @@ export async function middleware(req: NextRequest) {
   ].some((prefix) => path.startsWith(prefix))
 
   // Handle waitlist mode (highest priority)
-  if (waitlistEnabled) {
+  if (waitlistEnabled && !isAdmin) {
     // Allow access to waitlist page, admin routes, all API routes, and static assets
     if (
       path === '/waitlist' ||

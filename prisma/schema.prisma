@@ -655,7 +655,16 @@ enum SubmissionStatus {
 model WaitlistEntry {
   id        String   @id @default(cuid())
   email     String   @unique
+  status    WaitlistStatus @default(PENDING)
+  approvedAt DateTime?
+  approvedBy String?  // Admin user ID who approved
   createdAt DateTime @default(now())
   
   @@map("WaitlistEntry")
+}
+
+enum WaitlistStatus {
+  PENDING
+  APPROVED
+  REJECTED
 }

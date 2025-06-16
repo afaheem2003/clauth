@@ -12,7 +12,7 @@ export default async function AdminWaitlistPage() {
     redirect("/login")
   }
 
-  // Fetch waitlist entries
+  // Fetch waitlist entries with new fields
   const waitlistEntries = await prisma.waitlistEntry.findMany({
     orderBy: {
       createdAt: 'desc'
@@ -23,6 +23,9 @@ export default async function AdminWaitlistPage() {
   const transformedEntries = waitlistEntries.map(entry => ({
     id: entry.id,
     email: entry.email,
+    status: entry.status || 'PENDING',
+    approvedAt: entry.approvedAt?.toISOString() || null,
+    approvedBy: entry.approvedBy || null,
     createdAt: entry.createdAt.toISOString()
   }))
 

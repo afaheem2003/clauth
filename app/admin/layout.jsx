@@ -43,6 +43,10 @@ export default function AdminLayout({ children }) {
               <Link href="/admin/challenges" className="block font-medium text-gray-200 hover:text-gray-100">
                 Challenges
               </Link>
+
+              <Link href="/admin/waitlist" className="block font-medium text-gray-200 hover:text-gray-100">
+                Waitlist
+              </Link>
             </nav>
 
             <button

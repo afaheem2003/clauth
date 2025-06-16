@@ -1,5 +1,7 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
+import { getServerSession } from 'next-auth'
+import { authOptions } from '@/lib/authOptions'
 
 export async function POST(request) {
   try {
@@ -28,6 +30,7 @@ export async function POST(request) {
     await prisma.waitlistEntry.create({
       data: {
         email: email.toLowerCase().trim(),
+        status: 'PENDING',
         createdAt: new Date()
       }
     })
@@ -36,6 +39,46 @@ export async function POST(request) {
 
   } catch (error) {
     console.error('Waitlist error:', error)
+    return NextResponse.json({ error: 'Something went wrong. Please try again.' }, { status: 500 })
+  }
+}
+
+export async function PATCH(request) {
+  try {
+    const session = await getServerSession(authOptions)
+    
+    // Check if user is admin
+    if (!session?.user || session.user.role !== 'ADMIN') {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
+    const { id, status } = await request.json()
+
+    if (!id || !status) {
+      return NextResponse.json({ error: 'ID and status are required' }, { status: 400 })
+    }
+
+    if (!['APPROVED', 'REJECTED', 'PENDING'].includes(status)) {
+      return NextResponse.json({ error: 'Invalid status' }, { status: 400 })
+    }
+
+    // Update waitlist entry
+    const updatedEntry = await prisma.waitlistEntry.update({
+      where: { id },
+      data: {
+        status,
+        approvedAt: status === 'APPROVED' ? new Date() : null,
+        approvedBy: status === 'APPROVED' ? session.user.uid : null
+      }
+    })
+
+    return NextResponse.json({ 
+      message: `Entry ${status.toLowerCase()} successfully`,
+      entry: updatedEntry 
+    })
+
+  } catch (error) {
+    console.error('Waitlist update error:', error)
     return NextResponse.json({ error: 'Something went wrong. Please try again.' }, { status: 500 })
   }
 } 

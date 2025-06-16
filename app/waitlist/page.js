@@ -48,15 +48,15 @@ export default function WaitlistPage() {
               <CheckIcon className="w-8 h-8 text-white" />
             </div>
             <h1 className="text-3xl font-light text-black mb-6 tracking-wide">
-              You&apos;re In The Game
+              You&apos;re On The Waitlist
             </h1>
             <p className="text-gray-600 mb-8 font-light">
-              Welcome to the fashion playground. Get ready to show off your style 
-              and climb the ranks with the best designers.
+              Thank you for your interest in Clauth! We&apos;ve added you to our waitlist. 
+              You&apos;ll receive an email notification when we&apos;re ready to welcome you to the platform.
             </p>
             <div className="border-t border-gray-200 pt-6">
               <p className="text-sm text-gray-500 font-light">
-                New theme drops at 9am. Your friends are already voting.
+                We&apos;re building something special. Stay tuned!
               </p>
             </div>
           </div>
