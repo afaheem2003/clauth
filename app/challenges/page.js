@@ -402,8 +402,8 @@ export default function ChallengesPage() {
                 </div>
                 
                 <div className="flex items-center justify-between">
-                  <p className="text-sm text-gray-700">
-                    You're competing with {competitionRoom.participantCount - 1} other designers in this room for today's challenge.
+                  <p className="text-gray-600 text-sm">
+                    You&apos;re competing with {competitionRoom.participantCount - 1} other designers in this room for today&apos;s challenge.
                   </p>
                   <Link
                     href={`/challenges/competition-room/${competitionRoom.id}`}
@@ -438,7 +438,7 @@ export default function ChallengesPage() {
           <div className="flex items-center justify-between mb-6">
             <div>
               <h2 className="text-2xl font-bold text-gray-900">My Friend Groups ({groups.length})</h2>
-              <p className="text-sm text-gray-600 mt-1">Share challenges with your friends and see what they're designing</p>
+              <p className="text-sm text-gray-600 mt-1">Share challenges with your friends and see what they&apos;re designing</p>
             </div>
             <div className="flex space-x-3">
               <Link
@@ -463,7 +463,7 @@ export default function ChallengesPage() {
               <UserGroupIcon className="w-16 h-16 text-gray-300 mx-auto mb-4" />
               <h3 className="text-lg font-medium text-gray-900 mb-2">No friend groups yet</h3>
               <p className="text-gray-600 mb-6 max-w-md mx-auto">
-                Create or join a group to start sharing daily challenges with your friends and see what they're designing!
+                Create or join a group to start sharing daily challenges with your friends and see what they&apos;re designing!
               </p>
               <div className="flex justify-center space-x-4">
                 <Link
@@ -523,8 +523,8 @@ export default function ChallengesPage() {
                       </svg>
                     </div>
                     <h3 className="text-lg font-medium text-gray-900 mb-2">No Published Designs Yet</h3>
-                    <p className="text-gray-600 mb-4">
-                      You don't have any published designs yet. Create your first design to submit to challenges!
+                    <p className="text-gray-600 text-sm">
+                      You don&apos;t have any published designs yet. Create your first design to submit to challenges!
                     </p>
                     <Link
                       href="/design"
@@ -607,7 +607,7 @@ function GroupCard({ group, currentChallenge }) {
               href={`/challenges/groups/@${group.handle}/challenge/${currentChallenge.id}`}
               className="block w-full bg-gray-100 text-gray-700 text-center py-2 rounded-lg hover:bg-gray-200 transition-colors text-sm font-medium"
             >
-              Today's Challenge Results
+              Today&apos;s Challenge Results
             </Link>
           )}
         </div>

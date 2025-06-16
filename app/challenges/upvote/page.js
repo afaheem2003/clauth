@@ -304,8 +304,8 @@ function SubmissionCard({ submission, onUpvote, isUpvoted, isUpvoting, isCurrent
           )}
         </div>
 
-        <p className="text-gray-800 text-sm italic mb-2">
-          "{submission.outfitDescription}"
+        <p className="text-sm text-gray-600 italic">
+          &quot;{submission.outfitDescription}&quot;
         </p>
 
         <div className="text-xs text-gray-500">

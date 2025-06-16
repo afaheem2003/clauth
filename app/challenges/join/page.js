@@ -94,7 +94,7 @@ export default function JoinGroupPage() {
           </Link>
           <h1 className="text-3xl font-bold text-gray-900">Join Challenge Group</h1>
           <p className="text-gray-600 mt-2">
-            Enter an invite code to join a fashion challenge group
+            Enter your group&apos;s invite code to join their daily challenges
           </p>
         </div>
 
@@ -131,8 +131,8 @@ export default function JoinGroupPage() {
                   Preview
                 </button>
               </div>
-              <p className="text-xs text-gray-600 mt-1">
-                Ask a group member for their invite code
+              <p className="text-gray-600 text-sm">
+                Don&apos;t have an invite code? Ask a friend who&apos;s already in a group to share theirs with you.
               </p>
             </div>
 

@@ -257,7 +257,7 @@ export default function PastChallengesPage() {
                         <div>
                           <span className="text-sm font-medium text-indigo-900">Theme:</span>
                           <p className="text-indigo-800">
-                            {challenges[selectedDate.toISOString().split('T')[0]].theme}
+                            &quot;{challenges[selectedDate.toISOString().split('T')[0]].theme}&quot;
                           </p>
                         </div>
                         {challenges[selectedDate.toISOString().split('T')[0]].mainItem && (
@@ -387,7 +387,7 @@ export default function PastChallengesPage() {
                                     </span>
                                   </div>
                                   <p className="text-sm text-gray-600 italic">
-                                    "{submission.outfitDescription}"
+                                    &quot;{submission.outfitDescription}&quot;
                                   </p>
                                 </div>
                                 {submission.generatedImageUrl && (

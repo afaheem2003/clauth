@@ -432,7 +432,7 @@ export default function GroupDetailByHandlePage({ params }) {
             {currentChallenge ? (
               <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
                 <div className="flex items-center justify-between mb-4">
-                  <h2 className="text-xl font-semibold text-gray-900">Today's Challenge</h2>
+                  <h2 className="text-xl font-semibold text-gray-900">Today&apos;s Challenge</h2>
                   <div className="flex items-center text-sm text-gray-500">
                     <CalendarIcon className="w-4 h-4 mr-1" />
                     {new Date(currentChallenge.date).toLocaleDateString()}
@@ -468,7 +468,7 @@ export default function GroupDetailByHandlePage({ params }) {
                   {userSubmittedToday ? (
                     <div className="bg-green-50 border border-green-200 rounded-lg p-4">
                       <p className="text-green-800 text-sm">
-                        ✓ You've already submitted for today's challenge!
+                        ✓ You&apos;ve already submitted for today&apos;s challenge!
                       </p>
                     </div>
                   ) : (
@@ -496,8 +496,8 @@ export default function GroupDetailByHandlePage({ params }) {
             ) : (
               <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
                 <h2 className="text-xl font-semibold text-gray-900 mb-4">No Active Challenge</h2>
-                <p className="text-gray-600">
-                  There's no active challenge for today. Check back later or contact an admin.
+                <p className="text-gray-600 text-sm">
+                  There&apos;s no active challenge for today. Check back later or contact an admin.
                 </p>
               </div>
             )}
@@ -525,7 +525,7 @@ export default function GroupDetailByHandlePage({ params }) {
                             {submission.challenge.theme}
                           </div>
                           <p className="text-gray-800 italic">
-                            "{submission.outfitDescription}"
+                            &quot;{submission.outfitDescription}&quot;
                           </p>
                         </div>
                         

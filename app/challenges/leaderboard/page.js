@@ -158,7 +158,7 @@ export default function LeaderboardPage() {
                       </div>
                       
                       <p className="text-sm text-gray-600 mt-1 italic">
-                        "{entry.outfitDescription}"
+                        &quot;{entry.outfitDescription}&quot;
                       </p>
                       
                       <div className="flex items-center space-x-4 mt-2 text-sm text-gray-500">

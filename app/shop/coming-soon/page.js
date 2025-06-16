@@ -9,7 +9,7 @@ export default function ShopComingSoon() {
 
         {/* Subtitle with better typography */}
         <p className="text-xl md:text-2xl text-gray-600 max-w-2xl mx-auto mb-12 leading-relaxed">
-          We're working hard to bring your designs to life. Keep creating and stay tuned for our shop launch.
+          We&apos;re working hard to bring your designs to life. Keep creating and stay tuned for our shop launch.
         </p>
 
         {/* Modern call-to-action button */}

@@ -13,7 +13,8 @@ export default function CreateGroupPage() {
     name: '',
     handle: '',
     description: '',
-    maxMembers: 20
+    maxMembers: 20,
+    isPrivate: false
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -26,11 +27,6 @@ export default function CreateGroupPage() {
     message: '',
     lastChecked: ''
   });
-
-  if (status === 'unauthenticated') {
-    router.push('/login');
-    return null;
-  }
 
   // Debounced handle availability check
   const checkHandleAvailability = useCallback(async (handle) => {
@@ -101,6 +97,13 @@ export default function CreateGroupPage() {
       setFormData(prev => ({ ...prev, handle: autoHandle }));
     }
   }, [formData.name, formData.handle, handleManuallyEdited]);
+
+  // Handle authentication redirect
+  useEffect(() => {
+    if (status === 'unauthenticated') {
+      router.push('/login');
+    }
+  }, [status, router]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -182,6 +185,10 @@ export default function CreateGroupPage() {
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600"></div>
       </div>
     );
+  }
+
+  if (status === 'unauthenticated') {
+    return null;
   }
 
   return (
@@ -318,14 +325,13 @@ export default function CreateGroupPage() {
             </div>
 
             {/* Info Box */}
-            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-              <h3 className="font-medium text-blue-900 mb-2">What happens next?</h3>
-              <ul className="text-sm text-blue-800 space-y-1">
-                <li>• You'll get a shareable invite code for your group</li>
-                <li>• Members can join using this code</li>
-                <li>• Everyone participates in the same daily challenges</li>
-                <li>• Share and get inspired by each other's outfits</li>
-                <li>• See what your friends create for each challenge</li>
+            <div className="bg-gray-50 rounded-lg p-4">
+              <h3 className="font-medium text-gray-900 mb-2">What happens next?</h3>
+              <ul className="text-sm text-gray-600 space-y-1">
+                <li>• You&apos;ll get a shareable invite code for your group</li>
+                <li>• Invite friends to join your fashion challenge group</li>
+                <li>• Share and get inspired by each other&apos;s outfits</li>
+                <li>• Compete in daily challenges together</li>
               </ul>
             </div>
 
