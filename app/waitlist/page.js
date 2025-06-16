@@ -73,7 +73,7 @@ export default function WaitlistPage() {
           <div className="text-center">
             <div className="mb-12">
               <div className="inline-flex items-center px-6 py-2 bg-black text-white text-sm font-light tracking-widest">
-                THINK YOU'VE GOT STYLE?
+                THINK YOU&apos;VE GOT STYLE?
               </div>
             </div>
             

@@ -660,7 +660,7 @@ export default function DesignPage() {
                     <div className="mt-6 p-4 bg-blue-50 rounded-lg border border-blue-200">
                       <h4 className="text-sm font-medium text-gray-900 mb-3">Target Gender</h4>
                       <p className="text-xs text-gray-600 mb-3">
-                        We've suggested a gender based on your item type, but you can change it to target a different audience.
+                        We&apos;ve suggested a gender based on your item type, but you can change it to target a different audience.
                       </p>
                       <div className="grid grid-cols-3 gap-2">
                         {[
@@ -727,7 +727,7 @@ export default function DesignPage() {
                   Model and Additional Clothing Description
                 </label>
                 <p className="text-xs text-gray-600 mb-3">
-                  Describe the model's appearance, pose, styling, and any additional clothing items you'd like them to wear (pants, shoes, accessories, etc.). Leave blank for auto-generated professional model description.
+                  Describe the model&apos;s appearance, pose, styling, and any additional clothing items you&apos;d like them to wear (pants, shoes, accessories, etc.). Leave blank for auto-generated professional model description.
                 </p>
                 <textarea
                   value={modelDescription}
@@ -963,7 +963,7 @@ export default function DesignPage() {
                             </div>
                             <div className="ml-3">
                               <p className="text-sm text-blue-700">
-                                <strong>How it works:</strong> Describe the changes you want to make and we'll apply them to the entire design while preserving the model and background.
+                                <strong>How it works:</strong> Describe the changes you want to make and we&apos;ll apply them to the entire design while preserving the model and background.
                               </p>
                             </div>
                           </div>

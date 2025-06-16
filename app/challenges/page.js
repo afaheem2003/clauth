@@ -418,7 +418,7 @@ export default function ChallengesPage() {
                 <UsersIcon className="w-12 h-12 text-gray-400 mx-auto mb-3" />
                 <h3 className="text-lg font-medium text-gray-900 mb-2">No Competition Room Yet</h3>
                 <p className="text-gray-600 mb-4">
-                  Submit to today's challenge to be assigned to a competition room with 20-30 other participants!
+                  Submit to today&apos;s challenge to be assigned to a competition room with 20-30 other participants!
                 </p>
                 {!mySubmission && (
                   <Link
