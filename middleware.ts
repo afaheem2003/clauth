@@ -9,37 +9,57 @@ export async function middleware(req: NextRequest) {
   const waitlistEnabled = process.env.WAITLIST_ENABLED === 'true'
   const token = await getToken({ req })
   const isAdmin = token?.role === 'ADMIN'
+  const isApproved = token?.waitlistStatus === 'APPROVED'
+  const isWaitlisted = token?.waitlistStatus === 'WAITLISTED' && !isAdmin
   const path = req.nextUrl.pathname
 
   const isBypassed = [
-    '/login',
-    '/signup',
     '/api/auth/callback',
+    '/api/auth/signout',
     '/api',
     '/_next',
     '/maintenance',
     '/favicon.ico',
     '/images',
+    '/robots.txt',
+    '/sitemap.xml'
   ].some((prefix) => path.startsWith(prefix))
 
+  // Always allow bypassed routes
+  if (isBypassed) {
+    return NextResponse.next()
+  }
+
   // Handle waitlist mode (highest priority)
-  if (waitlistEnabled && !isAdmin) {
-    // Allow access to waitlist page, admin routes, all API routes, and static assets
-    if (
-      path === '/waitlist' ||
-      path.startsWith('/api') ||
-      path.startsWith('/admin') ||
-      path.startsWith('/_next') ||
-      path.startsWith('/favicon') ||
-      path.startsWith('/images') ||
-      path === '/robots.txt' ||
-      path === '/sitemap.xml'
-    ) {
+  if (waitlistEnabled) {
+    // Admins and approved users get full access
+    if (isAdmin || isApproved) {
       return NextResponse.next()
     }
 
-    // Redirect all other routes to waitlist
-    return NextResponse.redirect(new URL('/waitlist', req.url))
+    // Public routes that anyone can access
+    const publicRoutes = ['/waitlist', '/login', '/signup']
+    if (publicRoutes.includes(path)) {
+      return NextResponse.next()
+    }
+
+    // Waitlist-status requires authentication
+    if (path === '/waitlist-status') {
+      if (!token) {
+        return NextResponse.redirect(new URL('/waitlist', req.url))
+      }
+      return NextResponse.next()
+    }
+
+    // Waitlisted users can only access waitlist-status (after login)
+    if (token && isWaitlisted) {
+      return NextResponse.redirect(new URL('/waitlist-status', req.url))
+    }
+
+    // Non-authenticated users go to waitlist
+    if (!token) {
+      return NextResponse.redirect(new URL('/waitlist', req.url))
+    }
   }
 
   // Handle maintenance mode
@@ -49,26 +69,14 @@ export async function middleware(req: NextRequest) {
 
   // Handle shop routes when shop is disabled
   if (!isShopEnabled && !isAdmin) {
-    // List of shop-related routes that should be redirected
-    const shopRoutes = [
-      '/shop',
-      '/api/checkout',
-      '/api/clothing',
-    ]
-
-    // Check if current path starts with any shop route
+    const shopRoutes = ['/shop', '/api/checkout', '/api/clothing']
     const isShopRoute = shopRoutes.some((route) => path.startsWith(route))
-
-    // Special handling: Allow individual clothing item pages (/clothing/[id]) even when shop is disabled
-    // These are part of the discovery experience, not the purchasing experience
     const isClothingDetailPage = /^\/clothing\/[^\/]+$/.test(path)
 
     if (isShopRoute && !isClothingDetailPage) {
-      // If it's the main shop page, redirect to coming soon
       if (path === '/shop') {
         return NextResponse.rewrite(new URL('/shop/coming-soon', req.url))
       }
-      // For other shop routes, redirect to home
       return NextResponse.redirect(new URL('/', req.url))
     }
   }
@@ -78,14 +86,6 @@ export async function middleware(req: NextRequest) {
 
 export const config = {
   matcher: [
-    /*
-     * Match all request paths except for the ones starting with:
-     * - _next/static (static files)
-     * - _next/image (image optimization files)
-     * - favicon.ico (favicon file)
-     * - public folder
-     * - api/auth/callback (auth callbacks)
-     */
     '/((?!_next/static|_next/image|favicon.ico|public/|api/auth/callback).*)',
   ],
 }

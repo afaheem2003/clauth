@@ -81,4 +81,34 @@ export async function PATCH(request) {
     console.error('Waitlist update error:', error)
     return NextResponse.json({ error: 'Something went wrong. Please try again.' }, { status: 500 })
   }
+}
+
+export async function DELETE(request) {
+  try {
+    const session = await getServerSession(authOptions)
+    
+    // Check if user is admin
+    if (!session?.user || session.user.role !== 'ADMIN') {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
+    const { id } = await request.json()
+
+    if (!id) {
+      return NextResponse.json({ error: 'ID is required' }, { status: 400 })
+    }
+
+    // Delete waitlist entry
+    await prisma.waitlistEntry.delete({
+      where: { id }
+    })
+
+    return NextResponse.json({ 
+      message: 'Entry deleted successfully'
+    })
+
+  } catch (error) {
+    console.error('Waitlist delete error:', error)
+    return NextResponse.json({ error: 'Something went wrong. Please try again.' }, { status: 500 })
+  }
 } 

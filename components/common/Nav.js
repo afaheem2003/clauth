@@ -4,7 +4,7 @@
 import { useState, useRef, useEffect } from "react";
 import Link from "next/link";
 import { slide as Menu } from "react-burger-menu";
-import { useRouter } from "next/navigation";
+import { useRouter, usePathname } from "next/navigation";
 import { useSession, signOut } from "next-auth/react";
 import { useCart } from "@/lib/CartContext";
 import { ShoppingBagIcon, ChevronDownIcon, Bars3Icon, XMarkIcon } from "@heroicons/react/24/outline";
@@ -63,15 +63,26 @@ export default function Nav() {
   const dropRef = useRef(null);
   const { data: session } = useSession();
   const router = useRouter();
+  const pathname = usePathname();
   const { getCartCount, setIsOpen: setCartOpen } = useCart();
   const [isShopEnabled, setIsShopEnabled] = useState(false);
 
+  // ALL HOOKS MUST BE CALLED BEFORE ANY CONDITIONAL RETURNS
   useEffect(() => {
     // Get ENABLE_SHOP value from environment variable
     setIsShopEnabled(process.env.NEXT_PUBLIC_ENABLE_SHOP === 'true');
   }, []);
 
   useOutside(dropRef, () => setDrop(false));
+
+  // Hide navigation on standalone pages that are designed as full-page experiences
+  const hideNavPages = ['/waitlist', '/waitlist-status'];
+  const shouldHideNav = hideNavPages.includes(pathname);
+
+  // If we should hide nav, return null AFTER all hooks have been called
+  if (shouldHideNav) {
+    return null;
+  }
 
   const close = () => setOpen(false);
   const login = () => {
@@ -80,19 +91,33 @@ export default function Nav() {
   };
   const logout = () => signOut().finally(close);
 
-  const links = [
-    { href: '/discover', label: 'Discover' },
-    ...(isShopEnabled ? [{ href: '/shop', label: 'Shop' }] : []),
-    { href: '/creators', label: 'Creators' },
-    { href: '/design', label: 'Design' },
-    { href: '/challenges', label: 'Challenges' },
-  ];
+  // Check if user has full access - admins ALWAYS have full access, regardless of waitlist status
+  const isAdmin = session?.user?.role === 'ADMIN';
+  const isApproved = session?.user?.waitlistStatus === 'APPROVED';
+  const hasFullAccess = isAdmin || isApproved;
+  const isWaitlisted = session?.user?.waitlistStatus === 'WAITLISTED' && !isAdmin; // Admins are never considered waitlisted
 
-  // Add feed link if user is logged in
-  const allLinks = session?.user 
-    ? [...links, { href: '/feed', label: 'Feed' }]
-    : links;
+  // Different navigation links based on user status
+  const getNavigationLinks = () => {
+    if (!session?.user || isWaitlisted) {
+      // Waitlisted users (but not admins) or non-logged in users get minimal navigation
+      return [];
+    }
 
+    // Full access users get all links
+    const links = [
+      { href: '/discover', label: 'Discover' },
+      ...(isShopEnabled ? [{ href: '/shop', label: 'Shop' }] : []),
+      { href: '/creators', label: 'Creators' },
+      { href: '/design', label: 'Design' },
+      { href: '/challenges', label: 'Challenges' },
+    ];
+
+    // Add feed link if user is logged in and has full access
+    return hasFullAccess ? [...links, { href: '/feed', label: 'Feed' }] : links;
+  };
+
+  const allLinks = getNavigationLinks();
   const cartCount = getCartCount();
 
   return (
@@ -100,47 +125,49 @@ export default function Nav() {
       <div className="container mx-auto px-4 sm:px-6 h-16 flex items-center justify-between">
         {/* LOGO */}
         <Link 
-          href="/discover" 
+          href={hasFullAccess ? "/discover" : "/waitlist-status"} 
           className="text-2xl font-bold text-black hover:text-gray-700 transition-all duration-300"
         >
           Clauth
         </Link>
 
-        {/* DESKTOP NAV */}
-        <nav className="hidden md:flex items-center gap-1">
-          {allLinks.map((l) => (
-            <Link
-              key={l.href}
-              href={l.href}
-              className="px-4 py-2 text-sm font-medium text-gray-700 hover:text-black hover:bg-gray-100 rounded-lg transition-all duration-200 relative group"
-            >
-              {l.label}
-              <span className="absolute bottom-0 left-1/2 w-0 h-0.5 bg-black group-hover:w-full group-hover:left-0 transition-all duration-300"></span>
-            </Link>
-          ))}
+        {/* DESKTOP NAV - Only show for users with full access */}
+        {hasFullAccess && (
+          <nav className="hidden md:flex items-center gap-1">
+            {allLinks.map((l) => (
+              <Link
+                key={l.href}
+                href={l.href}
+                className="px-4 py-2 text-sm font-medium text-gray-700 hover:text-black hover:bg-gray-100 rounded-lg transition-all duration-200 relative group"
+              >
+                {l.label}
+                <span className="absolute bottom-0 left-1/2 w-0 h-0.5 bg-black group-hover:w-full group-hover:left-0 transition-all duration-300"></span>
+              </Link>
+            ))}
 
-          {session?.user?.role === "ADMIN" && (
-            <Link
-              href="/admin"
-              className="px-4 py-2 text-sm font-medium text-gray-800 hover:text-black hover:bg-gray-100 rounded-lg transition-all duration-200 relative group"
-            >
-              Admin
-              <span className="absolute bottom-0 left-1/2 w-0 h-0.5 bg-gray-800 group-hover:w-full group-hover:left-0 transition-all duration-300"></span>
-            </Link>
-          )}
-        </nav>
+            {isAdmin && (
+              <Link
+                href="/admin"
+                className="px-4 py-2 text-sm font-medium text-gray-800 hover:text-black hover:bg-gray-100 rounded-lg transition-all duration-200 relative group"
+              >
+                Admin
+                <span className="absolute bottom-0 left-1/2 w-0 h-0.5 bg-gray-800 group-hover:w-full group-hover:left-0 transition-all duration-300"></span>
+              </Link>
+            )}
+          </nav>
+        )}
 
         {/* RIGHT SIDE ACTIONS */}
         <div className="flex items-center gap-3">
-          {/* Credit Balance - Only show for logged in users */}
-          {session?.user && (
+          {/* Credit Balance - Only show for users with full access */}
+          {session?.user && hasFullAccess && (
             <div className="hidden sm:block">
               <CreditBalance />
             </div>
           )}
 
-          {/* Cart Icon - Only show if shop is enabled */}
-          {isShopEnabled && (
+          {/* Cart Icon - Only show if shop is enabled and user has full access */}
+          {isShopEnabled && hasFullAccess && (
             <button
               onClick={() => setCartOpen(true)}
               className="relative p-2.5 text-gray-600 hover:text-black hover:bg-gray-100 rounded-xl transition-all duration-200 group"
@@ -170,7 +197,9 @@ export default function Nav() {
                 <div className="w-8 h-8 bg-black rounded-full flex items-center justify-center text-white font-semibold text-xs">
                   {session.user.name?.charAt(0)?.toUpperCase() || 'U'}
                 </div>
-                <span className="hidden lg:block">Account</span>
+                <span className="hidden lg:block">
+                  {isAdmin ? 'Admin' : isWaitlisted ? 'Waitlisted' : 'Account'}
+                </span>
                 <ChevronDownIcon className={`w-4 h-4 transition-transform duration-200 ${drop ? 'rotate-180' : ''}`} />
               </button>
 
@@ -179,52 +208,61 @@ export default function Nav() {
                   <div className="px-4 py-3 border-b border-gray-200">
                     <p className="text-sm font-medium text-black">{session.user.name}</p>
                     <p className="text-xs text-gray-600 truncate">{session.user.email}</p>
+                    {isAdmin && (
+                      <p className="text-xs text-blue-600 mt-1">Administrator</p>
+                    )}
+                    {isWaitlisted && (
+                      <p className="text-xs text-orange-600 mt-1">On Waitlist</p>
+                    )}
                   </div>
                   
-                  <div className="py-2">
-                    <Link
-                      href="/my-likes"
-                      onClick={() => setDrop(false)}
-                      className="flex items-center px-4 py-2.5 text-gray-700 hover:bg-gray-100 hover:text-black transition-colors duration-150"
-                    >
-                      <span className="w-2 h-2 bg-gray-400 rounded-full mr-3"></span>
-                      My Likes
-                    </Link>
-                    {isShopEnabled && (
+                  {/* Only show menu items for users with full access */}
+                  {hasFullAccess && (
+                    <div className="py-2">
                       <Link
-                        href="/my-preorders"
+                        href="/my-likes"
                         onClick={() => setDrop(false)}
                         className="flex items-center px-4 py-2.5 text-gray-700 hover:bg-gray-100 hover:text-black transition-colors duration-150"
                       >
-                        <span className="w-2 h-2 bg-gray-500 rounded-full mr-3"></span>
-                        My Pre-orders
+                        <span className="w-2 h-2 bg-gray-400 rounded-full mr-3"></span>
+                        My Likes
                       </Link>
-                    )}
-                    <Link
-                      href="/collections"
-                      onClick={() => setDrop(false)}
-                      className="flex items-center px-4 py-2.5 text-gray-700 hover:bg-gray-100 hover:text-black transition-colors duration-150"
-                    >
-                      <span className="w-2 h-2 bg-gray-600 rounded-full mr-3"></span>
-                      My Collections
-                    </Link>
-                    <Link
-                      href="/profile"
-                      onClick={() => setDrop(false)}
-                      className="flex items-center px-4 py-2.5 text-gray-700 hover:bg-gray-100 hover:text-black transition-colors duration-150"
-                    >
-                      <span className="w-2 h-2 bg-gray-700 rounded-full mr-3"></span>
-                      My Profile
-                    </Link>
-                    <Link
-                      href="/settings"
-                      onClick={() => setDrop(false)}
-                      className="flex items-center px-4 py-2.5 text-gray-700 hover:bg-gray-100 hover:text-black transition-colors duration-150"
-                    >
-                      <span className="w-2 h-2 bg-gray-800 rounded-full mr-3"></span>
-                      Settings
-                    </Link>
-                  </div>
+                      {isShopEnabled && (
+                        <Link
+                          href="/my-preorders"
+                          onClick={() => setDrop(false)}
+                          className="flex items-center px-4 py-2.5 text-gray-700 hover:bg-gray-100 hover:text-black transition-colors duration-150"
+                        >
+                          <span className="w-2 h-2 bg-gray-500 rounded-full mr-3"></span>
+                          My Pre-orders
+                        </Link>
+                      )}
+                      <Link
+                        href="/collections"
+                        onClick={() => setDrop(false)}
+                        className="flex items-center px-4 py-2.5 text-gray-700 hover:bg-gray-100 hover:text-black transition-colors duration-150"
+                      >
+                        <span className="w-2 h-2 bg-gray-600 rounded-full mr-3"></span>
+                        My Collections
+                      </Link>
+                      <Link
+                        href="/profile"
+                        onClick={() => setDrop(false)}
+                        className="flex items-center px-4 py-2.5 text-gray-700 hover:bg-gray-100 hover:text-black transition-colors duration-150"
+                      >
+                        <span className="w-2 h-2 bg-gray-700 rounded-full mr-3"></span>
+                        My Profile
+                      </Link>
+                      <Link
+                        href="/settings"
+                        onClick={() => setDrop(false)}
+                        className="flex items-center px-4 py-2.5 text-gray-700 hover:bg-gray-100 hover:text-black transition-colors duration-150"
+                      >
+                        <span className="w-2 h-2 bg-gray-800 rounded-full mr-3"></span>
+                        Settings
+                      </Link>
+                    </div>
+                  )}
                   
                   <div className="border-t border-gray-200 pt-2">
                     <button
@@ -240,157 +278,164 @@ export default function Nav() {
             </div>
           )}
 
-          {/* MOBILE BURGER */}
-          <button
-            onClick={() => {
-              console.log('Burger clicked, opening menu');
-              setOpen(true);
-            }}
-            className="md:hidden p-2 text-gray-600 hover:text-black hover:bg-gray-100 rounded-lg transition-all duration-200 flex items-center justify-center"
-            aria-label="Open mobile menu"
-          >
-            <Bars3Icon className="w-6 h-6" />
-          </button>
+          {/* MOBILE BURGER - Only show for users with full access */}
+          {hasFullAccess && (
+            <button
+              onClick={() => {
+                console.log('Burger clicked, opening menu');
+                setOpen(true);
+              }}
+              className="md:hidden p-2 text-gray-600 hover:text-black hover:bg-gray-100 rounded-lg transition-all duration-200 flex items-center justify-center"
+              aria-label="Open mobile menu"
+            >
+              <Bars3Icon className="w-6 h-6" />
+            </button>
+          )}
         </div>
       </div>
 
-      {/* MOBILE SLIDE-OUT MENU */}
-      <Menu
-        right
-        isOpen={open}
-        onStateChange={({ isOpen }) => {
-          console.log('Menu state changed:', isOpen);
-          setOpen(isOpen);
-        }}
-        customBurgerIcon={false}
-        customCrossIcon={false}
-        styles={menuStyles}
-        pageWrapId="page-wrap"
-        outerContainerId="outer-container"
-      >
-        <div className="flex items-center justify-between mb-8">
-          <div className="text-2xl font-bold text-white">
-            Clauth
-          </div>
-          <button 
-            onClick={close} 
-            className="p-2 text-white/70 hover:text-white hover:bg-white/10 rounded-lg transition-all duration-200"
-          >
-            <XMarkIcon className="w-6 h-6" />
-          </button>
-        </div>
-
-        {session?.user && (
-          <div className="mb-6 p-4 bg-white/5 rounded-xl border border-white/10">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 bg-white rounded-full flex items-center justify-center text-black font-semibold">
-                {session.user.name?.charAt(0)?.toUpperCase() || 'U'}
-              </div>
-              <div>
-                <p className="text-white font-medium">{session.user.name}</p>
-                <p className="text-white/60 text-sm truncate">{session.user.email}</p>
-              </div>
+      {/* MOBILE SLIDE-OUT MENU - Only for users with full access */}
+      {hasFullAccess && (
+        <Menu
+          right
+          isOpen={open}
+          onStateChange={({ isOpen }) => {
+            console.log('Menu state changed:', isOpen);
+            setOpen(isOpen);
+          }}
+          customBurgerIcon={false}
+          customCrossIcon={false}
+          styles={menuStyles}
+          pageWrapId="page-wrap"
+          outerContainerId="outer-container"
+        >
+          <div className="flex items-center justify-between mb-8">
+            <div className="text-2xl font-bold text-white">
+              Clauth
             </div>
-          </div>
-        )}
-
-        {session?.user?.role === "ADMIN" && (
-          <Link
-            href="/admin"
-            onClick={close}
-            className="flex items-center gap-3 p-3 mb-2 text-white hover:text-white hover:bg-white/10 rounded-xl transition-all duration-200"
-          >
-            <span className="w-2 h-2 bg-white rounded-full"></span>
-            <span className="text-lg font-medium">Admin Dashboard</span>
-          </Link>
-        )}
-
-        <div className="space-y-1 mb-6">
-          {allLinks.map((l) => (
-            <Link
-              key={l.href}
-              href={l.href}
-              onClick={close}
-              className="flex items-center gap-3 p-3 text-white hover:text-white hover:bg-white/10 rounded-xl transition-all duration-200 group"
+            <button 
+              onClick={close} 
+              className="p-2 text-white/70 hover:text-white hover:bg-white/10 rounded-lg transition-all duration-200"
             >
-              <span className="w-2 h-2 bg-white/60 rounded-full group-hover:bg-white transition-colors duration-200"></span>
-              <span className="text-lg font-medium">{l.label}</span>
-            </Link>
-          ))}
-        </div>
+              <XMarkIcon className="w-6 h-6" />
+            </button>
+          </div>
 
-        <div className="border-t border-white/20 pt-6">
-          {!session?.user ? (
-            <div className="space-y-3">
-              <button
-                onClick={login}
-                className="w-full p-3 text-left text-black bg-white hover:bg-gray-200 rounded-xl transition-all duration-200 font-medium"
-              >
-                Sign In
-              </button>
-              <Link
-                href="/signup"
-                onClick={close}
-                className="block p-3 text-white/80 hover:text-white hover:bg-white/5 rounded-xl transition-all duration-200"
-              >
-                Create Account
-              </Link>
+          {session?.user && (
+            <div className="mb-6 p-4 bg-white/5 rounded-xl border border-white/10">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 bg-white rounded-full flex items-center justify-center text-black font-semibold">
+                  {session.user.name?.charAt(0)?.toUpperCase() || 'U'}
+                </div>
+                <div>
+                  <p className="text-white font-medium">{session.user.name}</p>
+                  <p className="text-white/60 text-sm truncate">{session.user.email}</p>
+                  {isAdmin && (
+                    <p className="text-blue-400 text-xs">Administrator</p>
+                  )}
+                </div>
+              </div>
             </div>
-          ) : (
-            <div className="space-y-1">
-              {isShopEnabled && (
+          )}
+
+          {isAdmin && (
+            <Link
+              href="/admin"
+              onClick={close}
+              className="flex items-center gap-3 p-3 mb-2 text-white hover:text-white hover:bg-white/10 rounded-xl transition-all duration-200"
+            >
+              <span className="w-2 h-2 bg-white rounded-full"></span>
+              <span className="text-lg font-medium">Admin Dashboard</span>
+            </Link>
+          )}
+
+          <div className="space-y-1 mb-6">
+            {allLinks.map((l) => (
+              <Link
+                key={l.href}
+                href={l.href}
+                onClick={close}
+                className="flex items-center gap-3 p-3 text-white hover:text-white hover:bg-white/10 rounded-xl transition-all duration-200 group"
+              >
+                <span className="w-2 h-2 bg-white/60 rounded-full group-hover:bg-white transition-colors duration-200"></span>
+                <span className="text-lg font-medium">{l.label}</span>
+              </Link>
+            ))}
+          </div>
+
+          <div className="border-t border-white/20 pt-6">
+            {!session?.user ? (
+              <div className="space-y-3">
+                <button
+                  onClick={login}
+                  className="w-full p-3 text-left text-black bg-white hover:bg-gray-200 rounded-xl transition-all duration-200 font-medium"
+                >
+                  Sign In
+                </button>
                 <Link
-                  href="/my-preorders"
+                  href="/signup"
+                  onClick={close}
+                  className="block p-3 text-white/80 hover:text-white hover:bg-white/5 rounded-xl transition-all duration-200"
+                >
+                  Create Account
+                </Link>
+              </div>
+            ) : (
+              <div className="space-y-1">
+                {isShopEnabled && (
+                  <Link
+                    href="/my-preorders"
+                    onClick={close}
+                    className="flex items-center gap-3 p-3 text-white/80 hover:text-white hover:bg-white/5 rounded-xl transition-all duration-200"
+                  >
+                    <span className="w-2 h-2 bg-white/40 rounded-full"></span>
+                    My Pre-orders
+                  </Link>
+                )}
+                <Link
+                  href="/collections"
                   onClick={close}
                   className="flex items-center gap-3 p-3 text-white/80 hover:text-white hover:bg-white/5 rounded-xl transition-all duration-200"
                 >
-                  <span className="w-2 h-2 bg-white/40 rounded-full"></span>
-                  My Pre-orders
+                  <span className="w-2 h-2 bg-white/50 rounded-full"></span>
+                  My Collections
                 </Link>
-              )}
-              <Link
-                href="/collections"
-                onClick={close}
-                className="flex items-center gap-3 p-3 text-white/80 hover:text-white hover:bg-white/5 rounded-xl transition-all duration-200"
-              >
-                <span className="w-2 h-2 bg-white/50 rounded-full"></span>
-                My Collections
-              </Link>
-              <Link
-                href="/profile"
-                onClick={close}
-                className="flex items-center gap-3 p-3 text-white/80 hover:text-white hover:bg-white/5 rounded-xl transition-all duration-200"
-              >
-                <span className="w-2 h-2 bg-white/60 rounded-full"></span>
-                My Profile
-              </Link>
-              <Link
-                href="/settings"
-                onClick={close}
-                className="flex items-center gap-3 p-3 text-white/80 hover:text-white hover:bg-white/5 rounded-xl transition-all duration-200"
-              >
-                <span className="w-2 h-2 bg-white/70 rounded-full"></span>
-                Settings
-              </Link>
-              <Link
-                href="/my-likes"
-                onClick={close}
-                className="flex items-center gap-3 p-3 text-white/80 hover:text-white hover:bg-white/5 rounded-xl transition-all duration-200"
-              >
-                <span className="w-2 h-2 bg-white/80 rounded-full"></span>
-                My Likes
-              </Link>
-              <button
-                onClick={logout}
-                className="w-full flex items-center gap-3 p-3 text-white/70 hover:text-white hover:bg-white/5 rounded-xl transition-all duration-200 mt-4"
-              >
-                <span className="w-2 h-2 bg-white/90 rounded-full"></span>
-                Sign Out
-              </button>
-            </div>
-          )}
-        </div>
-      </Menu>
+                <Link
+                  href="/profile"
+                  onClick={close}
+                  className="flex items-center gap-3 p-3 text-white/80 hover:text-white hover:bg-white/5 rounded-xl transition-all duration-200"
+                >
+                  <span className="w-2 h-2 bg-white/60 rounded-full"></span>
+                  My Profile
+                </Link>
+                <Link
+                  href="/settings"
+                  onClick={close}
+                  className="flex items-center gap-3 p-3 text-white/80 hover:text-white hover:bg-white/5 rounded-xl transition-all duration-200"
+                >
+                  <span className="w-2 h-2 bg-white/70 rounded-full"></span>
+                  Settings
+                </Link>
+                <Link
+                  href="/my-likes"
+                  onClick={close}
+                  className="flex items-center gap-3 p-3 text-white/80 hover:text-white hover:bg-white/5 rounded-xl transition-all duration-200"
+                >
+                  <span className="w-2 h-2 bg-white/80 rounded-full"></span>
+                  My Likes
+                </Link>
+                <button
+                  onClick={logout}
+                  className="w-full flex items-center gap-3 p-3 text-white/70 hover:text-white hover:bg-white/5 rounded-xl transition-all duration-200 mt-4"
+                >
+                  <span className="w-2 h-2 bg-white/90 rounded-full"></span>
+                  Sign Out
+                </button>
+              </div>
+            )}
+          </div>
+        </Menu>
+      )}
     </header>
   );
 }

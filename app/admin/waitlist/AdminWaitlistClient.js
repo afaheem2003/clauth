@@ -6,6 +6,7 @@ export default function AdminWaitlistClient({ entries: initialEntries }) {
   const [entries, setEntries] = useState(initialEntries)
   const [copiedEmail, setCopiedEmail] = useState('')
   const [updatingEntry, setUpdatingEntry] = useState('')
+  const [deletingEntry, setDeletingEntry] = useState('')
 
   const copyEmail = async (email) => {
     try {
@@ -58,6 +59,37 @@ export default function AdminWaitlistClient({ entries: initialEntries }) {
       alert('Failed to update entry')
     } finally {
       setUpdatingEntry('')
+    }
+  }
+
+  const deleteEntry = async (id, email) => {
+    if (!confirm(`Are you sure you want to delete ${email} from the waitlist? This action cannot be undone.`)) {
+      return
+    }
+
+    setDeletingEntry(id)
+    try {
+      const response = await fetch('/api/waitlist', {
+        method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ id }),
+      })
+
+      if (response.ok) {
+        // Remove the entry from local state
+        setEntries(prevEntries => prevEntries.filter(entry => entry.id !== id))
+        alert('Entry deleted successfully!')
+      } else {
+        const errorData = await response.json()
+        alert(errorData.error || 'Failed to delete entry')
+      }
+    } catch (err) {
+      console.error('Failed to delete entry:', err)
+      alert('Failed to delete entry')
+    } finally {
+      setDeletingEntry('')
     }
   }
 
@@ -198,6 +230,14 @@ export default function AdminWaitlistClient({ entries: initialEntries }) {
                               {updatingEntry === entry.id ? 'Updating...' : 'Reset'}
                             </button>
                           )}
+
+                          <button
+                            onClick={() => deleteEntry(entry.id, entry.email)}
+                            disabled={deletingEntry === entry.id}
+                            className="bg-red-800 text-white px-3 py-1 rounded text-xs hover:bg-red-900 disabled:opacity-50"
+                          >
+                            {deletingEntry === entry.id ? 'Deleting...' : 'Delete'}
+                          </button>
                         </div>
                       </td>
                     </tr>

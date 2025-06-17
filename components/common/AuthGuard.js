@@ -5,15 +5,13 @@ import { useSession } from "next-auth/react";
 import { useRouter, usePathname } from "next/navigation";
 
 /**
- * Global route-protection helper
- *
- *  • Public paths:
- *    The following paths are publicly accessible and do NOT require authentication:
- *    • The Home page ( "/" ), Discover ( "/discover" ), and Clothing pages ( "/clothing/[id]" ) are public.
- *    • Profile pages ( "/profile/[username]" ) are public.
- *    • Auth pages ( "/login", "/signup", "/forgot-password", etc... ) are public.
- *    • API routes ( "/api/*" ) are public by default, but are individually protected as needed.
- *  • All other routes require sign-in and appropriate roles.
+ * Simplified AuthGuard that works with our middleware
+ * 
+ * The middleware handles most routing logic for waitlist mode.
+ * This guard handles:
+ * - Loading states
+ * - Profile completion requirements
+ * - Admin-specific protections
  */
 export default function AuthGuard({ children }) {
   const { data: session, status } = useSession();
@@ -23,51 +21,36 @@ export default function AuthGuard({ children }) {
   useEffect(() => {
     if (status === "loading") return; // still figuring out auth
 
-    /* ───────── 1) PUBLIC ROUTES ───────── */
-    const isPublic =
-      pathname === "/" ||
-      pathname.startsWith("/discover") ||
-      pathname.startsWith("/clothing") ||
-      pathname.startsWith("/api") ||
-      (pathname.startsWith("/profile/") && pathname !== "/profile"); // Allow public profiles but not /profile
-
-    if (!session && isPublic) {
-      return; // allow visitors to access public routes
-    }
-
-    /* ───────── 2) NOT SIGNED-IN → /login ───────── */
-    if (!session) {
-      router.replace("/login");
-      return;
-    }
-
-    /* ───────── 3) ROLE-BASED ACCESS ───────── */
-    if (session.user.role !== "ADMIN" && pathname.startsWith("/admin")) {
+    // Let middleware handle waitlist routing - we just handle specific cases here
+    
+    /* ───────── ADMIN-ONLY ROUTES ───────── */
+    if (session?.user && session.user.role !== "ADMIN" && pathname.startsWith("/admin")) {
       router.replace("/");
       return;
     }
 
-    /* ───────── 4) WARDROBE ACCESS ───────── */
-    if (pathname.startsWith("/collections") && !session) {
-      router.replace("/login");
-      return;
-    }
-
-    /* ───────── 5) ONBOARDING (displayName) ───────── */
+    /* ───────── PROFILE COMPLETION ───────── */
     if (
+      session?.user &&
       session.user.role !== "ADMIN" &&
       !session.user.displayName &&
-      pathname !== "/complete-profile"
+      pathname !== "/complete-profile" &&
+      pathname !== "/waitlist-status" &&
+      pathname !== "/waitlist" &&
+      pathname !== "/login"
     ) {
       router.replace("/complete-profile");
     }
   }, [status, session, pathname, router]);
 
-  /* Optional loading spinner while we check auth */
+  /* Loading spinner while we check auth */
   if (status === "loading") {
     return (
       <div className="min-h-screen flex items-center justify-center">
-        <p className="text-lg font-semibold text-gray-800">Loading…</p>
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-black mx-auto"></div>
+          <p className="mt-4 text-gray-600 font-light">Loading...</p>
+        </div>
       </div>
     );
   }

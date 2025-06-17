@@ -19,12 +19,20 @@ model User {
   emailVerified DateTime?
   image         String?
 
+  // Password authentication fields
+  password      String?        // Hashed password for email/password login
+  
+  // Phone verification fields
+  phone         String?        @unique
+  phoneVerified DateTime?
+  
   displayName   String?        @unique
   photoUrl      String?
   bio           String         @default("")
   createdAt     DateTime       @default(now())
 
   role          Role           @default(USER)
+  waitlistStatus WaitlistUserStatus @default(WAITLISTED) // New field for waitlist tracking
 
   // Stripe integration
   stripeCustomerId String?     @unique
@@ -61,6 +69,12 @@ model User {
   challengeSubmissions ChallengeSubmission[]
   submissionUpvotes    SubmissionUpvote[]
   competitionParticipations CompetitionParticipant[]
+
+  // Waitlist tracking
+  waitlistInfo  WaitlistInfo?
+  
+  // Verification relationships
+  phoneVerifications PhoneVerification[]
 }
 
 model Account {
@@ -97,6 +111,29 @@ model VerificationToken {
   expires    DateTime
 
   @@unique([identifier, token])
+}
+
+/* ────────────────────────────────────────────────────────────
+   Waitlist tracking model
+────────────────────────────────────────────────────────────── */
+model WaitlistInfo {
+  id              String   @id @default(cuid())
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId          String   @unique
+  
+  signupDate      DateTime @default(now()) // When they first signed up
+  approvedAt      DateTime? // When they were approved (if applicable)
+  approvedBy      String?   // Admin user ID who approved them
+  
+  // Additional tracking info
+  referralSource  String?   // How they found out about the platform
+  interests       String[]  // What they're interested in
+  notes           String?   // Admin notes
+  
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  
+  @@map("WaitlistInfo")
 }
 
 /* ────────────────────────────────────────────────────────────
@@ -316,6 +353,11 @@ enum PaymentIntentStatus {
 enum Role {
   USER
   ADMIN
+}
+
+enum WaitlistUserStatus {
+  WAITLISTED    // User is on the waitlist
+  APPROVED      // User has been approved and has full access
 }
 
 /* ────────────────────────────────────────────────────────────
@@ -650,21 +692,21 @@ enum SubmissionStatus {
 }
 
 /* ────────────────────────────────────────────────────────────
-   Waitlist model
+   Phone Verification model
 ────────────────────────────────────────────────────────────── */
-model WaitlistEntry {
-  id        String   @id @default(cuid())
-  email     String   @unique
-  status    WaitlistStatus @default(PENDING)
-  approvedAt DateTime?
-  approvedBy String?  // Admin user ID who approved
-  createdAt DateTime @default(now())
+model PhoneVerification {
+  id          String    @id @default(cuid())
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId      String
+  phone       String
+  code        String    // 6-digit verification code
+  verified    Boolean   @default(false)
+  attempts    Int       @default(0)
+  createdAt   DateTime  @default(now())
+  expiresAt   DateTime  // When the code expires (usually 10 minutes)
+  verifiedAt  DateTime?
   
-  @@map("WaitlistEntry")
-}
-
-enum WaitlistStatus {
-  PENDING
-  APPROVED
-  REJECTED
+  @@index([phone])
+  @@index([code])
+  @@map("PhoneVerification")
 }
