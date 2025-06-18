@@ -52,8 +52,32 @@ export async function POST(request) {
       }
     })
 
+    // Always log in development mode for debugging
+    if (process.env.NODE_ENV === 'development') {
+      console.log('=== PHONE VERIFICATION DEBUG ===')
+      console.log(`User ID: ${userId}`)
+      console.log(`Phone: ${phone}`)
+      console.log(`Verification Code: ${code}`)
+      console.log(`Expires at: ${expiresAt}`)
+      console.log('================================')
+    }
+
     // Send SMS using Twilio
     try {
+      // Check if Twilio is configured
+      if (!process.env.TWILIO_ACCOUNT_SID || !process.env.TWILIO_AUTH_TOKEN || !process.env.TWILIO_PHONE_NUMBER) {
+        if (process.env.NODE_ENV === 'development') {
+          console.log('Twilio not configured - using development mode')
+          return NextResponse.json({
+            message: 'Verification code generated (development mode)',
+            expiresAt: expiresAt.toISOString(),
+            code: code // Only in development
+          })
+        } else {
+          throw new Error('SMS service not configured')
+        }
+      }
+
       await twilioClient.messages.create({
         body: `Your Clauth verification code is: ${code}. This code expires in 10 minutes.`,
         from: process.env.TWILIO_PHONE_NUMBER,
@@ -69,7 +93,7 @@ export async function POST(request) {
       
       // For development, we'll still create the verification but not send SMS
       if (process.env.NODE_ENV === 'development') {
-        console.log(`Development mode - verification code: ${code}`)
+        console.log(`Development mode - SMS failed but code available: ${code}`)
         return NextResponse.json({
           message: 'Verification code generated (development mode)',
           expiresAt: expiresAt.toISOString(),

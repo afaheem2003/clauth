@@ -44,14 +44,14 @@ export default function HomeClient({ trendingCreations = [] }) {
               </div>
               <h3 className="text-xl font-light text-gray-900 mb-2">No trending designs yet</h3>
               <p className="text-gray-600 mb-6">Be the first to create something amazing</p>
-              <Link
+                <Link
                 href="/design"
                 className="inline-block bg-black text-white px-8 py-3 text-sm font-medium hover:bg-gray-900 transition-colors"
-              >
+                >
                 Start Creating
-              </Link>
+                </Link>
             </div>
-          )}
+              )}
         </section>
 
         {/* More Trending Items */}

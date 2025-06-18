@@ -74,7 +74,6 @@ export async function POST(request) {
         email: email.toLowerCase(),
         password: hashedPassword,
         name,
-        displayName: name,
         phone,
         phoneVerified: null, // Will be set when phone is verified
         waitlistStatus: 'WAITLISTED'

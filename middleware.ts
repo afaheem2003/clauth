@@ -58,7 +58,7 @@ export async function middleware(req: NextRequest) {
 
     // Non-authenticated users go to waitlist
     if (!token) {
-      return NextResponse.redirect(new URL('/waitlist', req.url))
+    return NextResponse.redirect(new URL('/waitlist', req.url))
     }
   }
 

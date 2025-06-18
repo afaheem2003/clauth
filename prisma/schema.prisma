@@ -34,6 +34,9 @@ model User {
   role          Role           @default(USER)
   waitlistStatus WaitlistUserStatus @default(WAITLISTED) // New field for waitlist tracking
 
+  // Referral system
+  referralCode  String?        @unique // User's unique referral code
+
   // Stripe integration
   stripeCustomerId String?     @unique
 
@@ -72,6 +75,8 @@ model User {
 
   // Waitlist tracking
   waitlistInfo  WaitlistInfo?
+  waitlistApplications WaitlistDesignApplication[] // Applications they've submitted
+  waitlistProgress WaitlistProgress? // Their current waitlist application progress
   
   // Verification relationships
   phoneVerifications PhoneVerification[]
@@ -194,6 +199,7 @@ model ClothingItem {
   wardrobeItems    WardrobeItem[]
   designEdits      DesignEditHistory[]
   challengeSubmissions ChallengeSubmission[] // Challenge submissions using this item
+  waitlistApplications WaitlistDesignApplication[] // Waitlist applications using this item
   
   // Drop-based system fields
   status           ItemStatus @default(CONCEPT)
@@ -709,4 +715,71 @@ model PhoneVerification {
   @@index([phone])
   @@index([code])
   @@map("PhoneVerification")
+}
+
+/* ────────────────────────────────────────────────────────────
+   New Waitlist Design Application System
+────────────────────────────────────────────────────────────── */
+model WaitlistDesignApplication {
+  id              String   @id @default(cuid())
+  
+  // User who submitted the application
+  applicant       User     @relation(fields: [applicantId], references: [id], onDelete: Cascade)
+  applicantId     String
+  
+  // The clothing item they designed
+  clothingItem    ClothingItem @relation(fields: [clothingItemId], references: [id], onDelete: Cascade)
+  clothingItemId  String
+  
+  // Referral codes they used (up to 3)
+  referralCodes   String[] @default([])
+  
+  // Application status
+  status          ApplicationStatus @default(PENDING)
+  
+  // Admin review
+  reviewedAt      DateTime?
+  reviewedBy      String?  // Admin user ID
+  adminNotes      String?  // Internal admin notes
+  
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  
+  @@map("WaitlistDesignApplication")
+}
+
+model WaitlistProgress {
+  id              String   @id @default(cuid())
+  
+  // User this progress belongs to
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId          String   @unique
+  
+  // Current progress state
+  step            Int      @default(1) // 1: Input, 2: Generate/Edit, 3: Referrals, 4: Confirmation
+  generationsUsed Int      @default(0)
+  
+  // Quality tracking
+  qualitiesUsed   Json     @default("{\"low\": 0, \"medium\": 0, \"high\": 0}")
+  selectedQuality String   @default("low")
+  
+  // Form data
+  formData        Json     @default("{}")
+  
+  // Current design and history
+  currentDesign   Json?    // Current design object
+  designHistory   Json     @default("[]") // Array of design objects
+  currentView     String   @default("front")
+  
+  // Timestamps
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  
+  @@map("WaitlistProgress")
+}
+
+enum ApplicationStatus {
+  PENDING     // Waiting for admin review
+  APPROVED    // Approved - user gets invited
+  REJECTED    // Rejected - user stays on waitlist
 }
