@@ -251,7 +251,7 @@ export default function ClothingItemClient({ clothingItem, initialComments, sess
           </div>
 
           {/* Challenge Submission Banner */}
-          {isCreator && challengeEligibility && (
+          {isCreator && challengeEligibility && challengeEligibility.challenge && (
             <div className="mb-8">
               {challengeEligibility.canSubmit ? (
                 <div className="bg-gradient-to-r from-indigo-600 to-purple-600 rounded-xl p-6 text-white">
@@ -343,9 +343,9 @@ export default function ClothingItemClient({ clothingItem, initialComments, sess
                     <>
                       <button
                         onClick={() => setCurrentAngle('FRONT')}
-                        className={`absolute left-4 top-1/2 transform -translate-y-1/2 bg-white/80 p-2 rounded-full shadow-lg transition-opacity ${
+                        className={`absolute left-4 top-1/2 transform -translate-y-1/2 bg-black/80 text-white p-2 rounded-full shadow-lg transition-opacity hover:bg-black/90 ${
                           currentAngle === 'FRONT' ? 'opacity-0' : 'opacity-100'
-                        } hover:bg-white`}
+                        }`}
                         aria-label="Previous image"
                       >
                         <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -354,9 +354,9 @@ export default function ClothingItemClient({ clothingItem, initialComments, sess
                       </button>
                       <button
                         onClick={() => setCurrentAngle('BACK')}
-                        className={`absolute right-4 top-1/2 transform -translate-y-1/2 bg-white/80 p-2 rounded-full shadow-lg transition-opacity ${
+                        className={`absolute right-4 top-1/2 transform -translate-y-1/2 bg-black/80 text-white p-2 rounded-full shadow-lg transition-opacity hover:bg-black/90 ${
                           currentAngle === 'BACK' ? 'opacity-0' : 'opacity-100'
-                        } hover:bg-white`}
+                        }`}
                         aria-label="Next image"
                       >
                         <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -368,8 +368,11 @@ export default function ClothingItemClient({ clothingItem, initialComments, sess
 
                   {/* Admin-only Quality Tag */}
                   {isAdmin && clothingItem.quality && (
-                    <div className="absolute top-4 left-4 bg-red-600 text-white px-3 py-1 rounded-full text-xs font-medium shadow-lg">
-                      Quality: {clothingItem.quality.charAt(0).toUpperCase() + clothingItem.quality.slice(1)}
+                    <div className="absolute top-4 left-4 bg-black/90 backdrop-blur-sm text-white px-3 py-1 rounded-lg text-xs font-medium shadow-lg border border-white/10">
+                      {clothingItem.quality === 'low' ? 'Sketch' : 
+                       clothingItem.quality === 'medium' ? 'Studio' : 
+                       clothingItem.quality === 'high' ? 'Runway' : 
+                       clothingItem.quality.charAt(0).toUpperCase() + clothingItem.quality.slice(1)}
                     </div>
                   )}
                 </div>

@@ -78,6 +78,13 @@ model User {
   waitlistApplications WaitlistDesignApplication[] // Applications they've submitted
   waitlistProgress WaitlistProgress? // Their current waitlist application progress
   
+  // Design progress tracking
+  designProgress DesignProgress? // Their current design progress (temporary storage)
+  
+  // Community voting system
+  createdVotingRounds VotingRound[] @relation("VotingRoundCreator") // Voting rounds they created (admin)
+  applicationVotes ApplicationVote[] // Votes they've cast on applications
+  
   // Verification relationships
   phoneVerifications PhoneVerification[]
 }
@@ -742,6 +749,9 @@ model WaitlistDesignApplication {
   reviewedBy      String?  // Admin user ID
   adminNotes      String?  // Internal admin notes
   
+  // Community voting
+  votingRounds    VotingRoundApplication[] // Voting rounds this application has been in
+  
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
   
@@ -778,8 +788,144 @@ model WaitlistProgress {
   @@map("WaitlistProgress")
 }
 
+model DesignProgress {
+  id              String   @id @default(cuid())
+  
+  // User this progress belongs to
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId          String   @unique
+  
+  // Current progress state
+  currentStep     Int      @default(1) // 1: Basic Details, 2: Design Specifics, 3: Preview & Publish
+  
+  // Form data
+  itemName        String?
+  itemType        String?
+  selectedCategory String?
+  gender          String   @default("UNISEX")
+  userPrompt      String?
+  color           String?
+  modelDescription String?
+  quality         String   @default("low")
+  
+  // Generated design data
+  aiDescription   String?
+  frontImage      String?
+  backImage       String?
+  compositeImage  String?
+  
+  // Challenge data
+  selectedChallengeIds Json @default("[]")
+  
+  // Edit mode state
+  isInpaintingMode Boolean @default(false)
+  inpaintingPrompt String?
+  currentView     String  @default("front")
+  targetQuality   String?
+  
+  // Timestamps
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  
+  @@map("DesignProgress")
+}
+
 enum ApplicationStatus {
-  PENDING     // Waiting for admin review
-  APPROVED    // Approved - user gets invited
-  REJECTED    // Rejected - user stays on waitlist
+  PENDING     // Waiting for community vote
+  IN_VOTING   // Currently in a voting round
+  APPROVED    // Approved by community vote
+  REJECTED    // Not approved in voting round
+  WAITLISTED  // Remains on waitlist for future rounds
+}
+
+/* ────────────────────────────────────────────────────────────
+   Community Voting System for Waitlist Applications
+────────────────────────────────────────────────────────────── */
+
+model VotingRound {
+  id              String   @id @default(cuid())
+  name            String   // e.g., "Week 1 Community Vote"
+  description     String?  // Optional description
+  
+  // Timing
+  startTime       DateTime
+  endTime         DateTime
+  isActive        Boolean  @default(false)
+  
+  // Configuration
+  maxApplications Int      @default(20) // Max applications to include
+  approvalPercentage Int   @default(30) // Top X% of applications that get approved
+  minVotes        Int      @default(5)  // Minimum votes required for consideration
+  
+  // Results
+  totalVotes      Int      @default(0)
+  applicationsApproved Int @default(0)
+  
+  // Admin
+  createdBy       User     @relation("VotingRoundCreator", fields: [createdById], references: [id])
+  createdById     String
+  
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  
+  // Relations
+  applications    VotingRoundApplication[]
+  votes           ApplicationVote[]
+  
+  @@index([isActive])
+  @@index([startTime, endTime])
+}
+
+model VotingRoundApplication {
+  id              String   @id @default(cuid())
+  
+  // Voting round this belongs to
+  votingRound     VotingRound @relation(fields: [votingRoundId], references: [id], onDelete: Cascade)
+  votingRoundId   String
+  
+  // The application being voted on
+  application     WaitlistDesignApplication @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+  applicationId   String
+  
+  // Vote results for this application in this round
+  upvotes         Int      @default(0)
+  downvotes       Int      @default(0)
+  totalVotes      Int      @default(0)
+  approvalRate    Float    @default(0.0) // upvotes / totalVotes
+  
+  // Result
+  wasApproved     Boolean  @default(false)
+  
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  
+  // Relations
+  votes           ApplicationVote[]
+  
+  @@unique([votingRoundId, applicationId]) // One entry per application per round
+  @@index([votingRoundId, approvalRate]) // For ranking
+}
+
+model ApplicationVote {
+  id              String   @id @default(cuid())
+  
+  // Voter (must be approved user)
+  voter           User     @relation(fields: [voterId], references: [id], onDelete: Cascade)
+  voterId         String
+  
+  // What they're voting on
+  votingRound     VotingRound @relation(fields: [votingRoundId], references: [id], onDelete: Cascade)
+  votingRoundId   String
+  
+  roundApplication VotingRoundApplication @relation(fields: [roundApplicationId], references: [id], onDelete: Cascade)
+  roundApplicationId String
+  
+  // Their vote
+  isUpvote        Boolean  // true = upvote, false = downvote
+  
+  createdAt       DateTime @default(now())
+  
+  @@unique([voterId, roundApplicationId]) // One vote per user per application
+  @@index([votingRoundId, voterId]) // For user's voting activity
+  @@index([roundApplicationId]) // For application vote counts
 }

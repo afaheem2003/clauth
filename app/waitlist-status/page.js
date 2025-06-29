@@ -51,11 +51,31 @@ export default function WaitlistStatusPage() {
     switch (status) {
       case 'APPROVED':
         return `${baseClasses} bg-green-100 text-green-800`
+      case 'IN_VOTING':
+        return `${baseClasses} bg-purple-100 text-purple-800`
+      case 'WAITLISTED':
+        return `${baseClasses} bg-yellow-100 text-yellow-800`
       case 'REJECTED':
         return `${baseClasses} bg-red-100 text-red-800`
       case 'PENDING':
       default:
         return `${baseClasses} bg-blue-100 text-blue-800`
+    }
+  }
+
+  const getStatusMessage = (status) => {
+    switch (status) {
+      case 'APPROVED':
+        return 'Welcome to CLAUTH! You\'re officially part of our exclusive community.'
+      case 'IN_VOTING':
+        return 'Your design is being reviewed by our community. Members are voting on your application right now.'
+      case 'WAITLISTED':
+        return 'Your design will be included in an upcoming community voting round. Stay tuned.'
+      case 'REJECTED':
+        return 'Keep creating! Your design wasn\'t selected this time, but we\'d love to see more of your work.'
+      case 'PENDING':
+      default:
+        return 'Thanks for joining our community. We\'re carefully curating our early access group and will be in touch soon. Your creativity is exactly what we\'re looking for.'
     }
   }
 
@@ -153,7 +173,7 @@ export default function WaitlistStatusPage() {
             {session.user.waitlistStatus === 'APPROVED' ? (
               <>
                 <p className="text-xl md:text-2xl text-gray-600 mb-8 max-w-4xl mx-auto font-light leading-relaxed">
-                  🎉 Welcome to CLAUTH! You're officially part of our exclusive community.
+                  {getStatusMessage('APPROVED')}
                 </p>
                 
                 <Link
@@ -166,19 +186,39 @@ export default function WaitlistStatusPage() {
             ) : (
               <>
                 <p className="text-xl md:text-2xl text-gray-800 mb-4 max-w-4xl mx-auto font-light leading-relaxed">
-                  You're in! ✨ Thanks for joining our community.
+                  {getStatusMessage(session.user.waitlistStatus)}
                 </p>
-                <p className="text-lg text-gray-600 mb-8 max-w-3xl mx-auto font-light leading-relaxed">
-                  We're carefully curating our early access group and will be in touch soon. Your creativity is exactly what we're looking for.
-                </p>
+                
+                {/* Show community voting link for approved users */}
+                {session.user.waitlistStatus === 'APPROVED' && (
+                  <div className="mb-8">
+                    <Link
+                      href="/community-vote"
+                      className="inline-block bg-purple-600 text-white px-6 py-3 text-base font-medium hover:bg-purple-700 transition-colors rounded-lg mr-4"
+                    >
+                      Participate in Community Vote
+                    </Link>
+                  </div>
+                )}
+                
+                {/* Show different messages based on application status */}
+                {applications.length > 0 ? (
+                  <p className="text-lg text-gray-600 mb-8 max-w-3xl mx-auto font-light leading-relaxed">
+                    Thank you for sharing your creativity with us. We're carefully reviewing all submissions.
+                  </p>
+                ) : (
+                  <p className="text-lg text-gray-600 mb-8 max-w-3xl mx-auto font-light leading-relaxed">
+                    We're carefully curating our early access group and will be in touch soon. Your creativity is exactly what we're looking for.
+                  </p>
+                )}
                 
                 {applications.length === 0 && !loadingApplications && (
                   <div className="mb-8 bg-blue-50 border border-blue-200 rounded-xl p-6 max-w-2xl mx-auto">
                     <p className="text-lg text-blue-900 mb-4 font-medium">
-                      🎨 Ready to show us your style?
+                      Ready to show us your style?
                     </p>
                     <p className="text-blue-800 mb-6 font-light">
-                      Submit your first design to fast-track your early access. We love seeing fresh creativity!
+                      Submit your first design to join the community voting process. We love seeing fresh creativity.
                     </p>
                     <Link
                       href="/waitlist"
@@ -229,15 +269,8 @@ export default function WaitlistStatusPage() {
                       className="object-cover"
                       sizes="(max-width: 768px) 100vw, 320px"
                     />
-                    {app.status === 'APPROVED' && (
-                      <div className="absolute top-3 right-3">
-                        <span className={getStatusBadge(app.status)}>
-                          {app.status}
-                        </span>
-                      </div>
-                    )}
                     
-                    {/* Navigation arrows - always show for testing */}
+                    {/* Navigation arrows */}
                     <div className="absolute inset-y-0 left-0 flex items-center">
                       <button
                         type="button"
@@ -279,36 +312,11 @@ export default function WaitlistStatusPage() {
                     <div className="text-sm text-gray-500 space-y-1">
                       <p>Type: {app.clothingItem.itemType}</p>
                       <p>Gender: {app.clothingItem.gender === 'MASCULINE' ? 'Male' : app.clothingItem.gender === 'FEMININE' ? 'Female' : 'Unisex'}</p>
-                      <p>Submitted: {new Date(app.createdAt).toLocaleDateString()}</p>
-                      {app.referralCodes.length > 0 && (
-                        <p>Referrals: {app.referralCodes.join(', ')}</p>
-                      )}
-                      {app.reviewedAt && (
-                        <p>Reviewed: {new Date(app.reviewedAt).toLocaleDateString()}</p>
-                      )}
                     </div>
                   </div>
               </div>
               ))}
             </div>
-
-            {/* Submit Another Design */}
-            {applications.every(app => app.status !== 'PENDING') && (
-              <div className="text-center mt-12 bg-green-50 border border-green-200 rounded-xl p-8 max-w-2xl mx-auto">
-                <p className="text-green-900 mb-4 font-medium text-lg">
-                  🌟 Feeling inspired?
-                </p>
-                <p className="text-green-800 mb-6 font-light">
-                  We'd love to see more of your creativity! Submit another design to showcase your range.
-                </p>
-                <Link
-                  href="/waitlist"
-                  className="inline-block border border-gray-300 text-gray-700 px-6 py-3 font-medium hover:bg-gray-50 transition-colors rounded-lg"
-                >
-                  Create Another Design
-                </Link>
-              </div>
-            )}
           </div>
         </div>
       )}

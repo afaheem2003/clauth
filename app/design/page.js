@@ -76,6 +76,13 @@ export default function DesignPage() {
 
   const [generatingDesign, setGeneratingDesign] = useState(false);
   
+  // Loading states for different elements (like waitlist page)
+  const [loadingStates, setLoadingStates] = useState({
+    image: false,
+    description: false,
+    regenerating: false
+  });
+  
   // Usage tracking state
   const [usageStats, setUsageStats] = useState({
     lowCredits: 0,
@@ -168,6 +175,179 @@ export default function DesignPage() {
     }
   }, [status, router]);
 
+  // Load saved progress when user is authenticated
+  useEffect(() => {
+    if (status === 'authenticated' && session?.user?.uid) {
+      loadSavedProgress();
+    }
+  }, [status, session?.user?.uid]);
+
+  // Auto-save progress when state changes (debounced)
+  useEffect(() => {
+    if (status === 'authenticated' && session?.user?.uid) {
+      const timeoutId = setTimeout(() => {
+        saveProgress();
+      }, 2000); // Debounce for 2 seconds
+      
+      return () => clearTimeout(timeoutId);
+    }
+  }, [
+    status,
+    session?.user?.uid,
+    currentStep,
+    itemName,
+    itemType,
+    selectedCategory,
+    gender,
+    userPrompt,
+    color,
+    modelDescription,
+    quality,
+    aiDescription,
+    frontImage,
+    backImage,
+    compositeImage,
+    selectedChallengeIds,
+    isInpaintingMode,
+    inpaintingPrompt,
+    currentView,
+    targetQuality
+  ]);
+
+  // Load saved progress
+  const loadSavedProgress = async () => {
+    try {
+      const response = await fetch('/api/design/progress');
+      if (response.ok) {
+        const data = await response.json();
+        if (data.progress) {
+          const progress = data.progress;
+          
+          // Restore form state
+          setCurrentStep(progress.currentStep || 1);
+          setItemName(progress.itemName || '');
+          setItemType(progress.itemType || '');
+          setSelectedCategory(progress.selectedCategory || null);
+          setGender(progress.gender || 'UNISEX');
+          setUserPrompt(progress.userPrompt || '');
+          setColor(progress.color || '');
+          setModelDescription(progress.modelDescription || '');
+          setQuality(progress.quality || 'low');
+          
+          // Restore generated design data
+          setAiDescription(progress.aiDescription || '');
+          setFrontImage(progress.frontImage || null);
+          setBackImage(progress.backImage || null);
+          setCompositeImage(progress.compositeImage || null);
+          
+          // Restore challenge selection
+          setSelectedChallengeIds(progress.selectedChallengeIds || []);
+          
+          // Restore edit mode state
+          setIsInpaintingMode(progress.isInpaintingMode || false);
+          setInpaintingPrompt(progress.inpaintingPrompt || '');
+          setCurrentView(progress.currentView || 'front');
+          setTargetQuality(progress.targetQuality || '');
+          
+          console.log('Design progress loaded successfully');
+        }
+      }
+    } catch (error) {
+      console.error('Failed to load design progress:', error);
+    }
+  };
+
+  // Save current progress
+  const saveProgress = async () => {
+    if (!session?.user?.uid) return;
+    
+    // Only save if there's meaningful progress (beyond step 1 with empty fields)
+    const hasProgress = currentStep > 1 || 
+                       itemName.trim() || 
+                       itemType.trim() || 
+                       userPrompt.trim() || 
+                       frontImage || 
+                       backImage;
+    
+    if (!hasProgress) return;
+    
+    const progressData = {
+      currentStep,
+      itemName: itemName.trim() || null,
+      itemType: itemType.trim() || null,
+      selectedCategory,
+      gender,
+      userPrompt: userPrompt.trim() || null,
+      color: color.trim() || null,
+      modelDescription: modelDescription.trim() || null,
+      quality,
+      aiDescription: aiDescription.trim() || null,
+      frontImage,
+      backImage,
+      compositeImage,
+      selectedChallengeIds,
+      isInpaintingMode,
+      inpaintingPrompt: inpaintingPrompt.trim() || null,
+      currentView,
+      targetQuality: targetQuality.trim() || null
+    };
+    
+    try {
+      const response = await fetch('/api/design/progress', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(progressData)
+      });
+      
+      if (response.ok) {
+        console.log('Design progress saved successfully');
+      }
+    } catch (error) {
+      console.error('Failed to save design progress:', error);
+    }
+  };
+
+  // Start over - clear all progress
+  const handleStartOver = async () => {
+    if (!window.confirm('Are you sure you want to start over? This will clear all your current progress and cannot be undone.')) {
+      return;
+    }
+    
+    try {
+      // Clear saved progress from database
+      await fetch('/api/design/progress', { method: 'DELETE' });
+      
+      // Reset all state to initial values
+      setCurrentStep(1);
+      setItemName('');
+      setItemType('');
+      setSelectedCategory(null);
+      setGender('UNISEX');
+      setUserPrompt('');
+      setColor('');
+      setModelDescription('');
+      setQuality('low');
+      setAiDescription('');
+      setFrontImage(null);
+      setBackImage(null);
+      setCompositeImage(null);
+      setSelectedChallengeIds([]);
+      setIsInpaintingMode(false);
+      setInpaintingPrompt('');
+      setCurrentView('front');
+      setTargetQuality('');
+      setError(null);
+      setIsEditingDescription(false);
+      setIsEditingItemName(false);
+      setIsEditingColor(false);
+      
+      console.log('Design progress cleared successfully');
+    } catch (error) {
+      console.error('Failed to clear design progress:', error);
+      setError('Failed to start over. Please try again.');
+    }
+  };
+
   // Function to refresh usage stats
   const refreshUsageStats = async () => {
     if (!session?.user?.uid) return;
@@ -188,20 +368,8 @@ export default function DesignPage() {
       setGeneratingDesign(true);
       setError(null);
 
-      // Show generation modal
-      const generationModal = document.createElement('div');
-      generationModal.className = 'fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4';
-      generationModal.innerHTML = `
-        <div class="bg-gray-900 rounded-lg p-8 max-w-md w-full text-center shadow-xl">
-          <div class="animate-spin rounded-full h-16 w-16 border-b-2 border-white mx-auto mb-4"></div>
-          <h3 class="text-xl font-semibold mb-2 text-white">Generating Your Design</h3>
-          <p class="text-gray-300 mb-4">This will take about a minute. Please don't close or refresh the page.</p>
-          <div class="w-full bg-gray-800 rounded-full h-2">
-            <div class="bg-white h-2 rounded-full animate-pulse"></div>
-          </div>
-        </div>
-      `;
-      document.body.appendChild(generationModal);
+      // Set loading states like waitlist page
+      setLoadingStates(prev => ({ ...prev, image: true, description: true }));
 
       // Check if design matches any active challenges
       const matchingChallenges = activeChallenges.filter(challenge => {
@@ -242,9 +410,6 @@ export default function DesignPage() {
         }),
       });
 
-      // Remove generation modal
-      document.body.removeChild(generationModal);
-
       if (!response.ok) {
         const errorData = await response.json();
         if (response.status === 429) {
@@ -278,7 +443,6 @@ export default function DesignPage() {
       }
 
       setCurrentStep(3);
-      setGeneratingDesign(false);
 
       // Refresh usage stats
       await refreshUsageStats();
@@ -286,13 +450,9 @@ export default function DesignPage() {
     } catch (err) {
       console.error('Error in design generation:', err);
       setError(err.message || 'Failed to generate design');
+    } finally {
       setGeneratingDesign(false);
-      
-      // Make sure to remove modal if there's an error
-      const existingModal = document.querySelector('.fixed.inset-0.bg-black\\/70');
-      if (existingModal) {
-        document.body.removeChild(existingModal);
-      }
+      setLoadingStates(prev => ({ ...prev, image: false, description: false }));
     }
   };
 
@@ -321,7 +481,7 @@ export default function DesignPage() {
     }
 
     try {
-      setLoading(true);
+      setLoadingStates(prev => ({ ...prev, image: true, description: true }));
       setError(null);
 
       const requestBody = {
@@ -406,7 +566,7 @@ export default function DesignPage() {
       console.error('Error in inpainting:', err);
       setError(err.message || 'Failed to apply changes');
     } finally {
-      setLoading(false);
+      setLoadingStates(prev => ({ ...prev, image: false, description: false }));
     }
   };
 
@@ -420,14 +580,15 @@ export default function DesignPage() {
         return;
       }
       await handleInpainting();
-    } else if (currentStep === 3) {
-      // Final submission - should not happen anymore since publish button handles this directly
-      await handlePublish();
     } else if (currentStep === 2) {
-      // Generate design
-      await handleGenerateDesign();
+      // Move to preview step first, then start generation
+      setCurrentStep(3);
+      // Start generation after a brief delay to allow UI to update
+      setTimeout(() => {
+        handleGenerateDesign();
+      }, 100);
     } else {
-      // Move to next step
+      // Move to next step for step 1
       setCurrentStep(currentStep + 1);
     }
   };
@@ -492,6 +653,14 @@ export default function DesignPage() {
             // Don't fail the entire publish process for challenge submission errors
           }
         }
+      }
+
+      // Clear saved progress since design is now published
+      try {
+        await fetch('/api/design/progress', { method: 'DELETE' });
+      } catch (progressError) {
+        console.error('Failed to clear design progress:', progressError);
+        // Don't fail the publish process for this
       }
 
       router.push(`/clothing/${data.clothingItem.id}?from=design`);
@@ -586,6 +755,22 @@ export default function DesignPage() {
           
         {/* Progress Steps */}
         <ProgressSteps steps={steps} currentStep={currentStep} />
+
+        {/* Start Over Button - Only show if there's progress to clear */}
+        {(currentStep > 1 || itemName.trim() || itemType.trim() || userPrompt.trim() || frontImage || backImage) && (
+          <div className="flex justify-end mb-6">
+            <button
+              type="button"
+              onClick={handleStartOver}
+              className="inline-flex items-center px-4 py-2 text-sm font-medium text-red-600 bg-white border border-red-300 rounded-lg hover:bg-red-50 hover:border-red-400 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 transition-colors"
+            >
+              <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+              </svg>
+              Start Over
+            </button>
+          </div>
+        )}
 
         {/* Usage Stats Display */}
         <UsageStats usageStats={usageStats} />
@@ -801,9 +986,9 @@ export default function DesignPage() {
                             <div>
                               <dt className="text-sm font-medium text-gray-700">Target Gender</dt>
                               <dd className="mt-1 text-sm text-gray-900 font-medium">
-                                {gender === 'MASCULINE' && '👨 Men'}
-                                {gender === 'FEMININE' && '👩 Women'}
-                                {gender === 'UNISEX' && '👥 Unisex'}
+                                {gender === 'MASCULINE' && 'Men'}
+                                {gender === 'FEMININE' && 'Women'}
+                                {gender === 'UNISEX' && 'Unisex'}
                               </dd>
                             </div>
                             <div>
@@ -852,15 +1037,23 @@ export default function DesignPage() {
                             </button>
                           </div>
                           <div className="mt-3">
-                            {isEditingDescription ? (
+                            {loadingStates.description ? (
+                              <div className="w-full h-24 bg-gray-100 rounded-lg animate-pulse flex items-center justify-center">
+                                <div className="text-sm text-gray-500">Generating description...</div>
+                              </div>
+                            ) : isEditingDescription ? (
                               <textarea
                                 value={aiDescription}
                                 onChange={(e) => setAiDescription(e.target.value)}
                                 rows={4}
                                 className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-gray-900 text-sm"
                               />
-                            ) : (
+                            ) : aiDescription ? (
                               <p className="text-sm text-gray-900 bg-gray-50 rounded-lg p-4 font-medium leading-relaxed">{aiDescription}</p>
+                            ) : (
+                              <div className="w-full h-24 bg-gray-50 rounded-lg flex items-center justify-center border border-gray-200">
+                                <div className="text-sm text-gray-400">Description will appear here</div>
+                              </div>
                             )}
                           </div>
                         </div>
@@ -873,47 +1066,67 @@ export default function DesignPage() {
                       <div className="relative">
                         <div className="relative">
                           <div className="relative aspect-[683/1024] bg-gray-100 rounded-lg overflow-hidden shadow-md">
-                            <Image
-                              src={currentView === 'front' ? (frontImage || '/images/placeholder-front.png') : (backImage || '/images/placeholder-back.png')}
-                              alt={`${currentView} view`}
-                              fill
-                              className="object-cover"
-                              unoptimized
-                            />
+                            {loadingStates.image ? (
+                              <div className="aspect-[683/1024] bg-gray-100 rounded-lg animate-pulse flex items-center justify-center">
+                                <div className="text-center">
+                                  <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-gray-400 mx-auto mb-4"></div>
+                                  <div className="text-sm text-gray-500">Generating your design...</div>
+                                </div>
+                              </div>
+                            ) : (frontImage || backImage) ? (
+                              <Image
+                                src={currentView === 'front' ? (frontImage || '/images/placeholder-front.png') : (backImage || '/images/placeholder-back.png')}
+                                alt={`${currentView} view`}
+                                fill
+                                className="object-cover"
+                                unoptimized
+                              />
+                            ) : (
+                              <div className="aspect-[683/1024] bg-gray-50 rounded-lg flex items-center justify-center border-2 border-dashed border-gray-200">
+                                <div className="text-center text-gray-400">
+                                  <div className="text-lg mb-2">🎨</div>
+                                  <div className="text-sm">Your design will appear here</div>
+                                </div>
+                              </div>
+                            )}
                           </div>
                           
-                          {/* Navigation arrows */}
-                          <div className="absolute inset-y-0 left-0 flex items-center">
-                            <button
-                              type="button"
-                              onClick={() => setCurrentView(currentView === 'front' ? 'back' : 'front')}
-                              className="bg-white/80 hover:bg-white rounded-full p-2 shadow-lg transition-all duration-200 ml-2"
-                            >
-                              <svg className="w-5 h-5 text-gray-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-                              </svg>
-                            </button>
-                          </div>
-                          
-                          <div className="absolute inset-y-0 right-0 flex items-center">
-                            <button
-                              type="button"
-                              onClick={() => setCurrentView(currentView === 'front' ? 'back' : 'front')}
-                              className="bg-white/80 hover:bg-white rounded-full p-2 shadow-lg transition-all duration-200 mr-2"
-                            >
-                              <svg className="w-5 h-5 text-gray-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                              </svg>
-                            </button>
-                          </div>
-                          
-                          {/* View indicator */}
-                          <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2">
-                            <div className="flex space-x-2">
-                              <div className={`w-2 h-2 rounded-full transition-all duration-200 ${currentView === 'front' ? 'bg-white' : 'bg-white/50'}`}></div>
-                              <div className={`w-2 h-2 rounded-full transition-all duration-200 ${currentView === 'back' ? 'bg-white' : 'bg-white/50'}`}></div>
-                            </div>
-                          </div>
+                          {/* Navigation arrows - only show when not loading and images exist */}
+                          {!loadingStates.image && frontImage && backImage && (
+                            <>
+                              <div className="absolute inset-y-0 left-0 flex items-center">
+                                <button
+                                  type="button"
+                                  onClick={() => setCurrentView(currentView === 'front' ? 'back' : 'front')}
+                                  className="bg-white/80 hover:bg-white rounded-full p-2 shadow-lg transition-all duration-200 ml-2"
+                                >
+                                  <svg className="w-5 h-5 text-gray-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                                  </svg>
+                                </button>
+                              </div>
+                              
+                              <div className="absolute inset-y-0 right-0 flex items-center">
+                                <button
+                                  type="button"
+                                  onClick={() => setCurrentView(currentView === 'front' ? 'back' : 'front')}
+                                  className="bg-white/80 hover:bg-white rounded-full p-2 shadow-lg transition-all duration-200 mr-2"
+                                >
+                                  <svg className="w-5 h-5 text-gray-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                                  </svg>
+                                </button>
+                              </div>
+                              
+                              {/* View indicator */}
+                              <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2">
+                                <div className="flex space-x-2">
+                                  <div className={`w-2 h-2 rounded-full transition-all duration-200 ${currentView === 'front' ? 'bg-white' : 'bg-white/50'}`}></div>
+                                  <div className={`w-2 h-2 rounded-full transition-all duration-200 ${currentView === 'back' ? 'bg-white' : 'bg-white/50'}`}></div>
+                                </div>
+                              </div>
+                            </>
+                          )}
                         </div>
                         
                         {/* Sketch quality warning */}
@@ -1113,10 +1326,10 @@ export default function DesignPage() {
                           <button
                             type="button"
                             onClick={handleInpainting}
-                            disabled={(!inpaintingPrompt.trim() && !(targetQuality && targetQuality !== quality)) || loading}
+                            disabled={(!inpaintingPrompt.trim() && !(targetQuality && targetQuality !== quality)) || loadingStates.image}
                             className="flex-1 px-4 py-3 text-base font-medium rounded-md bg-indigo-600 text-white hover:bg-indigo-700 disabled:opacity-50"
                           >
-                            {(() => {
+                            {loadingStates.image ? 'Applying...' : (() => {
                               if (targetQuality && targetQuality !== quality && !inpaintingPrompt.trim()) {
                                 const qualityLevels = { 'low': 1, 'medium': 2, 'high': 3 };
                                 const currentLevel = qualityLevels[quality];
@@ -1311,7 +1524,7 @@ export default function DesignPage() {
                   <button
                     type="button"
                     onClick={() => setCurrentStep(2)}
-                    disabled={loading}
+                    disabled={loadingStates.image || loadingStates.description}
                     className="inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500"
                   >
                     Regenerate Design
@@ -1319,9 +1532,9 @@ export default function DesignPage() {
                   <button
                     type="button"
                     onClick={handlePublish}
-                    disabled={loading || generatingDesign}
+                    disabled={loadingStates.image || loadingStates.description || loading}
                     className={`inline-flex items-center px-6 py-3 border border-transparent text-base font-medium rounded-md shadow-sm ${
-                      loading || generatingDesign
+                      loadingStates.image || loadingStates.description || loading
                         ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
                         : 'bg-black text-white hover:bg-gray-900 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-900'
                     }`}
@@ -1342,29 +1555,21 @@ export default function DesignPage() {
               ) : (
                 <button
                   type="submit"
-                  disabled={loading || generatingDesign}
+                  disabled={
+                    (currentStep === 1 && (!itemName.trim() || !itemType.trim())) ||
+                    (currentStep === 2 && !userPrompt.trim())
+                  }
                   className={`inline-flex items-center px-6 py-3 border border-transparent text-base font-medium rounded-md shadow-sm ${
-                    loading || generatingDesign
+                    ((currentStep === 1 && (!itemName.trim() || !itemType.trim())) ||
+                     (currentStep === 2 && !userPrompt.trim()))
                       ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
                       : 'bg-black text-white hover:bg-gray-900 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-900'
                   }`}
                 >
-                  {loading || generatingDesign ? (
-                    <>
-                      <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                      </svg>
-                      Generating...
-                    </>
-                  ) : (
-                    <>
-                      Continue
-                      <svg className="ml-2 h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-                        <path fillRule="evenodd" d="M12.293 5.293a1 1 0 011.414 0l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414-1.414L14.586 11H3a1 1 0 110-2h11.586l-2.293-2.293a1 1 0 010-1.414z" clipRule="evenodd" />
-                      </svg>
-                    </>
-                  )}
+                  {currentStep === 2 ? 'Generate Design' : 'Continue'}
+                  <svg className="ml-2 h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                    <path fillRule="evenodd" d="M12.293 5.293a1 1 0 011.414 0l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414-1.414L14.586 11H3a1 1 0 110-2h11.586l-2.293-2.293a1 1 0 010-1.414z" clipRule="evenodd" />
+                  </svg>
                 </button>
               )}
             </div>

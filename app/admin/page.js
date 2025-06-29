@@ -152,6 +152,23 @@ export default async function AdminPage() {
               </Link>
 
               <Link
+                href="/admin/voting"
+                className="block p-6 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors duration-200"
+              >
+                <div className="flex items-center">
+                  <div className="flex-shrink-0">
+                    <div className="w-10 h-10 bg-orange-500 rounded-lg flex items-center justify-center">
+                      <span className="text-white font-medium">🗳</span>
+                    </div>
+                  </div>
+                  <div className="ml-4">
+                    <h3 className="text-lg font-medium text-gray-900">Community Voting</h3>
+                    <p className="text-sm text-gray-500">Schedule and manage voting rounds</p>
+                  </div>
+                </div>
+              </Link>
+
+              <Link
                 href="/admin/dashboard"
                 className="block p-6 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors duration-200"
               >

@@ -113,6 +113,11 @@ export default function Nav() {
       { href: '/challenges', label: 'Challenges' },
     ];
 
+    // Add community vote for approved users
+    if (hasFullAccess) {
+      links.push({ href: '/community-vote', label: 'Community Vote' });
+    }
+
     // Add feed link if user is logged in and has full access
     return hasFullAccess ? [...links, { href: '/feed', label: 'Feed' }] : links;
   };
@@ -382,6 +387,14 @@ export default function Nav() {
               </div>
             ) : (
               <div className="space-y-1">
+                <Link
+                  href="/my-likes"
+                  onClick={close}
+                  className="flex items-center gap-3 p-3 text-white/80 hover:text-white hover:bg-white/5 rounded-xl transition-all duration-200"
+                >
+                  <span className="w-2 h-2 bg-white/80 rounded-full"></span>
+                  My Likes
+                </Link>
                 {isShopEnabled && (
                   <Link
                     href="/my-preorders"
@@ -415,14 +428,6 @@ export default function Nav() {
                 >
                   <span className="w-2 h-2 bg-white/70 rounded-full"></span>
                   Settings
-                </Link>
-                <Link
-                  href="/my-likes"
-                  onClick={close}
-                  className="flex items-center gap-3 p-3 text-white/80 hover:text-white hover:bg-white/5 rounded-xl transition-all duration-200"
-                >
-                  <span className="w-2 h-2 bg-white/80 rounded-full"></span>
-                  My Likes
                 </Link>
                 <button
                   onClick={logout}

@@ -557,10 +557,10 @@ export default function WaitlistPage() {
                 <h3 className="text-xl font-semibold mb-4 text-gray-900">Create & Perfect</h3>
                 <p className="text-gray-800 leading-relaxed">
                   Watch our AI bring your design to life! You get 2 Studio generations for experimenting and 1 premium Runway generation for that perfect final design.
-                </p>
-              </div>
-              
-              <div className="text-center">
+              </p>
+            </div>
+
+            <div className="text-center">
                 <div className="w-16 h-16 bg-black text-white rounded-full flex items-center justify-center text-2xl font-light mx-auto mb-6">
                   3
                 </div>
@@ -621,7 +621,7 @@ export default function WaitlistPage() {
                     <div className="w-6 h-6 bg-blue-500 rounded-full flex items-center justify-center">
                       <svg className="w-4 h-4 text-white" fill="currentColor" viewBox="0 0 20 20">
                         <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
-                      </svg>
+                </svg>
                     </div>
                   </div>
                   <div>
@@ -1066,7 +1066,7 @@ export default function WaitlistPage() {
                 <div className="bg-gradient-to-r from-purple-50 to-pink-50 border-2 border-purple-200 rounded-xl p-8">
                   <div className="text-center">
                     <div className="w-16 h-16 bg-gradient-to-r from-purple-500 to-pink-500 rounded-full flex items-center justify-center mx-auto mb-4">
-                      <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                       </svg>
                     </div>
@@ -1476,7 +1476,7 @@ export default function WaitlistPage() {
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
                             </svg>
                           </button>
-                        </div>
+        </div>
                         
                         <div className="absolute inset-y-0 right-0 flex items-center">
                           <button
@@ -1488,19 +1488,19 @@ export default function WaitlistPage() {
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
                             </svg>
                           </button>
-                        </div>
-                        
+      </div>
+
                         {/* View indicator */}
                         <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2">
                           <div className="flex space-x-2">
                             <div className={`w-2 h-2 rounded-full transition-all duration-200 ${currentView === 'front' ? 'bg-white' : 'bg-white/50'}`}></div>
                             <div className={`w-2 h-2 rounded-full transition-all duration-200 ${currentView === 'back' ? 'bg-white' : 'bg-white/50'}`}></div>
-                          </div>
+        </div>
                         </div>
                       </>
                     )}
-                  </div>
-                  
+      </div>
+
                   <div>
                     <h3 className="text-xl font-semibold mb-2 text-gray-900">{formData.name}</h3>
                     {formData.description && (

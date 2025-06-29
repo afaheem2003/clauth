@@ -61,6 +61,19 @@ function getEditingMethodForApproach(approach) {
   return method;
 }
 
+// Helper function to convert gender values for OpenAI
+function convertGenderForAI(gender) {
+  switch (gender) {
+    case 'MASCULINE':
+      return 'male';
+    case 'FEMININE':
+      return 'female';
+    case 'UNISEX':
+    default:
+      return 'unisex';
+  }
+}
+
 /**
  * Splits a landscape image into two vertical panels (front and back views)
  * For landscape generations, crops panels to match portrait aspect ratio
@@ -338,7 +351,8 @@ ${inpaintingInsights.inpaintingData.backModifications || "No changes to back vie
               size: "1536x1024",
               quality: quality,
               originalItemType: itemType,
-              originalColor: color
+              originalColor: color,
+              gender: convertGenderForAI(gender)
             }
           );
 
@@ -400,8 +414,8 @@ ${inpaintingInsights.inpaintingData.backModifications || "No changes to back vie
           itemDescription: `${itemType} in ${color}`,
           frontDesign: userPrompt,
           backDesign: userPrompt,
-          modelDetails: modelDescription || "Generate appropriate model description", // Pass model description or flag for auto-generation
-          gender: gender
+          modelDetails: modelDescription || "Generate appropriate model description",
+          gender: convertGenderForAI(gender)
         });
       } catch (error) {
         console.error('Error getting AI insights:', error);
@@ -443,7 +457,7 @@ ${inpaintingInsights.inpaintingData.backModifications || "No changes to back vie
               frontDesign: insights.promptJsonData.frontDetails,
               backDesign: insights.promptJsonData.backDetails,
               modelDetails: insights.promptJsonData.modelDetails || "Professional model with neutral expression",
-              gender: gender
+              gender: convertGenderForAI(gender)
             }
           );
 
@@ -472,7 +486,7 @@ ${inpaintingInsights.inpaintingData.backModifications || "No changes to back vie
               itemDescription: `${itemType} in ${color}`,
               frontDesign: insights.promptJsonData.frontDetails,
               modelDetails: insights.promptJsonData.modelDetails || "Professional model with neutral expression",
-              gender: gender
+              gender: convertGenderForAI(gender)
             }
           );
 
@@ -514,7 +528,8 @@ IMPORTANT: Use the provided reference image to maintain style consistency. Ensur
               size: "1024x1536", 
               quality: quality,
               originalItemType: itemType,
-              originalColor: color
+              originalColor: color,
+              gender: convertGenderForAI(gender)
             }
           );
 
