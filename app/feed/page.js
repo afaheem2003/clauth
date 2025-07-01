@@ -11,7 +11,7 @@ export default async function FeedPage() {
     redirect('/login');
   }
 
-  // Get designs from followed creators
+  // Get designs from followed creators, excluding items the user has already liked
   const feed = await prisma.clothingItem.findMany({
     where: {
       creator: {
@@ -22,6 +22,14 @@ export default async function FeedPage() {
         }
       },
       isDeleted: false,
+      // Exclude items the user has already liked
+      NOT: {
+        likes: {
+          some: {
+            userId: session.user.uid
+          }
+        }
+      }
     },
     orderBy: {
       createdAt: 'desc'

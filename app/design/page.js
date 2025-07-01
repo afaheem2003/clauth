@@ -41,6 +41,7 @@ export default function DesignPage() {
   const [currentStep, setCurrentStep] = useState(1);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+  const [success, setSuccess] = useState('');
   const [selectedCategory, setSelectedCategory] = useState(null);
 
   // Challenge-related state
@@ -223,6 +224,9 @@ export default function DesignPage() {
         if (data.progress) {
           const progress = data.progress;
           
+          // Check if this is a substantial cached design (has generated images)
+          const hasGeneratedDesign = progress.frontImage || progress.backImage || progress.compositeImage;
+          
           // Restore form state
           setCurrentStep(progress.currentStep || 1);
           setItemName(progress.itemName || '');
@@ -250,6 +254,12 @@ export default function DesignPage() {
           setTargetQuality(progress.targetQuality || '');
           
           console.log('Design progress loaded successfully');
+          
+          // Show notice if there's a substantial cached design
+          if (hasGeneratedDesign) {
+            setSuccess('Previous design loaded from cache. If you want to start fresh, click "Clear Cache" above.');
+            setTimeout(() => setSuccess(''), 8000); // Show for 8 seconds
+          }
         }
       }
     } catch (error) {
@@ -656,11 +666,61 @@ export default function DesignPage() {
       }
 
       // Clear saved progress since design is now published
-      try {
-        await fetch('/api/design/progress', { method: 'DELETE' });
-      } catch (progressError) {
-        console.error('Failed to clear design progress:', progressError);
-        // Don't fail the publish process for this
+      // Improved error handling with retry logic
+      let clearSuccess = false;
+      let retryCount = 0;
+      const maxRetries = 3;
+      
+      while (!clearSuccess && retryCount < maxRetries) {
+        try {
+          const clearResponse = await fetch('/api/design/progress', { 
+            method: 'DELETE',
+            headers: { 'Content-Type': 'application/json' }
+          });
+          
+          if (clearResponse.ok) {
+            clearSuccess = true;
+            console.log('Design progress cleared successfully');
+          } else {
+            const errorData = await clearResponse.json();
+            throw new Error(errorData.error || 'Failed to clear progress');
+          }
+        } catch (progressError) {
+          retryCount++;
+          console.error(`Failed to clear design progress (attempt ${retryCount}/${maxRetries}):`, progressError);
+          
+          if (retryCount < maxRetries) {
+            // Wait before retry (exponential backoff)
+            await new Promise(resolve => setTimeout(resolve, Math.pow(2, retryCount) * 1000));
+          } else {
+            // Final attempt failed - show warning but don't block publish
+            console.warn('WARNING: Failed to clear design progress after all retries. Cached design may persist.');
+            setError('Design published successfully, but there may be cached data. Please manually clear your design cache if needed.');
+          }
+        }
+      }
+
+      // If cache clearing failed completely, clear the local state to prevent immediate re-loading
+      if (!clearSuccess) {
+        // Reset all local state to prevent the cached design from showing
+        setCurrentStep(1);
+        setItemName('');
+        setItemType('');
+        setSelectedCategory(null);
+        setGender('UNISEX');
+        setUserPrompt('');
+        setColor('');
+        setModelDescription('');
+        setQuality('low');
+        setAiDescription('');
+        setFrontImage(null);
+        setBackImage(null);
+        setCompositeImage(null);
+        setSelectedChallengeIds([]);
+        setIsInpaintingMode(false);
+        setInpaintingPrompt('');
+        setCurrentView('front');
+        setTargetQuality('');
       }
 
       router.push(`/clothing/${data.clothingItem.id}?from=design`);
@@ -758,7 +818,66 @@ export default function DesignPage() {
 
         {/* Start Over Button - Only show if there's progress to clear */}
         {(currentStep > 1 || itemName.trim() || itemType.trim() || userPrompt.trim() || frontImage || backImage) && (
-          <div className="flex justify-end mb-6">
+          <div className="flex justify-end mb-6 space-x-3">
+            <button
+              type="button"
+              onClick={async () => {
+                if (!window.confirm('Clear your cached design? This will remove any saved progress and cannot be undone.')) {
+                  return;
+                }
+                
+                try {
+                  setLoading(true);
+                  const response = await fetch('/api/design/progress', { 
+                    method: 'DELETE',
+                    headers: { 'Content-Type': 'application/json' }
+                  });
+                  
+                  if (response.ok) {
+                    // Reset all state to initial values
+                    setCurrentStep(1);
+                    setItemName('');
+                    setItemType('');
+                    setSelectedCategory(null);
+                    setGender('UNISEX');
+                    setUserPrompt('');
+                    setColor('');
+                    setModelDescription('');
+                    setQuality('low');
+                    setAiDescription('');
+                    setFrontImage(null);
+                    setBackImage(null);
+                    setCompositeImage(null);
+                    setSelectedChallengeIds([]);
+                    setIsInpaintingMode(false);
+                    setInpaintingPrompt('');
+                    setCurrentView('front');
+                    setTargetQuality('');
+                    setError(null);
+                    setIsEditingDescription(false);
+                    setIsEditingItemName(false);
+                    setIsEditingColor(false);
+                    
+                    setSuccess('Design cache cleared successfully');
+                    setTimeout(() => setSuccess(''), 3000);
+                  } else {
+                    const errorData = await response.json();
+                    throw new Error(errorData.error || 'Failed to clear cache');
+                  }
+                } catch (error) {
+                  console.error('Failed to clear cache:', error);
+                  setError('Failed to clear cache. Please try again or contact support.');
+                } finally {
+                  setLoading(false);
+                }
+              }}
+              className="inline-flex items-center px-4 py-2 text-sm font-medium text-blue-600 bg-white border border-blue-300 rounded-lg hover:bg-blue-50 hover:border-blue-400 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors"
+            >
+              <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+              </svg>
+              Clear Cache
+            </button>
             <button
               type="button"
               onClick={handleStartOver}
@@ -1485,16 +1604,33 @@ export default function DesignPage() {
                 </div>
               )}
 
+              {/* Error Message */}
               {error && (
-                <div className="rounded-lg bg-red-50 p-4">
+                <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg">
                   <div className="flex">
                     <div className="flex-shrink-0">
-                      <svg className="h-5 w-5 text-red-400" viewBox="0 0 20 20" fill="currentColor">
+                      <svg className="h-5 w-5 text-red-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
                         <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
                       </svg>
                     </div>
                     <div className="ml-3">
-                      <p className="text-sm text-red-700">{error}</p>
+                      <p className="text-sm text-red-800">{error}</p>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Success Message */}
+              {success && (
+                <div className="mb-6 p-4 bg-green-50 border border-green-200 rounded-lg">
+                  <div className="flex">
+                    <div className="flex-shrink-0">
+                      <svg className="h-5 w-5 text-green-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                        <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                      </svg>
+                    </div>
+                    <div className="ml-3">
+                      <p className="text-sm text-green-800">{success}</p>
                     </div>
                   </div>
                 </div>

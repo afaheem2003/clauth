@@ -142,24 +142,64 @@ export async function DELETE(request) {
     const session = await getServerSession(authOptions)
     
     if (!session?.user?.uid) {
+      console.error('[DELETE Progress] No authenticated user found')
       return NextResponse.json({ error: 'Authentication required' }, { status: 401 })
     }
 
-    await prisma.designProgress.deleteMany({
+    console.log(`[DELETE Progress] Clearing design progress for user: ${session.user.uid}`)
+
+    // First check if any progress exists
+    const existingProgress = await prisma.designProgress.findFirst({
       where: {
         userId: session.user.uid
       }
     })
 
+    if (!existingProgress) {
+      console.log(`[DELETE Progress] No progress found for user: ${session.user.uid}`)
+      return NextResponse.json({ 
+        success: true,
+        message: 'No design progress found to clear'
+      })
+    }
+
+    console.log(`[DELETE Progress] Found progress record with ID: ${existingProgress.id}`)
+
+    // Delete the progress
+    const deleteResult = await prisma.designProgress.deleteMany({
+      where: {
+        userId: session.user.uid
+      }
+    })
+
+    console.log(`[DELETE Progress] Successfully deleted ${deleteResult.count} progress record(s) for user: ${session.user.uid}`)
+
+    // Verify deletion
+    const verifyDeleted = await prisma.designProgress.findFirst({
+      where: {
+        userId: session.user.uid
+      }
+    })
+
+    if (verifyDeleted) {
+      console.error(`[DELETE Progress] ERROR: Progress still exists after deletion for user: ${session.user.uid}`)
+      return NextResponse.json(
+        { error: 'Failed to completely clear progress' },
+        { status: 500 }
+      )
+    }
+
     return NextResponse.json({ 
       success: true,
-      message: 'Design progress cleared successfully'
+      message: 'Design progress cleared successfully',
+      deletedCount: deleteResult.count
     })
 
   } catch (error) {
-    console.error('Error clearing design progress:', error)
+    console.error('[DELETE Progress] Error clearing design progress:', error)
+    console.error('[DELETE Progress] Error stack:', error.stack)
     return NextResponse.json(
-      { error: 'Failed to clear progress' },
+      { error: 'Failed to clear progress', details: error.message },
       { status: 500 }
     )
   }
