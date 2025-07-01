@@ -66,16 +66,16 @@ export default function WaitlistStatusPage() {
   const getStatusMessage = (status) => {
     switch (status) {
       case 'APPROVED':
-        return 'Welcome to CLAUTH! You\'re officially part of our exclusive community.'
+        return 'Welcome to CLAUTH! You&apos;re officially part of our exclusive community.'
       case 'IN_VOTING':
         return 'Your design is being reviewed by our community. Members are voting on your application right now.'
       case 'WAITLISTED':
         return 'Your design will be included in an upcoming community voting round. Stay tuned.'
       case 'REJECTED':
-        return 'Keep creating! Your design wasn\'t selected this time, but we\'d love to see more of your work.'
+        return 'Keep creating! Your design wasn&apos;t selected this time, but we&apos;d love to see more of your work.'
       case 'PENDING':
       default:
-        return 'Thanks for joining our community. We\'re carefully curating our early access group and will be in touch soon. Your creativity is exactly what we\'re looking for.'
+        return 'Thanks for joining our community. We&apos;re carefully curating our early access group and will be in touch soon. Your creativity is exactly what we&apos;re looking for.'
     }
   }
 
@@ -135,7 +135,7 @@ export default function WaitlistStatusPage() {
               </Link>
               
               <p className="text-sm text-gray-500">
-                Don't have an account?{' '}
+                Don&apos;t have an account?{' '}
                 <Link href="/waitlist" className="font-medium text-black hover:text-gray-700">
                   Join the community
                 </Link>
@@ -204,11 +204,11 @@ export default function WaitlistStatusPage() {
                 {/* Show different messages based on application status */}
                 {applications.length > 0 ? (
                   <p className="text-lg text-gray-600 mb-8 max-w-3xl mx-auto font-light leading-relaxed">
-                    Thank you for sharing your creativity with us. We're carefully reviewing all submissions.
+                    Thank you for sharing your creativity with us. We&apos;re carefully reviewing all submissions.
                   </p>
                 ) : (
                   <p className="text-lg text-gray-600 mb-8 max-w-3xl mx-auto font-light leading-relaxed">
-                    We're carefully curating our early access group and will be in touch soon. Your creativity is exactly what we're looking for.
+                    We&apos;re carefully curating our early access group and will be in touch soon. Your creativity is exactly what we&apos;re looking for.
                   </p>
                 )}
                 
@@ -254,7 +254,7 @@ export default function WaitlistStatusPage() {
             <div className="text-center mb-12">
               <h2 className="text-3xl font-light text-black mb-6 tracking-wide">YOUR DESIGN</h2>
             <p className="text-gray-600 font-light max-w-2xl mx-auto">
-                Here's the amazing design you've shared with us
+                Here&apos;s the amazing design you&apos;ve shared with us
               </p>
             </div>
 

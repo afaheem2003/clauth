@@ -296,9 +296,9 @@ export default function WaitlistPage() {
         let fullModelDescription = formData.modelDescription?.trim() || ''
         if (formData.remainingOutfit?.trim()) {
           if (fullModelDescription) {
-            fullModelDescription += ` Remaining outfit: ${formData.remainingOutfit.trim()}.`
+            fullModelDescription += " Remaining outfit: " + formData.remainingOutfit.trim() + "."
           } else {
-            fullModelDescription = `Remaining outfit: ${formData.remainingOutfit.trim()}.`
+            fullModelDescription = "Remaining outfit: " + formData.remainingOutfit.trim() + "."
           }
         }
 
@@ -357,7 +357,7 @@ export default function WaitlistPage() {
         if (!formData.name && generationsUsed === 0) {
           setFormData(prev => ({
             ...prev,
-            name: `Design ${Date.now().toString().slice(-4)}`
+            name: 'Design ' + Date.now().toString().slice(-4)
           }))
         }
       }
@@ -468,7 +468,7 @@ export default function WaitlistPage() {
               CLAUTH
             </h1>
             <p className="text-xl text-gray-600 mb-8 font-light">
-              Show us what you've got. Submit a design to apply for early access.
+              Show us what you&apos;ve got. Submit a design to apply for early access.
             </p>
             <div className="space-y-4">
               <Link
@@ -501,7 +501,7 @@ export default function WaitlistPage() {
           </div>
           <h1 className="text-4xl font-light text-black mb-6">Application Submitted!</h1>
           <p className="text-xl text-gray-600 mb-8 font-light">
-            You're on the list! If accepted, you'll hear back soon.
+            You&apos;re on the list! If accepted, you&apos;ll hear back soon.
           </p>
           <p className="text-gray-500 mb-8">
             We review applications daily. Check your email for updates.
@@ -527,13 +527,13 @@ export default function WaitlistPage() {
               Welcome to CLAUTH
             </h1>
             <p className="text-xl text-gray-800 font-light mb-2">
-              Ready to show us what you've got? 
+              Ready to show us what you&apos;ve got? 
             </p>
             <p className="text-lg text-gray-800 mb-2">
               Submit your best fashion design to apply for early access
             </p>
             <p className="text-sm text-gray-700 bg-green-50 border border-green-200 rounded-lg px-4 py-2 inline-block">
-              ✨ Don't worry - everyone will eventually get access! We're just managing the early rollout.
+              ✨ Don&apos;t worry - everyone will eventually get access! We&apos;re just managing the early rollout.
             </p>
           </div>
 
@@ -574,7 +574,7 @@ export default function WaitlistPage() {
             {/* Generation System */}
             <div className="bg-gray-50 rounded-xl p-8">
               <h2 className="text-2xl font-light text-center mb-2 text-gray-900">Your Creative Arsenal</h2>
-              <p className="text-center text-gray-800 mb-8">Here's what you get to work with</p>
+              <p className="text-center text-gray-800 mb-8">Here&apos;s what you get to work with</p>
               
               <div className="grid md:grid-cols-2 gap-8 max-w-3xl mx-auto">
                 <div className="bg-white rounded-xl p-6 border border-gray-200 shadow-sm">
@@ -610,7 +610,7 @@ export default function WaitlistPage() {
                     </div>
                   </div>
                   <p className="text-gray-800 text-sm leading-relaxed">
-                    This is your showstopper! Ultra-high quality with incredible detail and realism. Save this for when you've perfected your concept and are ready for your final submission.
+                    This is your showstopper! Ultra-high quality with incredible detail and realism. Save this for when you&apos;ve perfected your concept and are ready for your final submission.
                   </p>
                 </div>
               </div>
@@ -629,17 +629,17 @@ export default function WaitlistPage() {
                       💡 Pro Strategy
                     </p>
                     <p className="text-sm text-blue-800 leading-relaxed">
-                      Start with Studio to experiment and iterate on your ideas. Once you've nailed your concept, use Runway to create that jaw-dropping final design that'll make us say "wow!"
+                      Start with Studio to experiment and iterate on your ideas. Once you&apos;ve nailed your concept, use Runway to create that jaw-dropping final design that&apos;ll make us say &quot;wow!&quot;
                     </p>
                   </div>
                 </div>
               </div>
             </div>
 
-            {/* What We're Looking For */}
+            {/* What We&apos;re Looking For */}
             <div>
               <h2 className="text-2xl font-light text-center mb-2 text-gray-900">What Makes Us Excited</h2>
-              <p className="text-center text-gray-800 mb-8">Here's what catches our attention</p>
+              <p className="text-center text-gray-800 mb-8">Here&apos;s what catches our attention</p>
               
               <div className="grid md:grid-cols-2 gap-8 max-w-4xl mx-auto">
                 <div className="space-y-6">
@@ -675,7 +675,7 @@ export default function WaitlistPage() {
                   <ul className="space-y-4 text-gray-800">
                     <li className="flex items-start">
                       <span className="text-red-500 mr-3 mt-1">•</span>
-                      <span>Generic designs we've seen a thousand times</span>
+                      <span>Generic designs we&apos;ve seen a thousand times</span>
                     </li>
                     <li className="flex items-start">
                       <span className="text-red-500 mr-3 mt-1">•</span>
@@ -698,7 +698,7 @@ export default function WaitlistPage() {
             <div className="text-center bg-gray-50 rounded-xl p-8">
               <h3 className="text-2xl font-medium text-gray-900 mb-4">Ready to Create Something Amazing?</h3>
               <p className="text-gray-800 mb-6">
-                Let's see what you've got! Your next great design is just a few clicks away.
+                Let&apos;s see what you&apos;ve got! Your next great design is just a few clicks away.
               </p>
               <button
                 onClick={() => setStep(1)}
@@ -764,7 +764,7 @@ export default function WaitlistPage() {
             <div className="text-center">
               <h2 className="text-2xl font-light text-black mb-4">Describe Your Design</h2>
               <p className="text-gray-600">
-                Tell us what you want to create. We'll generate it in the next step.
+                Tell us what you want to create. We&apos;ll generate it in the next step.
               </p>
             </div>
 
@@ -830,7 +830,7 @@ export default function WaitlistPage() {
                     <div className="mt-6 p-4 bg-blue-50 rounded-lg border border-blue-200">
                       <h4 className="text-sm font-medium text-gray-900 mb-3">Target Gender</h4>
                       <p className="text-xs text-gray-600 mb-3">
-                        We've suggested a gender based on your item type, but you can change it.
+                        We&apos;ve suggested a gender based on your item type, but you can change it.
                       </p>
                       <div className="grid grid-cols-3 gap-2">
                         {[
@@ -1072,7 +1072,7 @@ export default function WaitlistPage() {
                     </div>
                     <h3 className="text-xl font-semibold text-gray-900 mb-2">Final Design Complete! ⭐</h3>
                     <p className="text-gray-700 mb-4">
-                      You've used your Runway generation - the highest quality available. This is your final design and cannot be changed.
+                      You&apos;ve used your Runway generation - the highest quality available. This is your final design and cannot be changed.
                     </p>
                     <p className="text-sm text-purple-600 font-medium">
                       Ready to submit your masterpiece? Continue to the next step!
@@ -1160,7 +1160,7 @@ export default function WaitlistPage() {
                       className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-black focus:border-transparent text-gray-900 placeholder-gray-700 h-20 resize-none"
                     />
                     <p className="text-xs text-gray-500 mt-1">
-                      Example: "Add a small logo to the chest" or "Change the color to navy blue"
+                      Example: &quot;Add a small logo to the chest&quot; or &quot;Change the color to navy blue&quot;
                     </p>
                   </div>
                 )}
@@ -1486,8 +1486,8 @@ export default function WaitlistPage() {
                           >
                             <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                            </svg>
-                          </button>
+                </svg>
+                            </button>
       </div>
 
                         {/* View indicator */}
