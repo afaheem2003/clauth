@@ -251,7 +251,7 @@ export default function CommunityVotePage() {
               Community voting is for approved members only
             </p>
             <p className="text-blue-800">
-              Once you&apos;re approved to join CLAUTH, you&apos;ll be able to help shape our community by voting on new applicants&apos; designs.
+              Once you're approved to join CLAUTH, you'll be able to help shape our community by voting on new applicants' designs.
             </p>
           </div>
           <Link
@@ -295,7 +295,7 @@ export default function CommunityVotePage() {
                 No Active Voting Round
               </h2>
               <p className="text-lg text-gray-600 mb-8">
-                There&apos;s no community voting happening right now. Check back soon for the next round of designs to review.
+                There's no community voting happening right now. Check back soon for the next round of designs to review.
               </p>
               <Link
                 href="/"
@@ -324,10 +324,10 @@ export default function CommunityVotePage() {
           <div className="max-w-lg mx-auto px-4 text-center">
             <h1 className="text-4xl font-light text-black mb-6">All Done!</h1>
             <p className="text-lg text-gray-600 mb-6">
-              You&apos;ve voted on all available applications.
+              You've voted on all available applications.
             </p>
             <p className="text-base text-gray-500 mb-8">
-              The deadline hasn&apos;t passed yet. Would you like to review and change any of your votes?
+              The deadline hasn't passed yet. Would you like to review and change any of your votes?
             </p>
             <div className="space-y-4">
               <button
@@ -356,7 +356,7 @@ export default function CommunityVotePage() {
           <div className="max-w-lg mx-auto px-4 text-center">
             <h1 className="text-4xl font-light text-black mb-6">All Done!</h1>
             <p className="text-lg text-gray-600 mb-8">
-              You&apos;ve voted on all available applications. Thank you for participating!
+              You've voted on all available applications. Thank you for participating!
             </p>
             <Link
               href="/"

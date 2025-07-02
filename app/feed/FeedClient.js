@@ -89,7 +89,7 @@ export default function FeedClient({ initialFeed }) {
 
         {/* Footer CTA */}
         <div className="text-center">
-          <p className="text-gray-500 text-sm mb-6">You&apos;re all caught up</p>
+          <p className="text-gray-500 text-sm mb-6">You're all caught up</p>
           <Link 
             href="/creators" 
             className="inline-block px-6 py-2 bg-gray-900 text-white text-sm font-medium rounded hover:bg-gray-800 transition-colors"
