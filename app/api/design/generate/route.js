@@ -3,6 +3,14 @@ import { getAIDesignerInsights, generateLandscapeImageWithOpenAI, generatePortra
 import { createClient } from "@supabase/supabase-js";
 import { ANGLES, getAngleImagePath } from '@/utils/imageProcessing';
 import { canUserGenerate, consumeCreditsForGeneration } from '@/lib/rateLimiting';
+import { 
+  getApproachForQuality, 
+  getGenerationMethodForApproach, 
+  getEditingMethodForApproach, 
+  splitCompositeImage, 
+  uploadPanelsToStorage, 
+  createPortraitPanels 
+} from '@/utils/designHelpers';
 import sharp from 'sharp';
 
 // Create a private Supabase server-side client
@@ -10,56 +18,6 @@ const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL,
   process.env.SUPABASE_SERVICE_ROLE_KEY
 );
-
-// Helper function to get approach based on quality level from environment variables
-function getApproachForQuality(quality) {
-  const qualityKey = `QUALITY_${quality.toUpperCase()}_APPROACH`;
-  const approach = process.env[qualityKey];
-  
-  console.log(`[Quality Lookup] Checking env var: ${qualityKey} = ${approach}`);
-  
-  if (!approach) {
-    console.warn(`[Quality Lookup] ⚠️ No approach defined for quality: ${quality}, defaulting to PORTRAIT`);
-    return 'PORTRAIT';
-  }
-  
-  const normalizedApproach = approach.toUpperCase();
-  console.log(`[Quality Lookup] ✅ Quality ${quality} → Approach: ${normalizedApproach}`);
-  
-  return normalizedApproach;
-}
-
-// Helper function to get generation method based on approach
-function getGenerationMethodForApproach(approach) {
-  const methods = {
-    'PORTRAIT': 'GENERATE_INDIVIDUAL_PORTRAITS',
-    'LANDSCAPE': 'GENERATE_COMPOSITE_THEN_SPLIT'
-  };
-  
-  const method = methods[approach];
-  if (!method) {
-    throw new Error(`Unknown approach: ${approach}. Supported: PORTRAIT, LANDSCAPE`);
-  }
-  
-  console.log(`[Method Lookup] ✅ Approach ${approach} → Method: ${method}`);
-  return method;
-}
-
-// Helper function to get editing method based on approach
-function getEditingMethodForApproach(approach) {
-  const methods = {
-    'PORTRAIT': 'EDIT_INDIVIDUAL_PORTRAITS',
-    'LANDSCAPE': 'EDIT_COMPOSITE_THEN_SPLIT'
-  };
-  
-  const method = methods[approach];
-  if (!method) {
-    throw new Error(`Unknown approach: ${approach}. Supported: PORTRAIT, LANDSCAPE`);
-  }
-  
-  console.log(`[Editing Method] Approach ${approach} → Method: ${method}`);
-  return method;
-}
 
 // Helper function to convert gender values for OpenAI
 function convertGenderForAI(gender) {
@@ -74,195 +32,10 @@ function convertGenderForAI(gender) {
   }
 }
 
-/**
- * Splits a landscape image into two vertical panels (front and back views)
- * For landscape generations, crops panels to match portrait aspect ratio
- */
-async function splitCompositeImage(imageBuffer) {
-  try {
-    // Get image metadata
-    const metadata = await sharp(imageBuffer).metadata();
-    
-    // Validate image dimensions
-    if (metadata.width !== 1536 || metadata.height !== 1024) {
-      console.warn(`[Image Split] Expected 1536x1024 image, got ${metadata.width}x${metadata.height}`);
-      // Resize to expected dimensions if needed
-      imageBuffer = await sharp(imageBuffer)
-        .resize(1536, 1024, { fit: 'fill' })
-        .toBuffer();
-      metadata.width = 1536;
-      metadata.height = 1024;
-    }
-    
-    // Calculate dimensions for aspect ratio matching
-    // Portrait images are 1024x1536 (aspect ratio: 1024/1536 = 0.6667)
-    // For 1024 height, width should be: 1024 * (1024/1536) = 682.67px
-    // Round to 683px for clean dimensions
-    const targetPanelWidth = 683;
-    const targetPanelHeight = 1024;
-    
-    // For a 1536x1024 image, each half is 768px wide
-    // We need to crop from 768px to 683px, so remove 85px total (42.5px from each side)
-    const originalPanelWidth = Math.floor(metadata.width / 2); // 768px
-    const cropAmount = originalPanelWidth - targetPanelWidth; // 85px
-    const cropFromEachSide = Math.floor(cropAmount / 2); // 42px from each side
-    
-    console.log(`[Image Split] Cropping landscape panels:`);
-    console.log(`[Image Split]   Original panel size: ${originalPanelWidth}x${metadata.height}`);
-    console.log(`[Image Split]   Target panel size: ${targetPanelWidth}x${targetPanelHeight}`);
-    console.log(`[Image Split]   Crop amount: ${cropAmount}px (${cropFromEachSide}px from each side)`);
-    
-    const trimPixels = 2; // Pixels to trim from center seam where panels meet
-    
-    // Calculate starting positions with crop and trim offsets
-    const positions = [
-      { 
-        left: cropFromEachSide, 
-        width: targetPanelWidth, 
-        name: 'front',
-        description: `Front panel: crop ${cropFromEachSide}px from left edge`
-      },
-      { 
-        left: metadata.width/2 + trimPixels + cropFromEachSide, 
-        width: targetPanelWidth, 
-        name: 'back',
-        description: `Back panel: start at center + ${trimPixels + cropFromEachSide}px`
-      }
-    ];
-
-    // Extract each panel with cropping
-    const extractPanel = async (left, width, name, description) => {
-      console.log(`[Image Split] Extracting ${name} panel: ${description}`);
-      console.log(`[Image Split]   Extract region: left=${left}, width=${width}, height=${targetPanelHeight}`);
-      
-      const panel = await sharp(imageBuffer)
-        .extract({
-          left: Math.max(0, left),
-          top: 0,
-          width: Math.min(width, metadata.width - left),
-          height: targetPanelHeight
-        })
-        .resize(targetPanelWidth, targetPanelHeight, { // Ensure exact dimensions
-          fit: 'fill',
-          position: 'center'
-        })
-        .toBuffer();
-      
-      // Validate panel dimensions
-      const panelMetadata = await sharp(panel).metadata();
-      console.log(`[Image Split]   Final ${name} panel: ${panelMetadata.width}x${panelMetadata.height}`);
-      
-      if (panelMetadata.width !== targetPanelWidth || panelMetadata.height !== targetPanelHeight) {
-        throw new Error(`Invalid ${name} panel dimensions: ${panelMetadata.width}x${panelMetadata.height}, expected ${targetPanelWidth}x${targetPanelHeight}`);
-      }
-      
-      return panel;
-    };
-
-    // Extract both panels in parallel
-    const panels = await Promise.all(
-      positions.map(pos => extractPanel(pos.left, pos.width, pos.name, pos.description))
-    );
-
-    console.log(`[Image Split] Successfully split and cropped landscape image into ${targetPanelWidth}x${targetPanelHeight} panels`);
-    return {
-      [ANGLES.FRONT]: panels[0],
-      [ANGLES.BACK]: panels[1]
-    };
-  } catch (error) {
-    console.error('Error splitting landscape image:', error);
-    throw new Error(`Failed to split landscape image into panels: ${error.message}`);
-  }
-}
-
-/**
- * Uploads split image panels to Supabase and returns their public URLs
- */
-async function uploadPanelsToStorage(angleBuffers, userId) {
-  const tempItemId = `temp_${Date.now()}`;
-  const angleUrls = {};
-  
-  await Promise.all(Object.entries(angleBuffers).map(async ([angle, buffer]) => {
-    const filePath = getAngleImagePath(userId, tempItemId, angle);
-    
-    const { error } = await supabase.storage
-      .from('clothingitemimages')
-      .upload(filePath, buffer, {
-        contentType: 'image/png',
-        upsert: true
-      });
-
-    if (error) throw error;
-
-    // Get the public URL for the uploaded image
-    const { data: { publicUrl } } = supabase.storage
-      .from('clothingitemimages')
-      .getPublicUrl(filePath);
-
-    angleUrls[angle] = publicUrl;
-  }));
-
-  return angleUrls;
-}
-
-/**
- * Creates portrait panels from front and back portrait images
- * Resizes to match the same dimensions as landscape-split panels
- */
-async function createPortraitPanels(frontImageBuffer, backImageBuffer) {
-  try {
-    // Use the same target dimensions as landscape splitting for consistency
-    // This ensures both generation methods produce the same final panel sizes
-    const targetPanelWidth = 683;  // Matches landscape split dimensions
-    const targetPanelHeight = 1024;
-    
-    console.log(`[Portrait Panels] Resizing portrait images to ${targetPanelWidth}x${targetPanelHeight}`);
-    
-    // Resize both images to ensure consistent dimensions
-    const frontPanel = await sharp(frontImageBuffer)
-      .resize(targetPanelWidth, targetPanelHeight, { 
-        fit: 'fill',
-        position: 'center'
-      })
-      .toBuffer();
-
-    const backPanel = await sharp(backImageBuffer)
-      .resize(targetPanelWidth, targetPanelHeight, { 
-        fit: 'fill',
-        position: 'center'
-      })
-      .toBuffer();
-
-    // Validate panel dimensions
-    const frontMetadata = await sharp(frontPanel).metadata();
-    const backMetadata = await sharp(backPanel).metadata();
-    
-    console.log(`[Portrait Panels] Front panel: ${frontMetadata.width}x${frontMetadata.height}`);
-    console.log(`[Portrait Panels] Back panel: ${backMetadata.width}x${backMetadata.height}`);
-    
-    if (frontMetadata.width !== targetPanelWidth || frontMetadata.height !== targetPanelHeight) {
-      throw new Error(`Invalid front panel dimensions: ${frontMetadata.width}x${frontMetadata.height}, expected ${targetPanelWidth}x${targetPanelHeight}`);
-    }
-    
-    if (backMetadata.width !== targetPanelWidth || backMetadata.height !== targetPanelHeight) {
-      throw new Error(`Invalid back panel dimensions: ${backMetadata.width}x${backMetadata.height}, expected ${targetPanelWidth}x${targetPanelHeight}`);
-    }
-
-    console.log(`[Portrait Panels] Successfully created ${targetPanelWidth}x${targetPanelHeight} portrait panels`);
-    return {
-      [ANGLES.FRONT]: frontPanel,
-      [ANGLES.BACK]: backPanel
-    };
-  } catch (error) {
-    console.error('Error creating portrait panels:', error);
-    throw new Error(`Failed to create portrait panels: ${error.message}`);
-  }
-}
-
 export async function POST(req) {
   try {
     const data = await req.json();
-    const { itemType, itemTypeSpecific, gender = 'UNISEX', color, userPrompt, modelDescription, userId, inpaintingMask, originalImage, quality = 'medium' } = data;
+    const { itemType, itemTypeSpecific, gender = 'UNISEX', color, userPrompt, modelDescription, userId, inpaintingMask, originalImage, quality = 'medium', isWaitlistApplication = false } = data;
 
     if (!userId) {
       return NextResponse.json({ error: "Missing user ID" }, { status: 401 });
@@ -278,15 +51,10 @@ export async function POST(req) {
       }, { status: 429 });
     }
 
-    // Consume credits at the start to prevent race conditions
-    try {
-      await consumeCreditsForGeneration(userId, quality);
-    } catch (error) {
-      console.error('Error consuming credits:', error);
-      return NextResponse.json({ 
-        error: `Failed to consume ${quality} credits. ${error.message}` 
-      }, { status: 400 });
-    }
+    // DON'T consume credits yet - wait until generation is successful
+    
+    // Store original credit check for later consumption
+    const originalCreditsRemaining = creditCheck.creditsRemaining;
 
     // Check if this is an inpainting request
     if (originalImage) {
@@ -395,6 +163,15 @@ ${inpaintingInsights.inpaintingData.backModifications || "No changes to back vie
         }, { status: 500 });
       }
 
+      // SUCCESS: Consume credits only after successful generation and upload
+      try {
+        await consumeCreditsForGeneration(userId, quality);
+        console.log(`[API] ✅ Credits consumed for successful inpainting generation (${quality})`);
+      } catch (error) {
+        console.error('Error consuming credits after successful generation:', error);
+        // Don't fail the request if credit consumption fails - generation was successful
+      }
+
       // Return the inpainted result
       return NextResponse.json({
         success: true,
@@ -406,12 +183,13 @@ ${inpaintingInsights.inpaintingData.backModifications || "No changes to back vie
     } else {
       // ORIGINAL GENERATION FLOW
       console.log("[API] Processing original design generation");
+      console.log("[API] Is waitlist application:", isWaitlistApplication);
       
       // Step 1: Get AI insights
       let insights;
       try {
         insights = await getAIDesignerInsights({
-          itemDescription: `${itemType} in ${color}`,
+          itemDescription: isWaitlistApplication ? userPrompt : `${itemType} in ${color}`,
           frontDesign: userPrompt,
           backDesign: userPrompt,
           modelDetails: modelDescription || "Generate appropriate model description",
@@ -445,111 +223,96 @@ ${inpaintingInsights.inpaintingData.backModifications || "No changes to back vie
       }
       
       if (generationMethod === 'GENERATE_COMPOSITE_THEN_SPLIT') {
-        // LANDSCAPE: Use landscape composite approach
-        try {
-          console.log("[API] ✅ CONFIRMED: Generating landscape composite image");
-          imageData = await generateLandscapeImageWithOpenAI(
-            insights.promptJsonData.description,
-            {
+        // Landscape generation approach
+        console.log("[API] ✅ CONFIRMED: Using landscape generation approach");
+        console.log("[API] Generating with insights:", insights.promptJsonData);
+        console.log("[API] Quality level:", quality);
+        
+        imageData = await generateLandscapeImageWithOpenAI(insights.promptJsonData.description, {
               size: "1536x1024",
               quality: quality,
-              itemDescription: `${itemType} in ${color}`,
+              itemDescription: isWaitlistApplication ? userPrompt : `${itemType} in ${color}`,
               frontDesign: insights.promptJsonData.frontDetails,
               backDesign: insights.promptJsonData.backDetails,
-              modelDetails: insights.promptJsonData.modelDetails || "Professional model with neutral expression",
+          modelDetails: insights.promptJsonData.modelDetails,
               gender: convertGenderForAI(gender)
-            }
-          );
+        });
 
-          // Split the landscape image
+        // Split the generated image into panels
+        try {
           const imageBuffer = Buffer.from(imageData, 'base64');
           angleBuffers = await splitCompositeImage(imageBuffer);
-          
         } catch (error) {
-          console.error('Error in landscape composite generation:', error);
+          console.error('Error splitting generated image:', error);
           return NextResponse.json({ 
-            error: `Failed to generate landscape composite image: ${error.message}` 
+            error: `Failed to process generated image: ${error.message}` 
           }, { status: 500 });
         }
+        
       } else if (generationMethod === 'GENERATE_INDIVIDUAL_PORTRAITS') {
-        // PORTRAIT: Use portrait + edit approach
-        try {
-          console.log(`[API] ✅ CONFIRMED: Generating individual portraits for ${quality} quality`);
-          console.log(`[API] ✅ GUARANTEED: Will create 1024x1536 portrait images`);
-          
-          // Step 2a: Generate front portrait
-          const frontImageData = await generatePortraitWithOpenAI(
-            insights.promptJsonData.description,
-            {
+        // Portrait generation approach
+        console.log("[API] ✅ CONFIRMED: Using portrait generation approach");
+        console.log("[API] Generating individual front and back portraits with reference consistency");
+        console.log("[API] Quality level:", quality);
+        
+        // Generate front image first
+        console.log("[API] Step 1: Generating front view");
+        const frontImageData = await generatePortraitWithOpenAI(insights.promptJsonData.description, {
               size: "1024x1536",
               quality: quality,
-              itemDescription: `${itemType} in ${color}`,
+              itemDescription: isWaitlistApplication ? userPrompt : `${itemType} in ${color}`,
               frontDesign: insights.promptJsonData.frontDetails,
-              modelDetails: insights.promptJsonData.modelDetails || "Professional model with neutral expression",
+          modelDetails: insights.promptJsonData.modelDetails,
               gender: convertGenderForAI(gender)
-            }
-          );
+        });
 
-          // Step 2b: Edit portrait to show back view using reference-based editing
-          const backViewPrompt = `
-Transform this front-view portrait into a back-view portrait of the EXACT SAME model and clothing item.
-
-CRITICAL REQUIREMENTS:
-- Keep the EXACT SAME model appearance, pose style, and studio environment
-- Keep the EXACT SAME clothing item and color (${color})
-- Change ONLY the viewing angle from front to back
-- Maintain identical lighting, background, and proportions
-- Show the back design: ${insights.promptJsonData.backDetails}
-- Use the provided reference image to maintain perfect consistency with the front view
-
-CRITICAL PHOTOREALISTIC REQUIREMENTS:
-- PHOTOREALISTIC quality is absolutely essential - the image must look like a real photograph
-- Hyperrealistic textures, lighting, shadows, and fabric details
-- Natural skin tones, realistic hair, and authentic human proportions
-- Professional photography-grade realism with no artificial or cartoon-like elements
-
-FASHION EDITORIAL STYLE REQUIREMENTS:
-- FULL-BODY shot showing the complete model from head to toe
-- Fashion magazine editorial photography style with professional runway model
-- Camera positioned at a LOWER ANGLE (slightly below eye level) to create a more flattering, elongated silhouette
-- Camera positioned at APPROPRIATE DISTANCE with generous spacing - ensure significant space between the top of the image and the model's head, and between the bottom of the image and the model's feet
-- Avoid close-up or cropped shots - show the complete figure and styling with ample breathing room
-
-The model should now be facing directly away from the camera in a full-body pose, showing the complete back view of the ${itemType} in ${color}. Keep everything else identical to the original image.
-
-IMPORTANT: Use the provided reference image to maintain style consistency. Ensure the back view matches the design elements, colors, and overall aesthetic of the front reference image. Maintain all fictional branding and avoid any real-world brand references.
-          `.trim();
-
-          const backImageData = await editImageWithReference(
-            frontImageData,
-            [frontImageData], // Use front image as reference for consistency
-            backViewPrompt,
-            {
+        // Generate back image using front as reference for consistency
+        console.log("[API] Step 2: Generating back view with front reference for consistency");
+        const backImageData = await generatePortraitWithOpenAI(insights.promptJsonData.description, {
               size: "1024x1536", 
               quality: quality,
-              originalItemType: itemType,
-              originalColor: color,
-              gender: convertGenderForAI(gender)
+          itemDescription: isWaitlistApplication ? userPrompt : `${itemType} in ${color}`,
+          backDesign: insights.promptJsonData.backDetails,
+          modelDetails: insights.promptJsonData.modelDetails,
+          gender: convertGenderForAI(gender),
+          referenceImage: frontImageData // Pass front image as reference for consistency
+        });
+        
+        // Create panels from individual portraits
+        try {
+          const frontImageBuffer = Buffer.from(frontImageData, 'base64');
+          const backImageBuffer = Buffer.from(backImageData, 'base64');
+          angleBuffers = await createPortraitPanels(frontImageBuffer, backImageBuffer);
+
+          // For portrait approach, we create a composite for consistency
+          // This ensures both approaches return the same data structure
+          const compositeWidth = 1536;
+          const compositeHeight = 1024;
+          
+          // Create composite by placing panels side by side
+          imageData = await sharp({
+            create: {
+              width: compositeWidth,
+              height: compositeHeight,
+              channels: 3,
+              background: { r: 255, g: 255, b: 255 }
             }
-          );
-
-          // Step 2c: Create panels from both portraits - store as separate portraits
-          const frontBuffer = Buffer.from(frontImageData, 'base64');
-          const backBuffer = Buffer.from(backImageData, 'base64');
-          angleBuffers = await createPortraitPanels(frontBuffer, backBuffer);
-
-          // For portrait approach, do NOT create a composite image
-          // Keep the portraits separate throughout the entire flow
-          console.log(`[API] Portrait approach completed successfully for ${quality} quality`);
+          })
+          .composite([
+            { input: angleBuffers[ANGLES.FRONT], left: 0, top: 0 },
+            { input: angleBuffers[ANGLES.BACK], left: Math.floor(compositeWidth/2), top: 0 }
+          ])
+          .png()
+          .toBuffer()
+          .then(buffer => buffer.toString('base64'));
           
         } catch (error) {
-          console.error(`Error in portrait generation for ${quality} quality:`, error);
-          // For portrait approach, no fallback - maintain consistency
-          console.error('[API] No fallback for portrait approach to maintain format consistency');
+          console.error('Error creating portrait panels:', error);
           return NextResponse.json({ 
-            error: `Failed to generate portrait images: ${error.message}` 
+            error: `Failed to process generated portraits: ${error.message}` 
           }, { status: 500 });
         }
+        
       } else {
         return NextResponse.json({ 
           error: `Unknown generation method: ${generationMethod}` 
@@ -567,20 +330,46 @@ IMPORTANT: Use the provided reference image to maintain style consistency. Ensur
         }, { status: 500 });
       }
 
-      // Return everything the client needs
+      // SUCCESS: Consume credits only after successful generation and upload
+      try {
+        await consumeCreditsForGeneration(userId, quality);
+        console.log(`[API] ✅ Credits consumed for successful generation (${quality})`);
+      } catch (error) {
+        console.error('Error consuming credits after successful generation:', error);
+        // Don't fail the request if credit consumption fails - generation was successful
+      }
+
+      // Return the generated design with all necessary URLs
       return NextResponse.json({
         success: true,
         aiDescription: insights.promptJsonData.description,
         angleUrls,
-        ...(generationMethod === 'GENERATE_COMPOSITE_THEN_SPLIT' ? { compositeImage: imageData } : {}) // Only include compositeImage for landscape generation
+        frontImage: angleUrls[ANGLES.FRONT],
+        backImage: angleUrls[ANGLES.BACK],
+        compositeImage: imageData
       });
     }
 
   } catch (error) {
     console.error('Error in design generation:', error);
-    return NextResponse.json(
-      { error: `Unexpected error: ${error.message}` },
-      { status: 500 }
-    );
+    
+    // Return appropriate error based on the error type
+    if (error.message?.includes('OpenAI')) {
+      return NextResponse.json({ 
+        error: 'AI service temporarily unavailable. Please try again in a moment.' 
+      }, { status: 503 });
+    } else if (error.message?.includes('rate limit') || error.message?.includes('quota')) {
+      return NextResponse.json({ 
+        error: 'Service is busy. Please try again in a few minutes.' 
+      }, { status: 429 });
+    } else if (error.message?.includes('safety system')) {
+      return NextResponse.json({ 
+        error: 'Your request was flagged by our content safety system. Please try with different wording.' 
+      }, { status: 400 });
+    } else {
+      return NextResponse.json({ 
+        error: 'An unexpected error occurred. Please try again.' 
+      }, { status: 500 });
+    }
   }
 } 

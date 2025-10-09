@@ -1,9 +1,9 @@
 import { NextResponse } from 'next/server'
-import { prisma } from '@/lib/prisma'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/authOptions'
+import { prisma } from '@/lib/prisma'
 
-// Get all applications (admin only)
+// GET - Fetch waitlist applications with pagination
 export async function GET(request) {
   try {
     const session = await getServerSession(authOptions)
@@ -12,35 +12,87 @@ export async function GET(request) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
+    const { searchParams } = new URL(request.url)
+    const page = parseInt(searchParams.get('page')) || 1
+    const pageSize = parseInt(searchParams.get('pageSize')) || 10
+    const skip = (page - 1) * pageSize
+
+    // Get total count
+    const totalCount = await prisma.waitlistDesignApplication.count()
+
+    // Fetch applications with pagination
     const applications = await prisma.waitlistDesignApplication.findMany({
+      skip,
+      take: pageSize,
+      orderBy: {
+        createdAt: 'desc'
+      },
       include: {
+        clothingItem: {
+          select: {
+            id: true,
+            name: true,
+            imageUrl: true,
+            itemType: true,
+            gender: true,
+            description: true,
+            frontImage: true,
+            backImage: true
+          }
+        },
         applicant: {
           select: {
             id: true,
             name: true,
-            email: true,
-            displayName: true
+            displayName: true,
+            email: true
           }
-        },
-        clothingItem: true
-      },
-      orderBy: {
-        createdAt: 'desc'
+        }
       }
     })
 
-    return NextResponse.json({ applications })
+    // Transform data
+    const transformedApplications = applications.map(app => ({
+      id: app.id,
+      email: app.applicant.email,
+      status: app.status || 'PENDING',
+      reviewedAt: app.reviewedAt?.toISOString() || null,
+      reviewedBy: app.reviewedBy || null,
+      createdAt: app.createdAt.toISOString(),
+      clothingItem: app.clothingItem ? {
+        id: app.clothingItem.id,
+        name: app.clothingItem.name,
+        imageUrl: app.clothingItem.imageUrl || app.clothingItem.frontImage,
+        itemType: app.clothingItem.itemType,
+        gender: app.clothingItem.gender,
+        description: app.clothingItem.description
+      } : null,
+      applicant: {
+        id: app.applicant.id,
+        name: app.applicant.name,
+        displayName: app.applicant.displayName,
+        email: app.applicant.email
+      }
+    }))
+
+    return NextResponse.json({
+      entries: transformedApplications,
+      totalCount,
+      currentPage: page,
+      pageSize,
+      totalPages: Math.ceil(totalCount / pageSize)
+    })
 
   } catch (error) {
-    console.error('Get applications error:', error)
+    console.error('Error fetching waitlist applications:', error)
     return NextResponse.json(
-      { error: 'Something went wrong. Please try again.' },
+      { error: 'Failed to fetch applications' },
       { status: 500 }
     )
   }
 }
 
-// Update application status (approve/reject)
+// PATCH - Update application status
 export async function PATCH(request) {
   try {
     const session = await getServerSession(authOptions)
@@ -49,77 +101,69 @@ export async function PATCH(request) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const { applicationId, status, adminNotes } = await request.json()
+    const { id, status } = await request.json()
 
-    if (!applicationId || !status) {
-      return NextResponse.json({ 
-        error: 'Application ID and status are required' 
-      }, { status: 400 })
+    if (!id || !status) {
+      return NextResponse.json({ error: 'Missing required fields' }, { status: 400 })
     }
 
-    if (!['APPROVED', 'REJECTED', 'PENDING'].includes(status)) {
-      return NextResponse.json({ 
-        error: 'Invalid status' 
-      }, { status: 400 })
+    const validStatuses = ['PENDING', 'APPROVED', 'REJECTED', 'IN_VOTING']
+    if (!validStatuses.includes(status)) {
+      return NextResponse.json({ error: 'Invalid status' }, { status: 400 })
     }
 
-    // Get the application
-    const application = await prisma.waitlistDesignApplication.findUnique({
-      where: { id: applicationId },
-      include: {
-        applicant: true,
-        clothingItem: true
-      }
-    })
-
-    if (!application) {
-      return NextResponse.json({ 
-        error: 'Application not found' 
-      }, { status: 404 })
-    }
-
-    // Update the application
     const updatedApplication = await prisma.waitlistDesignApplication.update({
-      where: { id: applicationId },
+      where: { id },
       data: {
         status,
         reviewedAt: new Date(),
-        reviewedBy: session.user.uid,
-        adminNotes: adminNotes || null
+        reviewedBy: session.user.uid
       }
     })
 
-    // If approved, update user's waitlist status and publish the clothing item
-    if (status === 'APPROVED') {
-      // Update user's waitlist status
-      await prisma.user.update({
-        where: { id: application.applicantId },
-        data: { waitlistStatus: 'APPROVED' }
-      })
-
-      // Publish the clothing item (make it visible on the platform)
-      await prisma.clothingItem.update({
-        where: { id: application.clothingItemId },
-        data: { 
-          isPublished: true,
-          status: 'CONCEPT' // Keep as concept but now published
-        }
-      })
-
-      // TODO: Send approval email to user
-      console.log(`User ${application.applicant.email} approved for waitlist`)
-    }
-
     return NextResponse.json({
       success: true,
-      message: `Application ${status.toLowerCase()} successfully`,
-      application: updatedApplication
+      entry: {
+        id: updatedApplication.id,
+        status: updatedApplication.status,
+        reviewedAt: updatedApplication.reviewedAt?.toISOString()
+      }
     })
 
   } catch (error) {
-    console.error('Update application error:', error)
+    console.error('Error updating application:', error)
     return NextResponse.json(
-      { error: 'Something went wrong. Please try again.' },
+      { error: 'Failed to update application' },
+      { status: 500 }
+    )
+  }
+}
+
+// DELETE - Delete application
+export async function DELETE(request) {
+  try {
+    const session = await getServerSession(authOptions)
+    
+    if (!session?.user || session.user.role !== 'ADMIN') {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
+    const { id } = await request.json()
+
+    if (!id) {
+      return NextResponse.json({ error: 'Application ID is required' }, { status: 400 })
+    }
+
+    await prisma.waitlistDesignApplication.delete({
+      where: { id }
+    })
+
+    return NextResponse.json({ success: true })
+
+  } catch (error) {
+    console.error('Error deleting application:', error)
+    return NextResponse.json(
+      { error: 'Failed to delete application' },
       { status: 500 }
     )
   }

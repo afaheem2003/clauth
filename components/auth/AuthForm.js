@@ -214,7 +214,40 @@ export default function AuthForm({ mode = 'login' }) {
 
         if (result?.error) {
           if (result.error === 'Phone verification required') {
-            setError('Please verify your phone number before signing in.')
+            // Automatically trigger phone verification flow for login
+            try {
+              // Fetch user information to get their phone number
+              const userResponse = await fetch('/api/auth/get-user-for-verification', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ email: formData.email })
+              })
+              
+              const userData = await userResponse.json()
+              
+              if (!userResponse.ok) {
+                throw new Error(userData.error || 'Failed to get user information')
+              }
+              
+              // Set up verification flow
+              setUserId(userData.userId)
+              setFormData(prev => ({ 
+                ...prev, 
+                phone: userData.phone || '',
+                countryCode: userData.countryCode || '+1' 
+              }))
+              
+              // Send verification code
+              await sendVerificationCode(userData.userId, userData.phone)
+              
+              // Switch to verification step
+              setStep(2)
+              setSuccess('Please verify your phone number to complete sign in.')
+              setError('') // Clear the error
+            } catch (verificationError) {
+              console.error('Auto verification setup error:', verificationError)
+              setError('Phone verification required. Please verify your phone number before signing in.')
+            }
           } else {
             setError('Invalid email or password.')
           }
@@ -321,8 +354,22 @@ export default function AuthForm({ mode = 'login' }) {
         throw new Error('Account verified but sign in failed. Please try signing in manually.')
       }
 
-      // Redirect to waitlist status with new user flag
-      router.push('/waitlist-status?new=true')
+      // Handle redirect based on user type and flow
+      const session = await getSession()
+      
+      if (isSignup) {
+        // Redirect to waitlist status with new user flag for signup
+        router.push('/waitlist-status?new=true')
+      } else {
+        // Handle login redirect based on user role/status
+        if (session?.user?.role === 'ADMIN') {
+          router.push('/admin')
+        } else if (session?.user?.waitlistStatus === 'APPROVED') {
+          router.push('/')
+        } else {
+          router.push('/waitlist-status')
+        }
+      }
 
     } catch (err) {
       console.error('Verification error:', err)
@@ -356,14 +403,14 @@ export default function AuthForm({ mode = 'login' }) {
         </div>
 
         {/* Progress indicator for phone verification */}
-        {isSignup && step === 2 && (
+        {step === 2 && (
           <div className="mb-8">
             <div className="flex items-center justify-center space-x-4">
               <div className="flex items-center">
                 <div className="w-10 h-10 rounded-full flex items-center justify-center text-sm font-medium bg-black text-white">
                   1
                 </div>
-                <span className="ml-2 text-sm text-gray-800">Account</span>
+                <span className="ml-2 text-sm text-gray-800">{isSignup ? 'Account' : 'Sign In'}</span>
               </div>
               <div className="w-16 h-0.5 bg-black"></div>
               <div className="flex items-center">
@@ -609,7 +656,7 @@ export default function AuthForm({ mode = 'login' }) {
           )}
 
           {/* Step 2: Phone Verification */}
-          {isSignup && step === 2 && (
+          {step === 2 && (
             <>
               <div className="text-center mb-8">
                 <h2 className="text-2xl font-light text-black mb-2">

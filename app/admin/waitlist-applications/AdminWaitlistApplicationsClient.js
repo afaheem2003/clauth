@@ -129,7 +129,7 @@ export default function AdminWaitlistApplicationsClient() {
               {applications.map((app) => (
                 <div key={app.id} className="bg-white border border-gray-200 rounded-lg shadow-sm hover:shadow-md transition-shadow">
                   {/* Design Image */}
-                  <div className="aspect-[3/4] relative">
+                  <div className="aspect-[2/3] relative">
                     <Image
                       src={app.clothingItem.imageUrl}
                       alt={app.clothingItem.name}

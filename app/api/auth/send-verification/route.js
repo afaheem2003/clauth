@@ -109,8 +109,51 @@ export async function POST(request) {
 
   } catch (error) {
     console.error('Verification send error:', error)
+    
+    // Provide specific error messages based on the error type
+    if (error.code === 'P2025') {
+      // Prisma record not found
+      return NextResponse.json(
+        { error: 'User account not found. Please check your account or sign up again.' },
+        { status: 404 }
+      )
+    }
+    
+    if (error.code?.startsWith('P')) {
+      // Other Prisma errors
+      return NextResponse.json(
+        { error: 'Database error while preparing verification. Please try again or contact support.' },
+        { status: 500 }
+      )
+    }
+    
+    if (error.message?.includes('Twilio') || error.message?.includes('SMS')) {
+      return NextResponse.json(
+        { error: 'SMS service unavailable. Please try again in a few minutes or contact support.' },
+        { status: 500 }
+      )
+    }
+    
+    if (error.message?.includes('phone') || error.message?.includes('number')) {
+      return NextResponse.json(
+        { error: 'Invalid phone number format. Please check your phone number and try again.' },
+        { status: 400 }
+      )
+    }
+    
+    if (error.message?.includes('timeout') || error.message?.includes('network')) {
+      return NextResponse.json(
+        { error: 'Network timeout while sending verification code. Please check your connection and try again.' },
+        { status: 500 }
+      )
+    }
+    
+    // Generic fallback with more context
     return NextResponse.json(
-      { error: 'Something went wrong. Please try again.' },
+      { 
+        error: 'Failed to send verification code. Please check your phone number is correct and try again. If the problem persists, contact support.',
+        details: process.env.NODE_ENV === 'development' ? error.message : undefined
+      },
       { status: 500 }
     )
   }

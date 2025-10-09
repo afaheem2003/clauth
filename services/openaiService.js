@@ -18,131 +18,6 @@ function bufferToStream(buffer) {
   return stream;
 }
 
-export async function getStructuredClothingJSON(userDescription) {
-  if (!userDescription || typeof userDescription !== 'string' || userDescription.trim() === '') {
-    throw new Error('User description cannot be empty.');
-  }
-  if (!process.env.OPENAI_API_KEY) {
-    console.error("OPENAI_API_KEY is not set. Please add it to your .env file.");
-    throw new Error("OpenAI API key is not configured. Cannot generate clothing JSON.");
-  }
-
-  const messages = [
-    {
-      role: "system",
-      content: `
-You are a fashion prompt architect. Your job is to take user descriptions of clothing and return structured JSON according to the provided schema.
-
-Instead of using 'placement' for each graphic, describe what should be visible from **each of the following angles**:
-- front
-- back
-
-Do not use 'placement'. Focus on what's actually seen from each angle, even if it's overlapping or the same.
-
-Return a JSON object with 'graphicsByAngle' mapping each view to a string description of the visual details at that angle.
-`
-    },
-    {
-      role: "user",
-      content: `
-Your job is to sanitize the user input for any branded or trademarked references. 
-Replace brand names (e.g., 'Burberry', 'Nike', 'Chanel') with **generic fashion descriptors** 
-(e.g., 'plaid print', 'luxury sportswear', 'designer look') that convey the same aesthetic.
-
-Then, return a cleaned version of the input that is **safe for commercial use** and free of brand references.
-
-User input: """${userDescription}"""
-`
-    }
-  ];
-
-  const functions = [
-    {
-      name: "generateClothingPrompt",
-      description: "Generates structured JSON for a clothing design based on a user description.",
-      parameters: clothingPromptSchema
-    }
-  ];
-
-  try {
-    const response = await openai.chat.completions.create({
-      model: "gpt-4-0613", // Or your preferred model that supports function calling
-      messages: messages,
-      functions: functions,
-      function_call: { name: "generateClothingPrompt" } // Force the model to call this function
-    });
-
-    const message = response.choices[0].message;
-
-    if (message.function_call && message.function_call.arguments) {
-      const functionArgs = message.function_call.arguments;
-      try {
-        // Clean the JSON string to handle control characters
-        let jsonString = functionArgs;
-        
-        // Log the raw response for debugging
-        console.log("[Structured JSON] Raw JSON string length:", jsonString.length);
-        console.log("[Structured JSON] Raw JSON preview:", jsonString.substring(0, 200));
-        
-        // Clean control characters that can break JSON parsing
-        jsonString = jsonString
-          .replace(/\n/g, '\\n')     // Escape newlines
-          .replace(/\r/g, '\\r')     // Escape carriage returns
-          .replace(/\t/g, '\\t')     // Escape tabs
-          .replace(/\f/g, '\\f')     // Escape form feeds
-          .replace(/\b/g, '\\b')     // Escape backspaces
-          .replace(/\v/g, '\\v')     // Escape vertical tabs
-          .replace(/\0/g, '\\0');    // Escape null characters
-        
-        console.log("[Structured JSON] Cleaned JSON string length:", jsonString.length);
-        
-        const structuredJSON = JSON.parse(jsonString);
-        // TODO: Add validation against the schema here if desired, 
-        // though OpenAI function calling usually adheres well.
-        return structuredJSON;
-      } catch (parseError) {
-        console.error("Error parsing JSON from OpenAI function call arguments:", parseError);
-        console.error("Raw arguments from OpenAI:", functionArgs);
-        
-        // Try a more aggressive cleaning approach
-        try {
-          console.log("[Structured JSON] Attempting aggressive JSON cleaning...");
-          let cleanedJson = functionArgs
-            .replace(/[\x00-\x1F\x7F]/g, '') // Remove all control characters
-            .replace(/\\/g, '\\\\')          // Escape backslashes
-            .replace(/"/g, '\\"')            // Escape quotes
-            .replace(/\\\\/g, '\\')          // Fix double escaping
-            .replace(/\\"/g, '"');           // Fix quote escaping
-          
-          // Try to extract JSON manually if it's wrapped in extra text
-          const jsonMatch = cleanedJson.match(/\{.*\}/s);
-          if (jsonMatch) {
-            cleanedJson = jsonMatch[0];
-          }
-          
-          const fallbackJSON = JSON.parse(cleanedJson);
-          console.log("[Structured JSON] Successfully parsed with aggressive cleaning");
-          return fallbackJSON;
-        } catch (fallbackError) {
-          console.error("[Structured JSON] Aggressive cleaning also failed:", fallbackError);
-          throw new Error("Failed to parse structured JSON from AI response.");
-        }
-      }
-    } else {
-      console.error("OpenAI response did not include expected function call or arguments:", response);
-      throw new Error("AI did not return the expected structured data format.");
-    }
-  } catch (error) {
-    console.error("Error calling OpenAI API:", error);
-    // Check if it's an OpenAI API specific error
-    if (error instanceof OpenAI.APIError) {
-        throw new Error(`OpenAI API Error: ${error.status} ${error.name} - ${error.message}`);
-    }
-    throw new Error("Failed to generate clothing prompt JSON due to an external service error.");
-  }
-} 
-
-
 export async function getAIDesignerInsights(structuredPrompt) {
   if (!structuredPrompt || typeof structuredPrompt !== 'object') {
     throw new Error('Structured prompt must be an object with required fields.');
@@ -206,7 +81,7 @@ Generate a structured response focusing on CONCRETE, VISIBLE elements only. Cons
     ];
 
     const response = await openai.chat.completions.create({
-      model: "gpt-4-0613",
+      model: "gpt-3.5-turbo",
       messages: itemDetailsMessages,
       functions: [{
         name: "generateClothingItemDetails",
@@ -241,7 +116,6 @@ Generate a structured response focusing on CONCRETE, VISIBLE elements only. Cons
           .replace(/\r/g, '\\r')     // Escape carriage returns
           .replace(/\t/g, '\\t')     // Escape tabs
           .replace(/\f/g, '\\f')     // Escape form feeds
-          .replace(/\b/g, '\\b')     // Escape backspaces
           .replace(/\v/g, '\\v')     // Escape vertical tabs
           .replace(/\0/g, '\\0');    // Escape null characters
         
@@ -405,9 +279,24 @@ A clean, high-quality, PHOTOREALISTIC full-body comparison of the same item view
   } catch (error) {
     console.error("[OpenAI Service] Error generating image:", error);
     if (error instanceof OpenAI.APIError) {
-      throw new Error(`OpenAI API Error: ${error.status} ${error.name} - ${error.message}`);
+      // Handle specific OpenAI error types with user-friendly messages
+      if (error.status === 400) {
+        if (error.message?.includes('safety system') || error.message?.includes('content that is not allowed')) {
+          throw new Error("Your design description was flagged by our content safety system. Please try with a simpler description, avoid brand names, and use more general clothing terms.");
+        } else if (error.message?.includes('invalid') || error.message?.includes('format')) {
+          throw new Error("There was an issue with your design request format. Please try with a simpler description.");
+        } else {
+          throw new Error("Your design request couldn't be processed. Please try with a simpler description or different wording.");
+        }
+      } else if (error.status === 429) {
+        throw new Error("Our AI service is busy right now. Please wait a moment and try again.");
+      } else if (error.status >= 500) {
+        throw new Error("Our AI service is temporarily unavailable. Please try again in a few minutes.");
+      } else {
+        throw new Error(`AI service error: ${error.message || 'Please try again with a different description.'}`);
+      }
     }
-    throw new Error("Failed to generate image.");
+    throw new Error(`Failed to generate design: ${error.message || 'Please try with a simpler description or try again later.'}`);
   }
 }
 
@@ -471,12 +360,21 @@ Parse this into structured front and back modifications. Determine if this is:
 
 Apply the changes to the most logical location(s) for each view.
 
-IMPORTANT: For the updated design description, start with the original design description${originalDescription ? '' : ' (if available)'} and modify it to reflect all changes from the edit request. The result should be a complete description of the final design, not just the changes.`
+IMPORTANT: For the updated design description, write a clean, concise fashion editorial description of the final garment as it would appear on a fashion website. Focus ONLY on the physical features, materials, colors, and design elements that ARE CURRENTLY VISIBLE on the garment. 
+
+CRITICAL: Do NOT mention:
+- The editing process or any changes made
+- What was removed, added, or modified
+- Comparisons to previous versions
+- Quality improvements or technical changes
+- Phrases like "despite the removal", "after editing", "now features", etc.
+
+Write as if this is the original, unchanged design being described for the first time in a fashion catalog. Only describe what someone would actually see when looking at the garment.`
       }
     ];
 
     const response = await openai.chat.completions.create({
-      model: "gpt-4-0613",
+      model: "gpt-3.5-turbo",
       messages: inpaintingMessages,
       functions: [{
         name: "generateInpaintingInstructions",
@@ -502,7 +400,7 @@ IMPORTANT: For the updated design description, start with the original design de
             },
             updatedDesignDescription: {
               type: "string",
-              description: "Complete description of the final design after all modifications are applied. This should describe the entire garment and its features, not just what changed."
+              description: "Clean, concise fashion editorial description of the final garment as it currently exists. Describe ONLY what is visible on the garment right now. Do NOT mention any editing process, what was removed/added/changed, or use phrases like 'despite the removal' or 'now features'. Write as if this is the original design being described for the first time in a fashion catalog."
             }
           },
           required: ["frontModifications", "backModifications", "preservationNote", "modificationSummary", "updatedDesignDescription"]
@@ -527,7 +425,6 @@ IMPORTANT: For the updated design description, start with the original design de
           .replace(/\r/g, '\\r')     // Escape carriage returns
           .replace(/\t/g, '\\t')     // Escape tabs
           .replace(/\f/g, '\\f')     // Escape form feeds
-          .replace(/\b/g, '\\b')     // Escape backspaces
           .replace(/\v/g, '\\v')     // Escape vertical tabs
           .replace(/\0/g, '\\0');    // Escape null characters
         
@@ -608,15 +505,22 @@ export async function generatePortraitWithOpenAI(prompt, options = {}) {
         quality = process.env.OPENAI_IMAGE_QUALITY || "high",
         itemDescription = '',
         frontDesign = '',
+        backDesign = '',
         modelDetails = '',
-        gender = 'UNISEX'
+        gender = 'UNISEX',
+        referenceImage = null
       } = options;
+
+      // Determine if this is a front or back view generation
+      const isBackView = backDesign && !frontDesign;
+      const designDetails = isBackView ? backDesign : frontDesign;
+      const viewType = isBackView ? 'back' : 'front';
 
       // Map internal quality levels to OpenAI quality values
       // Use quality parameter directly
 
       const portraitPrompt = `
-Generate a high-resolution vertical (portrait) image, sized exactly 1024x1536 pixels, showing a single model wearing a clothing item from the front view.
+Generate a high-resolution vertical (portrait) image, sized exactly 1024x1536 pixels, showing a single model wearing a clothing item from the ${viewType} view.
 
 CRITICAL PHOTOREALISTIC REQUIREMENTS:
 - PHOTOREALISTIC quality is absolutely essential - the image must look like a real photograph
@@ -624,8 +528,18 @@ CRITICAL PHOTOREALISTIC REQUIREMENTS:
 - Natural skin tones, realistic hair, and authentic human proportions
 - Professional photography-grade realism with no artificial or cartoon-like elements
 
+${referenceImage ? `
+CRITICAL CONSISTENCY REQUIREMENTS:
+- Use the provided reference image to maintain EXACT consistency in model appearance, styling, and overall aesthetic
+- The model must appear identical to the reference image (same face, hair, pose style, outfit details)
+- Match the lighting, background, and professional photography style of the reference
+- Ensure the same model proportions, skin tone, and styling details
+- The only difference should be the viewing angle (${viewType} view instead of front view)
+- Maintain the same outfit styling (pants, shoes, accessories, etc.) as shown in the reference
+` : ''}
+
 LAYOUT REQUIREMENTS:
-- Single front-facing view only
+- Single ${viewType}-facing view only
 - Clean, professional studio background
 - Model positioned centrally in the frame
 - Professional fashion magazine editorial photography style
@@ -644,9 +558,12 @@ The image should feature a hyperrealistic runway model wearing the clothing item
 IMPORTANT BRAND SAFETY NOTE:
 Do **not** use or reference any real-world brand names, logos, university names, slogans, or trademarks (e.g., "Nike", "Harvard", "Burberry", "Fighting Irish"). Every design element, label, or text must be **original** and fictional. Use made-up names, slogans, or symbols that are safe for commercial use.
 
-Model View (Front):
-Display the model facing directly forward in a full-body pose, showcasing the complete front view of a ${itemDescription}.
-The front design should include: ${frontDesign}
+Model View (${viewType.charAt(0).toUpperCase() + viewType.slice(1)}):
+${isBackView 
+  ? `Display the model facing AWAY from the camera, showing their back/rear view in a full-body pose, showcasing the complete back view of a ${itemDescription}.`
+  : `Display the model facing directly forward in a full-body pose, showcasing the complete front view of a ${itemDescription}.`
+}
+The ${viewType} design should include: ${designDetails}
 
 Target Gender: ${gender}
 
@@ -665,9 +582,11 @@ Image Requirements:
 - No unrelated UI elements, watermarks, or distractions
 - Clean, neutral background suitable for commercial use
 - Fashion magazine editorial photography standards
+${isBackView ? '- Model must be facing AWAY from camera to show the back view of the clothing' : '- Model facing towards camera to show the front view of the clothing'}
+${referenceImage ? '- Match the model appearance, styling, and overall aesthetic from the reference image exactly' : ''}
 
 Final Output:
-A clean, high-quality, PHOTOREALISTIC full-body portrait image showing the clothing item from the front view only, shot in fashion magazine editorial style. The model should appear tall and elegant with proper spacing around the figure.
+A clean, high-quality, PHOTOREALISTIC full-body portrait image showing the clothing item from the ${viewType} view only, shot in fashion magazine editorial style. The model should appear tall and elegant with proper spacing around the figure.${referenceImage ? ' The image must maintain perfect consistency with the provided reference image.' : ''}
 `.trim();
 
       const requestOptions = {
@@ -678,6 +597,14 @@ A clean, high-quality, PHOTOREALISTIC full-body portrait image showing the cloth
         quality: quality
       };
 
+      // If we have a reference image (for back view generation), include it
+      if (referenceImage) {
+        console.log("[OpenAI Service] Using reference image for consistency");
+        // Convert base64 to buffer for OpenAI API
+        const referenceBuffer = Buffer.from(referenceImage, 'base64');
+        requestOptions.image = new File([referenceBuffer], 'reference.png', { type: 'image/png' });
+      }
+
       console.log("[OpenAI Service] Using portrait generation mode");
       
       // Create timeout promise - increased from 3 to 5 minutes
@@ -686,7 +613,9 @@ A clean, high-quality, PHOTOREALISTIC full-body portrait image showing the cloth
       });
 
       const response = await Promise.race([
-        openai.images.generate(requestOptions),
+        referenceImage 
+          ? openai.images.edit(requestOptions) // Use edit mode when we have a reference
+          : openai.images.generate(requestOptions), // Use generate mode for front view
         timeoutPromise
       ]);
 
@@ -726,9 +655,24 @@ A clean, high-quality, PHOTOREALISTIC full-body portrait image showing the cloth
   // If we get here, all retries failed
   console.error("[OpenAI Service] All portrait generation attempts failed. Final error:", lastError);
   if (lastError instanceof OpenAI.APIError) {
-    throw new Error(`OpenAI API Error: ${lastError.status} ${lastError.name} - ${lastError.message}`);
+    // Handle specific OpenAI error types with user-friendly messages
+    if (lastError.status === 400) {
+      if (lastError.message?.includes('safety system') || lastError.message?.includes('content that is not allowed')) {
+        throw new Error("Your design description was flagged by our content safety system. Please try with a simpler description, avoid brand names, and use more general clothing terms.");
+      } else if (lastError.message?.includes('invalid') || lastError.message?.includes('format')) {
+        throw new Error("There was an issue with your design request format. Please try with a simpler description.");
+      } else {
+        throw new Error("Your design request couldn't be processed. Please try with a simpler description or different wording.");
+      }
+    } else if (lastError.status === 429) {
+      throw new Error("Our AI service is busy right now. Please wait a moment and try again.");
+    } else if (lastError.status >= 500) {
+      throw new Error("Our AI service is temporarily unavailable. Please try again in a few minutes.");
+    } else {
+      throw new Error(`AI service error: ${lastError.message || 'Please try again with a different description.'}`);
+    }
   }
-  throw new Error(`Failed to generate portrait image after ${maxRetries} attempts: ${lastError.message}`);
+  throw new Error(`Failed to generate design after ${maxRetries} attempts: ${lastError.message || 'Please try with a simpler description or try again later.'}`);
 }
 
 export async function editImageWithReference(originalImage, referenceImages, editPrompt, options = {}) {
@@ -773,14 +717,14 @@ export async function editImageWithReference(originalImage, referenceImages, edi
     const enhancedEditPrompt = `
 ${editPrompt}
 
-CRITICAL REFERENCE IMAGE USAGE:
-- The FIRST reference image provided is your PRIMARY design guide
-- Match the colors, patterns, textures, and design elements from the PRIMARY reference image
-- Use additional reference images for context and consistency
-- The result must look like the same garment/design as shown in the PRIMARY reference image
-- Preserve all design elements from the PRIMARY reference while applying only the requested modifications
+Please use the provided reference images to maintain design consistency:
+- Use the first reference image as your main design guide
+- Match the colors, patterns, textures, and design elements from the reference images
+- Keep the same garment style and aesthetic 
+- Apply only the specific modifications requested above
+- Preserve all other design elements from the reference images
 
-IMPORTANT: Focus on the PRIMARY (first) reference image for design consistency. The edited result must maintain the exact same aesthetic, colors, and design elements as the primary reference.
+Please ensure the edited result maintains the same aesthetic and design elements as shown in the reference images.
     `.trim();
 
     // Create a timeout promise
@@ -835,12 +779,30 @@ IMPORTANT: Focus on the PRIMARY (first) reference image for design consistency. 
     
     if (error instanceof OpenAI.APIError) {
       console.error("[OpenAI Service] Full OpenAI error:", JSON.stringify(error, null, 2));
-      throw new Error(`OpenAI API Error: ${error.status} ${error.name} - ${error.message}`);
+      
+      // Handle specific OpenAI error types with user-friendly messages
+      if (error.status === 400) {
+        if (error.message?.includes('safety system') || error.message?.includes('content that is not allowed')) {
+          throw new Error("Your edit request was flagged by our content safety system. Common triggers include:\n\n• Brand-related words: 'logo', 'trademark', 'brand', company names\n• Specific product names: 'Nike', 'Adidas', 'Supreme', etc.\n• Aggressive language: 'CRITICAL', 'MUST', 'at all costs'\n• Complex multi-step instructions\n\nTry using alternative words like:\n• 'logo' → 'graphic design', 'emblem', 'decorative element'\n• 'brand' → 'design', 'pattern', 'motif'\n• Remove demanding language and keep instructions simple\n\nPlease rephrase your request using gentler, more generic terms.");
+        } else if (error.message?.includes('invalid') || error.message?.includes('format')) {
+          throw new Error("There was an issue with the image format. Please try regenerating the design or use simpler edit instructions.");
+        } else {
+          throw new Error("Your request couldn't be processed. Please try with simpler edit instructions or regenerate the design.");
+        }
+      } else if (error.status === 429) {
+        throw new Error("Our AI service is busy right now. Please wait a moment and try again.");
+      } else if (error.status >= 500) {
+        throw new Error("Our AI service is temporarily unavailable. Please try again in a few minutes.");
+      } else {
+        throw new Error(`AI service error: ${error.message || 'Please try again with different instructions.'}`);
+      }
     }
+    
     if (error.message.includes('timed out')) {
-      throw new Error("The reference-based editing request took too long to complete. Please try again with a simpler modification or try again later.");
+      throw new Error("The edit request took too long to complete. Please try again with simpler modifications or try again later.");
     }
-    throw new Error(`Failed to edit image with references: ${error.message}`);
+    
+    throw new Error(`Failed to edit design: ${error.message || 'Please try regenerating the design or using simpler edit instructions.'}`);
   }
 }
 
@@ -852,28 +814,27 @@ export async function editPortraitFrontWithReference(originalFrontImage, referen
   const enhancedPrompt = `
 ${editPrompt}
 
-CRITICAL DESIGN CONSISTENCY REQUIREMENTS:
-- MOST IMPORTANT: Maintain EXACT design consistency with the reference image(s)
-- Preserve the original garment's color, pattern, texture, and overall aesthetic
-- Keep the same fabric type, fit, and styling details
-- Only apply the specific modifications requested above
-- The edited result must look like the same garment with minor adjustments
+Please maintain design consistency with the reference images:
+- Keep the original garment's color, pattern, texture, and overall aesthetic
+- Preserve the same fabric type, fit, and styling details
+- Apply only the specific modifications requested above
+- The edited result should look like the same garment with the requested adjustments
 
-CRITICAL PHOTOREALISTIC REQUIREMENTS:
-- PHOTOREALISTIC quality is absolutely essential - the image must look like a real photograph
-- Hyperrealistic textures, lighting, shadows, and fabric details
-- Natural skin tones, realistic hair, and authentic human proportions
-- Professional photography-grade realism with no artificial or cartoon-like elements
+Please ensure photorealistic quality:
+- The image should look like a real photograph
+- Include realistic textures, lighting, shadows, and fabric details
+- Use natural skin tones, realistic hair, and authentic human proportions
+- Professional photography-grade realism
 
-FASHION EDITORIAL STYLE REQUIREMENTS:
-- FULL-BODY shot showing the complete model from head to toe
+Fashion editorial style requirements:
+- Full-body shot showing the complete model from head to toe
 - Fashion magazine editorial photography style with professional runway model
-- Camera positioned at a LOWER ANGLE (slightly below eye level) to create a more flattering, elongated silhouette
-- Camera positioned at APPROPRIATE DISTANCE with generous spacing - ensure significant space between the top of the image and the model's head, and between the bottom of the image and the model's feet
-- Ensure ample space at top and bottom of frame - model should not fill the entire vertical space
-- Avoid close-up or cropped shots - show the complete figure and styling with ample breathing room
+- Camera positioned at a lower angle (slightly below eye level) for a flattering silhouette
+- Camera positioned at appropriate distance with generous spacing around the model
+- Ensure ample space at top and bottom of frame
+- Show the complete figure and styling with ample breathing room
 
-IMPORTANT: Use the provided reference image(s) to maintain style consistency. Preserve the original model pose, background, lighting, and overall composition. Only modify the front view as specified. Maintain all fictional branding and avoid any real-world brand references.
+Please use the provided reference images to maintain style consistency. Preserve the original model pose, background, lighting, and overall composition. Only modify the front view as specified. Use fictional branding and avoid any real-world brand references.
 `.trim();
 
   return await editImageWithReference(
@@ -896,33 +857,33 @@ export async function editPortraitBackWithReference(originalBackImage, reference
   const enhancedPrompt = `
 ${editPrompt}
 
-CRITICAL DESIGN CONSISTENCY REQUIREMENTS - HIGHEST PRIORITY:
-- ABSOLUTELY CRITICAL: The back view must match the front design EXACTLY
-- Use the reference images to ensure PERFECT consistency in color, pattern, texture, and design elements
-- The garment must look like the SAME EXACT piece of clothing from both angles
-- Preserve ALL design elements, embroidery, patterns, colors, and styling from the front reference
-- If the front has metallic embroidery, the back must have the SAME metallic embroidery pattern
-- If the front has specific colors or gradients, the back must match them PRECISELY
-- The fabric texture, sheen, and material properties must be IDENTICAL
-- Only apply the specific back modifications requested, while maintaining front design consistency
+Please maintain design consistency with the reference images:
+- The back view should match the front design closely
+- Use the reference images to ensure consistency in color, pattern, texture, and design elements
+- The garment should look like the same piece of clothing from both angles
+- Preserve design elements, embroidery, patterns, colors, and styling from the front reference
+- If the front has metallic embroidery, the back should have similar metallic embroidery
+- If the front has specific colors or gradients, the back should match them
+- The fabric texture, sheen, and material properties should be similar
+- Apply only the specific back modifications requested, while maintaining front design consistency
 
-CRITICAL PHOTOREALISTIC REQUIREMENTS:
-- PHOTOREALISTIC quality is absolutely essential - the image must look like a real photograph
-- Hyperrealistic textures, lighting, shadows, and fabric details
-- Natural skin tones, realistic hair, and authentic human proportions
-- Professional photography-grade realism with no artificial or cartoon-like elements
+Please ensure photorealistic quality:
+- The image should look like a real photograph
+- Include realistic textures, lighting, shadows, and fabric details
+- Use natural skin tones, realistic hair, and authentic human proportions
+- Professional photography-grade realism
 
-FASHION EDITORIAL STYLE REQUIREMENTS:
-- FULL-BODY shot showing the complete model from head to toe
+Fashion editorial style requirements:
+- Full-body shot showing the complete model from head to toe
 - Fashion magazine editorial photography style with professional runway model
-- Camera positioned at a LOWER ANGLE (slightly below eye level) to create a more flattering, elongated silhouette
-- Camera positioned at APPROPRIATE DISTANCE with generous spacing - ensure significant space between the top of the image and the model's head, and between the bottom of the image and the model's feet
-- Ensure ample space at top and bottom of frame - model should not fill the entire vertical space
-- Avoid close-up or cropped shots - show the complete figure and styling with ample breathing room
+- Camera positioned at a lower angle (slightly below eye level) for a flattering silhouette
+- Camera positioned at appropriate distance with generous spacing around the model
+- Ensure ample space at top and bottom of frame
+- Show the complete figure and styling with ample breathing room
 
-CRITICAL REQUIREMENT: Match the style, color, and design elements of the provided reference images at all costs. The back view must look like the same garment as shown in the reference images. Only apply the requested edits to the back view. Do not change the model, pose, or background.
+Please match the style, color, and design elements of the provided reference images. The back view should look like the same garment as shown in the reference images. Only apply the requested edits to the back view. Please keep the model, pose, and background consistent.
 
-IMPORTANT: Use the provided reference image(s) to maintain perfect style consistency. Ensure the back view matches the design elements, colors, and overall aesthetic of the reference images. Maintain all fictional branding and avoid any real-world brand references.
+Please use the provided reference images to maintain style consistency. Ensure the back view matches the design elements, colors, and overall aesthetic of the reference images. Use fictional branding and avoid any real-world brand references.
 `.trim();
 
   return await editImageWithReference(
@@ -941,29 +902,28 @@ export async function editLandscapeWithReference(originalLandscapeImage, referen
   const enhancedPrompt = `
 ${editPrompt}
 
-CRITICAL DESIGN CONSISTENCY REQUIREMENTS:
-- MOST IMPORTANT: Maintain EXACT design consistency with the reference image(s)
-- Preserve the original garment's color, pattern, texture, and overall aesthetic
-- Keep the same fabric type, fit, and styling details
-- The front and back views must look like the SAME EXACT garment
-- Only apply the specific modifications requested above
-- The edited result must look like the same garment with minor adjustments
+Please maintain design consistency with the reference images:
+- Keep the original garment's color, pattern, texture, and overall aesthetic
+- Preserve the same fabric type, fit, and styling details
+- The front and back views should look like the same garment
+- Apply only the specific modifications requested above
+- The edited result should look like the same garment with the requested adjustments
 
-CRITICAL PHOTOREALISTIC REQUIREMENTS:
-- PHOTOREALISTIC quality is absolutely essential - the image must look like a real photograph
-- Hyperrealistic textures, lighting, shadows, and fabric details
-- Natural skin tones, realistic hair, and authentic human proportions
-- Professional photography-grade realism with no artificial or cartoon-like elements
+Please ensure photorealistic quality:
+- The image should look like a real photograph
+- Include realistic textures, lighting, shadows, and fabric details
+- Use natural skin tones, realistic hair, and authentic human proportions
+- Professional photography-grade realism
 
-FASHION EDITORIAL STYLE REQUIREMENTS:
-- FULL-BODY shots showing the complete model from head to toe in both panels
+Fashion editorial style requirements:
+- Full-body shots showing the complete model from head to toe in both panels
 - Fashion magazine editorial photography style with professional runway model
-- Camera positioned at a LOWER ANGLE (slightly below eye level) to create a more flattering, elongated silhouette
-- Framing must include the full body from head to toe with generous spacing above and below
+- Camera positioned at a lower angle (slightly below eye level) for a flattering silhouette
+- Framing should include the full body from head to toe with generous spacing above and below
 
-This is a split-panel landscape image with front view (left) and back view (right). Preserve the original model pose, background, lighting, garment structure, and color. Only modify as described above. Do not change any other details.
+This is a split-panel landscape image with front view (left) and back view (right). Please preserve the original model pose, background, lighting, garment structure, and color. Only modify as described above. Please keep other details consistent.
 
-IMPORTANT: ${referenceImages && referenceImages.length > 0 ? 'Use the provided reference image(s) to maintain style consistency. Ensure the edited image matches the design elements, colors, and overall aesthetic of the reference images.' : 'Maintain consistency with the original design.'} Maintain all fictional branding and avoid any real-world brand references.
+${referenceImages && referenceImages.length > 0 ? 'Please use the provided reference images to maintain style consistency. Ensure the edited image matches the design elements, colors, and overall aesthetic of the reference images.' : 'Please maintain consistency with the original design.'} Use fictional branding and avoid any real-world brand references.
 `.trim();
 
   return await editImageWithReference(

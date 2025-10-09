@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useSession } from 'next-auth/react';
 import Link from 'next/link';
 
@@ -8,8 +8,8 @@ export default function CreditBalance() {
   const { data: session } = useSession();
   const [usageStats, setUsageStats] = useState(null);
   const [loading, setLoading] = useState(true);
+  const pollingIntervalRef = useRef(null);
 
-  useEffect(() => {
     const fetchUsageStats = async () => {
       if (!session?.user?.uid) {
         setLoading(false);
@@ -29,7 +29,49 @@ export default function CreditBalance() {
       }
     };
 
+  useEffect(() => {
+    // Initial fetch
     fetchUsageStats();
+
+    // Set up polling every 10 seconds to keep credits in sync
+    if (session?.user?.uid) {
+      pollingIntervalRef.current = setInterval(fetchUsageStats, 10000);
+    }
+
+    // Cleanup interval on unmount
+    return () => {
+      if (pollingIntervalRef.current) {
+        clearInterval(pollingIntervalRef.current);
+      }
+    };
+  }, [session?.user?.uid]);
+
+  // Also refresh when the window comes back into focus
+  useEffect(() => {
+    const handleFocus = () => {
+      if (session?.user?.uid) {
+        fetchUsageStats();
+      }
+    };
+
+    window.addEventListener('focus', handleFocus);
+    return () => window.removeEventListener('focus', handleFocus);
+  }, [session?.user?.uid]);
+
+  // Listen for custom credit update events
+  useEffect(() => {
+    const handleCreditUpdate = () => {
+      if (session?.user?.uid) {
+        fetchUsageStats();
+      }
+    };
+
+    // Listen for credit consumption events
+    window.addEventListener('creditsUpdated', handleCreditUpdate);
+    
+    return () => {
+      window.removeEventListener('creditsUpdated', handleCreditUpdate);
+    };
   }, [session?.user?.uid]);
 
   if (!session?.user || loading) {

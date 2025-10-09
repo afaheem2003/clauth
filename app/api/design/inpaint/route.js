@@ -3,7 +3,35 @@ import { getServerSession } from 'next-auth/next';
 import { authOptions } from '@/lib/authOptions';
 import { getUserCredits, canUserGenerate, consumeCreditsForGeneration } from '@/lib/rateLimiting';
 import { getAIInpaintingInsights, editPortraitFrontWithReference, editPortraitBackWithReference, editLandscapeWithReference } from '@/services/openaiService';
+import { createClient } from "@supabase/supabase-js";
+import { ANGLES, getAngleImagePath } from '@/utils/imageProcessing';
+import { 
+  getApproachForQuality, 
+  getEditingMethodForApproach, 
+  splitCompositeImage, 
+  uploadPanelsToStorage, 
+  createPortraitPanels 
+} from '@/utils/designHelpers';
 import sharp from 'sharp';
+
+// Create a private Supabase server-side client
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL,
+  process.env.SUPABASE_SERVICE_ROLE_KEY
+);
+
+// Helper function to convert gender values for OpenAI
+function convertGenderForAI(gender) {
+  switch (gender) {
+    case 'MASCULINE':
+      return 'male';
+    case 'FEMININE':
+      return 'female';
+    case 'UNISEX':
+    default:
+      return 'unisex';
+  }
+}
 
 // Helper function to convert image URL or data URI to base64
 async function convertImageToBase64(imageSource) {
@@ -55,133 +83,10 @@ async function convertImageToBase64(imageSource) {
 }
 
 // Helper function to split the inpainted image back into front/back panels
-async function splitCompositeImage(imageBuffer) {
-  console.log("[Inpaint Splitter] Processing composite image...");
-  
-  const metadata = await sharp(imageBuffer).metadata();
-  console.log("[Inpaint Splitter] Image dimensions:", metadata.width, "x", metadata.height);
-  
-  const panels = {};
-  
-  try {
-    // Split into front and back (landscape format)
-    if (metadata.width === 1536 && metadata.height === 1024) {
-      // Use the same cropping logic as the generate route for consistency
-      // Calculate dimensions for aspect ratio matching
-      const targetPanelWidth = 683;  // Matches generate route dimensions
-      const targetPanelHeight = 1024;
-      
-      // For a 1536x1024 image, each half is 768px wide
-      // We need to crop from 768px to 683px, so remove 85px total (42.5px from each side)
-      const originalPanelWidth = Math.floor(metadata.width / 2); // 768px
-      const cropFromEachSide = Math.floor((originalPanelWidth - targetPanelWidth) / 2); // 42px from each side
-      
-      console.log(`[Inpaint Splitter] Cropping panels from ${originalPanelWidth}px to ${targetPanelWidth}px`);
-      console.log(`[Inpaint Splitter] Removing ${cropFromEachSide}px from each side`);
-      
-      const trimPixels = 2; // Pixels to trim from center seam where panels meet
-      
-      const extractPanel = async (left, width, name) => {
-        console.log(`[Inpaint Splitter] Extracting ${name} panel from left=${left}, width=${width}`);
-        
-        const panel = await sharp(imageBuffer)
-          .extract({ 
-            left: left, 
-            top: 0, 
-            width: width, 
-            height: metadata.height 
-          })
-          .resize(targetPanelWidth, targetPanelHeight, {
-            fit: 'fill',
-            position: 'center'
-          })
-          .png()
-          .toBuffer();
-        
-        // Validate panel dimensions
-        const panelMetadata = await sharp(panel).metadata();
-        console.log(`[Inpaint Splitter] Final ${name} panel: ${panelMetadata.width}x${panelMetadata.height}`);
-        
-        if (panelMetadata.width !== targetPanelWidth || panelMetadata.height !== targetPanelHeight) {
-          throw new Error(`Invalid ${name} panel dimensions: ${panelMetadata.width}x${panelMetadata.height}, expected ${targetPanelWidth}x${targetPanelHeight}`);
-        }
-        
-        return panel;
-      };
-
-      // Extract panels with cropping
-      panels.front = await extractPanel(cropFromEachSide, targetPanelWidth, 'front');
-      panels.back = await extractPanel(metadata.width/2 + trimPixels + cropFromEachSide, targetPanelWidth, 'back');
-      
-    } else {
-      throw new Error(`Unexpected image dimensions: ${metadata.width}x${metadata.height}`);
-    }
-
-    console.log(`[Inpaint Splitter] Successfully split and cropped composite image into ${targetPanelWidth}x${targetPanelHeight} panels`);
-    return panels;
-  } catch (error) {
-    console.error("[Inpaint Splitter] Error splitting image:", error);
-    throw new Error(`Failed to split inpainted image: ${error.message}`);
-  }
-}
+// NOTE: Uses the shared splitCompositeImage function for consistency
 
 // Helper function to upload panels to storage and get URLs
-async function uploadPanelsToStorage(angleBuffers, userId) {
-  const angleUrls = {};
-  
-  for (const [angle, buffer] of Object.entries(angleBuffers)) {
-    try {
-      // Convert buffer to base64 for storage
-      const base64Image = buffer.toString('base64');
-      const dataUri = `data:image/png;base64,${base64Image}`;
-      
-      // For now, return the data URI directly
-      // In production, you'd upload to cloud storage and return the URL
-      angleUrls[angle] = dataUri;
-      
-      console.log(`[Upload] Successfully processed ${angle} panel`);
-    } catch (error) {
-      console.error(`[Upload] Error processing ${angle} panel:`, error);
-      throw new Error(`Failed to process ${angle} panel`);
-    }
-  }
-  
-  return angleUrls;
-}
-
-// Helper function to get approach based on quality level from environment variables
-function getApproachForQuality(quality) {
-  const qualityKey = `QUALITY_${quality.toUpperCase()}_APPROACH`;
-  const approach = process.env[qualityKey];
-  
-  console.log(`[Quality Lookup] Checking env var: ${qualityKey} = ${approach}`);
-  
-  if (!approach) {
-    console.warn(`[Quality Lookup] ⚠️ No approach defined for quality: ${quality}, defaulting to PORTRAIT`);
-    return 'PORTRAIT';
-  }
-  
-  const normalizedApproach = approach.toUpperCase();
-  console.log(`[Quality Lookup] ✅ Quality ${quality} → Approach: ${normalizedApproach}`);
-  
-  return normalizedApproach;
-}
-
-// Helper function to get editing method based on approach
-function getEditingMethodForApproach(approach) {
-  const methods = {
-    'PORTRAIT': 'EDIT_INDIVIDUAL_PORTRAITS',
-    'LANDSCAPE': 'EDIT_COMPOSITE_THEN_SPLIT'
-  };
-  
-  const method = methods[approach];
-  if (!method) {
-    throw new Error(`Unknown approach: ${approach}. Supported: PORTRAIT, LANDSCAPE`);
-  }
-  
-  console.log(`[Method Lookup] ✅ Approach ${approach} → Method: ${method}`);
-  return method;
-}
+// NOTE: Uses the shared uploadPanelsToStorage function for consistency
 
 function validateAndCorrectDimensions(width, height, approach) {
   console.log(`[Dimension Validator] Input dimensions: ${width}x${height}, Approach: ${approach}`);
@@ -582,14 +487,35 @@ export async function POST(req) {
           console.log(`[Inpaint API] Front image size: ${frontSize}`);
           console.log(`[Inpaint API] Back image size: ${backSize}`);
           
-          // Edit front portrait (use original front as reference for consistency)
-          console.log("[Inpaint API] 🔄 EDITING FRONT PORTRAIT");
-          console.log("[Inpaint API] Front modifications:", insights?.inpaintingData.frontModifications || 'N/A');
+          // 🧠 AI EXECUTIVE DECISION: Check if front changes are needed
+          const frontModifications = insights?.inpaintingData.frontModifications || "";
+          const backModifications = insights?.inpaintingData.backModifications || "";
           
-          const frontEditPrompt = insights?.inpaintingData.frontModifications || "No changes to front view.";
+          // For quality upgrades, always process both images regardless of content changes
+          const needsFrontEdit = isQualityUpgrade || !frontModifications.toLowerCase().includes("no changes to front view");
+          const needsBackEdit = isQualityUpgrade || !backModifications.toLowerCase().includes("no changes to back view");
+          
+          console.log("[Inpaint API] 🧠 AI EXECUTIVE DECISIONS:");
+          console.log("[Inpaint API]   Is Quality Upgrade:", isQualityUpgrade);
+          console.log("[Inpaint API]   Front modifications:", frontModifications);
+          console.log("[Inpaint API]   Back modifications:", backModifications);
+          console.log("[Inpaint API]   Needs front edit:", needsFrontEdit);
+          console.log("[Inpaint API]   Needs back edit:", needsBackEdit);
+          
+          let frontEditedData = frontImageBase64; // Default to original
+          let backEditedData = backImageBase64;   // Default to original
+          
+          // Edit front portrait only if needed
+          if (needsFrontEdit) {
+            console.log("[Inpaint API] 🔄 EDITING FRONT PORTRAIT", isQualityUpgrade ? "(Quality upgrade)" : "(AI determined changes needed)");
+            
+            // Use quality upgrade prompt if it's a quality upgrade with no content changes
+            const frontEditPrompt = isQualityUpgrade && frontModifications.toLowerCase().includes("no changes to front view") 
+              ? "Enhance image quality and resolution while preserving all design elements exactly as they are."
+              : frontModifications;
           console.log("[Inpaint API] 📋 FRONT EDIT PROMPT:", frontEditPrompt);
           
-          const frontEditedData = await editPortraitFrontWithReference(
+            frontEditedData = await editPortraitFrontWithReference(
             frontImageBase64,
             [frontImageBase64], // Use original front as reference for consistency
             frontEditPrompt,
@@ -601,18 +527,27 @@ export async function POST(req) {
             }
           );
           console.log("[Inpaint API] ✅ FRONT PORTRAIT EDITED, data length:", frontEditedData?.length);
+          } else {
+            console.log("[Inpaint API] ⏭️ SKIPPING FRONT EDIT (AI determined no changes needed)");
+          }
 
-          // Edit back portrait (use NEW FRONT as primary reference, original back as secondary)
-          console.log("[Inpaint API] 🔄 EDITING BACK PORTRAIT");
-          console.log("[Inpaint API] Back modifications:", insights?.inpaintingData.backModifications || 'N/A');
-          console.log("[Inpaint API] Using NEW FRONT as primary reference for design consistency");
+          // Edit back portrait only if needed
+          if (needsBackEdit) {
+            console.log("[Inpaint API] 🔄 EDITING BACK PORTRAIT", isQualityUpgrade ? "(Quality upgrade)" : "(AI determined changes needed)");
+            console.log("[Inpaint API] Using", needsFrontEdit ? "NEW" : "ORIGINAL", "front as reference for design consistency");
           
-          const backEditPrompt = insights?.inpaintingData.backModifications || "No changes to back view.";
+            // Use quality upgrade prompt if it's a quality upgrade with no content changes
+            const backEditPrompt = isQualityUpgrade && backModifications.toLowerCase().includes("no changes to back view")
+              ? "Enhance image quality and resolution while preserving all design elements exactly as they are."
+              : backModifications;
           console.log("[Inpaint API] 📋 BACK EDIT PROMPT:", backEditPrompt);
           
-          const backEditedData = await editPortraitBackWithReference(
+            // Use edited front (if available) or original front as primary reference
+            const referenceImages = needsFrontEdit ? [frontEditedData, backImageBase64] : [frontImageBase64, backImageBase64];
+            
+            backEditedData = await editPortraitBackWithReference(
             backImageBase64,
-            [frontEditedData, backImageBase64], // NEW FRONT first (primary reference), original back second
+              referenceImages, // Use appropriate front as primary reference
             backEditPrompt,
             {
               size: backSize,
@@ -622,15 +557,22 @@ export async function POST(req) {
             }
           );
           console.log("[Inpaint API] ✅ BACK PORTRAIT EDITED, data length:", backEditedData?.length);
+          } else {
+            console.log("[Inpaint API] ⏭️ SKIPPING BACK EDIT (AI determined no changes needed)");
+          }
 
-          // Validate that we got valid edited images
+          // Validate that we got valid images (either edited or original)
           if (!frontEditedData || !backEditedData) {
-            throw new Error("Failed to get valid edited images from portrait editing");
+            throw new Error("Failed to get valid images from portrait processing");
           }
 
           console.log("[Inpaint API] 📤 PREPARING RESPONSE");
           console.log("[Inpaint API] Front image length:", frontEditedData.length);
           console.log("[Inpaint API] Back image length:", backEditedData.length);
+          console.log("[Inpaint API] 💡 OPTIMIZATION SUMMARY:");
+          console.log("[Inpaint API]   Front:", needsFrontEdit ? (isQualityUpgrade && frontModifications.toLowerCase().includes("no changes to front view") ? "QUALITY UPGRADED" : "EDITED") : "ORIGINAL USED");
+          console.log("[Inpaint API]   Back:", needsBackEdit ? (isQualityUpgrade && backModifications.toLowerCase().includes("no changes to back view") ? "QUALITY UPGRADED" : "EDITED") : "ORIGINAL USED");
+          console.log("[Inpaint API]   Credits optimized:", isQualityUpgrade ? false : (!needsFrontEdit || !needsBackEdit));
 
           // Consume credits for the TARGET quality level (not the original quality)
           try {
@@ -642,8 +584,8 @@ export async function POST(req) {
             // Don't fail the request if credit consumption fails, just log it
           }
 
-          // Return the edited portraits as separate images, not combined
-          console.log("[Inpaint API] Successfully completed portrait editing");
+          // Return the processed portraits as separate images
+          console.log("[Inpaint API] Successfully completed portrait processing");
           return NextResponse.json({
             success: true,
             aiDescription: insights?.inpaintingData.updatedDesignDescription || originalDescription || "High-quality clothing design",
@@ -653,15 +595,27 @@ export async function POST(req) {
             },
             frontImage: frontEditedData,
             backImage: backEditedData,
-            targetQuality: finalTargetQuality
+            targetQuality: finalTargetQuality,
+            optimizationSummary: {
+              frontEdited: needsFrontEdit,
+              backEdited: needsBackEdit,
+              creditsOptimized: isQualityUpgrade ? false : (!needsFrontEdit || !needsBackEdit),
+              isQualityUpgrade: isQualityUpgrade
+            }
           });
           
         } catch (portraitError) {
           console.error('[Inpaint API] Portrait editing failed:', portraitError);
+          
+          // Check if it's a safety system error and provide helpful guidance
+          if (portraitError.message?.includes('content safety system') || portraitError.message?.includes('safety system')) {
+            throw new Error(portraitError.message); // Pass through the detailed safety system message
+          } else {
           throw new Error(`Portrait editing failed: ${portraitError.message}`);
+          }
         }
         
-      } else if (targetEditingMethod === 'EDIT_COMPOSITE_THEN_SPLIT') {
+      } else if (targetEditingMethod === 'EDIT_LANDSCAPE_COMPOSITE') {
         console.log("[Inpaint API] ✅ CONFIRMED: Using landscape composite editing approach");
         
         try {
@@ -671,8 +625,16 @@ export async function POST(req) {
           const compositeSize = validateAndCorrectDimensions(1536, 1024, targetApproach);
           console.log(`[Inpaint API] Composite image size: ${compositeSize}`);
           
+          // 🧠 AI EXECUTIVE DECISION: For landscape, we edit the composite regardless
+          // since we're generating one image with both views
+          // The AI insights are still used to inform the editing prompt
+          
           // Create edit prompt from inpainting data
-          const landscapeEditPrompt = `
+          const landscapeEditPrompt = isQualityUpgrade && 
+            frontModifications.toLowerCase().includes("no changes to front view") && 
+            backModifications.toLowerCase().includes("no changes to back view")
+            ? "Enhance image quality and resolution while preserving all design elements exactly as they are on both front and back views."
+            : `
 Left Panel (Front View):
 ${insights?.inpaintingData.frontModifications || "No changes to front view."}
 
@@ -681,6 +643,7 @@ ${insights?.inpaintingData.backModifications || "No changes to back view."}
           `.trim();
           
           console.log("[Inpaint API] 📋 LANDSCAPE EDIT PROMPT:", landscapeEditPrompt);
+          console.log("[Inpaint API] 💡 LANDSCAPE NOTE:", isQualityUpgrade ? "Quality upgrade - single composite edit" : "Single composite edit (no individual skip optimization)");
           
           imageData = await editLandscapeWithReference(
             originalImageBase64,
@@ -741,7 +704,13 @@ ${insights?.inpaintingData.backModifications || "No changes to back view."}
           
         } catch (landscapeError) {
           console.error('[Inpaint API] Landscape editing failed:', landscapeError);
+          
+          // Check if it's a safety system error and provide helpful guidance
+          if (landscapeError.message?.includes('content safety system') || landscapeError.message?.includes('safety system')) {
+            throw new Error(landscapeError.message); // Pass through the detailed safety system message
+          } else {
           throw new Error(`Landscape editing failed: ${landscapeError.message}`);
+          }
         }
       } else {
         throw new Error(`Unknown editing method: ${targetEditingMethod}`);

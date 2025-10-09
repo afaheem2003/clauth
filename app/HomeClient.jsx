@@ -136,7 +136,7 @@ function TrendingItem({ item, featured = false }) {
         featured ? 'border-2 border-blue-200' : ''
       }`}>
         {/* Image Container */}
-        <div className="aspect-[3/4] relative">
+        <div className="aspect-[2/3] relative">
           {/* Front Image */}
           <div className={`absolute inset-0 transition-opacity duration-500 ${
             isHovered ? 'opacity-0' : 'opacity-100'
@@ -205,7 +205,7 @@ function SmallTrendingItem({ item }) {
       onMouseLeave={() => setIsHovered(false)}
     >
       <div className="relative overflow-hidden bg-gray-50">
-        <div className="aspect-[3/4] relative">
+        <div className="aspect-[2/3] relative">
           {/* Front Image */}
           <div className={`absolute inset-0 transition-opacity duration-500 ${
             isHovered ? 'opacity-0' : 'opacity-100'

@@ -5,11 +5,15 @@ import { useRouter } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 import Image from 'next/image';
 import Link from 'next/link';
-import { CLOTHING_CATEGORIES, getAllCategories } from '@/app/constants/clothingCategories';
 import { ANGLES } from '@/utils/imageProcessing';
+import { getQualityDisplayName } from '@/utils/clientHelpers';
 import QualitySelector from '@/components/credits/QualitySelector';
 import ProgressSteps from '@/components/design/ProgressSteps';
 import UsageStats from '@/components/design/UsageStats';
+import { useDesignGeneration } from '@/hooks/useDesignGeneration';
+import DesignImageDisplay from '@/components/design/DesignImageDisplay';
+import DesignMessages from '@/components/design/DesignMessages';
+import ItemTypeSelector from '@/components/design/ItemTypeSelector';
 import dayjs from 'dayjs';
 import utc from 'dayjs/plugin/utc';
 import timezone from 'dayjs/plugin/timezone';
@@ -18,30 +22,33 @@ import timezone from 'dayjs/plugin/timezone';
 dayjs.extend(utc);
 dayjs.extend(timezone);
 
-// Helper function to get suggested gender for an item type
-const getSuggestedGender = (itemTypeName) => {
-  for (const category of Object.values(CLOTHING_CATEGORIES)) {
-    const subcategory = category.subcategories.find(sub => sub.name === itemTypeName);
-    if (subcategory) {
-      // Convert the gender format from clothing categories to our enum format
-      switch (subcategory.gender) {
-        case 'masculine': return 'MASCULINE';
-        case 'feminine': return 'FEMININE';
-        case 'unisex': 
-        default: return 'UNISEX';
-      }
-    }
-  }
-  return 'UNISEX'; // Default fallback
-};
-
 export default function DesignPage() {
   const router = useRouter();
   const { data: session, status } = useSession();
+  
+  // Use shared design generation hook
+  const {
+    currentDesign,
+    setCurrentDesign,
+    designHistory,
+    setDesignHistory,
+    generationsUsed,
+    setGenerationsUsed,
+    loadingStates,
+    setLoadingStates,
+    error,
+    success,
+    generateDesign,
+    clearError,
+    clearSuccess,
+    setError,
+    setSuccess,
+    extractColorFromPrompt
+  } = useDesignGeneration()
+  
+  // Design page specific state
   const [currentStep, setCurrentStep] = useState(1);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState(null);
-  const [success, setSuccess] = useState('');
+  const [loading, setLoading] = useState(false); // For publishing
   const [selectedCategory, setSelectedCategory] = useState(null);
 
   // Challenge-related state
@@ -54,35 +61,21 @@ export default function DesignPage() {
   // Form states
   const [itemName, setItemName] = useState('');
   const [itemType, setItemType] = useState('');
-  const [gender, setGender] = useState('UNISEX'); // Add gender state
-  const [userPrompt, setUserPrompt] = useState(''); // User's original design prompt
-  const [aiDescription, setAiDescription] = useState(''); // AI-generated description
+  const [gender, setGender] = useState('UNISEX');
+  const [userPrompt, setUserPrompt] = useState('');
   const [color, setColor] = useState('');
-  const [modelDescription, setModelDescription] = useState(''); // User's model description
+  const [modelDescription, setModelDescription] = useState('');
   const [isEditingDescription, setIsEditingDescription] = useState(false);
   const [isEditingItemName, setIsEditingItemName] = useState(false);
   const [isEditingColor, setIsEditingColor] = useState(false);
-  const [frontImage, setFrontImage] = useState(null);
-  const [backImage, setBackImage] = useState(null);
-  const [compositeImage, setCompositeImage] = useState(null);
 
   // Inpainting states
   const [isInpaintingMode, setIsInpaintingMode] = useState(false);
   const [inpaintingPrompt, setInpaintingPrompt] = useState('');
-  const [currentView, setCurrentView] = useState('front'); // 'front' or 'back'
-  const [targetQuality, setTargetQuality] = useState(''); // For cross-quality editing
+  const [targetQuality, setTargetQuality] = useState('');
 
   // Quality selection state
   const [quality, setQuality] = useState('low');
-
-  const [generatingDesign, setGeneratingDesign] = useState(false);
-  
-  // Loading states for different elements (like waitlist page)
-  const [loadingStates, setLoadingStates] = useState({
-    image: false,
-    description: false,
-    regenerating: false
-  });
   
   // Usage tracking state
   const [usageStats, setUsageStats] = useState({
@@ -112,15 +105,15 @@ export default function DesignPage() {
 
     // Check if we have the required images based on quality level
     const hasRequiredImages = quality === 'high' 
-      ? compositeImage  // High quality needs composite image
-      : (frontImage && backImage);  // Low/medium quality needs both front and back images
+      ? currentDesign.compositeImage  // High quality needs composite image
+      : (currentDesign.frontImage && currentDesign.backImage);  // Low/medium quality needs both front and back images
 
     if (!hasRequiredImages) {
       setError('Please generate a design first before trying to edit it');
       setIsInpaintingMode(false);
       return;
     }
-  }, [compositeImage, frontImage, backImage, isInpaintingMode, quality]);
+  }, [currentDesign.compositeImage, currentDesign.frontImage, currentDesign.backImage, isInpaintingMode, quality]);
 
   // Fetch active challenges
   const fetchActiveChallenges = async () => {
@@ -161,14 +154,6 @@ export default function DesignPage() {
     }
   }, [session?.user?.uid, status]);
 
-  // Auto-populate gender when item type changes
-  useEffect(() => {
-    if (itemType) {
-      const suggestedGender = getSuggestedGender(itemType);
-      setGender(suggestedGender);
-    }
-  }, [itemType]);
-
   // Handle redirect to login if not authenticated
   useEffect(() => {
     if (status === 'unauthenticated') {
@@ -204,14 +189,13 @@ export default function DesignPage() {
     color,
     modelDescription,
     quality,
-    aiDescription,
-    frontImage,
-    backImage,
-    compositeImage,
+    currentDesign.aiDescription,
+    currentDesign.frontImage,
+    currentDesign.backImage,
+    currentDesign.compositeImage,
     selectedChallengeIds,
     isInpaintingMode,
     inpaintingPrompt,
-    currentView,
     targetQuality
   ]);
 
@@ -239,10 +223,12 @@ export default function DesignPage() {
           setQuality(progress.quality || 'low');
           
           // Restore generated design data
-          setAiDescription(progress.aiDescription || '');
-          setFrontImage(progress.frontImage || null);
-          setBackImage(progress.backImage || null);
-          setCompositeImage(progress.compositeImage || null);
+          setCurrentDesign({
+            aiDescription: progress.aiDescription || '',
+            frontImage: progress.frontImage || null,
+            backImage: progress.backImage || null,
+            compositeImage: progress.compositeImage || null
+          });
           
           // Restore challenge selection
           setSelectedChallengeIds(progress.selectedChallengeIds || []);
@@ -250,14 +236,13 @@ export default function DesignPage() {
           // Restore edit mode state
           setIsInpaintingMode(progress.isInpaintingMode || false);
           setInpaintingPrompt(progress.inpaintingPrompt || '');
-          setCurrentView(progress.currentView || 'front');
           setTargetQuality(progress.targetQuality || '');
           
           console.log('Design progress loaded successfully');
           
           // Show notice if there's a substantial cached design
           if (hasGeneratedDesign) {
-            setSuccess('Previous design loaded from cache. If you want to start fresh, click "Clear Cache" above.');
+            setSuccess('Previous design loaded from cache. If you want to start fresh, click "Start Over" above.');
             setTimeout(() => setSuccess(''), 8000); // Show for 8 seconds
           }
         }
@@ -276,8 +261,8 @@ export default function DesignPage() {
                        itemName.trim() || 
                        itemType.trim() || 
                        userPrompt.trim() || 
-                       frontImage || 
-                       backImage;
+                       currentDesign.frontImage || 
+                       currentDesign.backImage;
     
     if (!hasProgress) return;
     
@@ -285,21 +270,19 @@ export default function DesignPage() {
       currentStep,
       itemName: itemName.trim() || null,
       itemType: itemType.trim() || null,
-      selectedCategory,
       gender,
       userPrompt: userPrompt.trim() || null,
       color: color.trim() || null,
       modelDescription: modelDescription.trim() || null,
       quality,
-      aiDescription: aiDescription.trim() || null,
-      frontImage,
-      backImage,
-      compositeImage,
+      aiDescription: currentDesign.aiDescription?.trim() || null,
+      frontImage: currentDesign.frontImage,
+      backImage: currentDesign.backImage,
+      compositeImage: currentDesign.compositeImage,
       selectedChallengeIds,
       isInpaintingMode,
-      inpaintingPrompt: inpaintingPrompt.trim() || null,
-      currentView,
-      targetQuality: targetQuality.trim() || null
+      inpaintingPrompt: inpaintingPrompt?.trim() || null,
+      targetQuality: targetQuality?.trim() || null
     };
     
     try {
@@ -337,14 +320,15 @@ export default function DesignPage() {
       setColor('');
       setModelDescription('');
       setQuality('low');
-      setAiDescription('');
-      setFrontImage(null);
-      setBackImage(null);
-      setCompositeImage(null);
+      setCurrentDesign({
+        aiDescription: '',
+        frontImage: null,
+        backImage: null,
+        compositeImage: null
+      });
       setSelectedChallengeIds([]);
       setIsInpaintingMode(false);
       setInpaintingPrompt('');
-      setCurrentView('front');
       setTargetQuality('');
       setError(null);
       setIsEditingDescription(false);
@@ -367,6 +351,9 @@ export default function DesignPage() {
       if (response.ok) {
         const data = await response.json();
         setUsageStats(data.usage);
+        
+        // Dispatch custom event to update nav bar credits immediately
+        window.dispatchEvent(new CustomEvent('creditsUpdated'));
       }
     } catch (error) {
       console.error('Error refreshing usage stats:', error);
@@ -375,230 +362,155 @@ export default function DesignPage() {
 
   const handleGenerateDesign = async () => {
     try {
-      setGeneratingDesign(true);
-      setError(null);
-
-      // Set loading states like waitlist page
-      setLoadingStates(prev => ({ ...prev, image: true, description: true }));
-
-      // Check if design matches any active challenges
-      const matchingChallenges = activeChallenges.filter(challenge => {
-        // Auto-match if theme mentioned in prompt or item type matches
-        const promptLower = userPrompt.toLowerCase();
-        const themeLower = challenge.theme.toLowerCase();
-        const itemTypeLower = itemType.toLowerCase();
-        const mainItemLower = challenge.mainItem?.toLowerCase() || '';
-        
-        return promptLower.includes(themeLower) || 
-               (challenge.mainItem && (itemTypeLower.includes(mainItemLower) || mainItemLower.includes(itemTypeLower)));
-      });
-
-      const response = await fetch('/api/design/generate', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          itemType: selectedCategory?.name || '',
-          itemTypeSpecific: itemType,
-          gender: gender,
-          color: color || '',
-          userPrompt: userPrompt,
-          modelDescription: modelDescription || '',
-          userId: session?.user?.id || session?.user?.uid,
-          quality: quality,
-          // Add challenge context if relevant
-          ...(matchingChallenges.length > 0 && {
-            challengeTheme: matchingChallenges[0].theme,
-            challengeMainItem: matchingChallenges[0].mainItem,
-            isChallenge: true,
-          }),
-          // Only include inpainting data if we're in inpainting mode
-          ...(isInpaintingMode && compositeImage ? {
-            originalImage: compositeImage
-          } : {})
-        }),
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        if (response.status === 429) {
-          // Rate limit error - refresh usage stats
-          await refreshUsageStats();
-          throw new Error(errorData.error || 'Daily generation limit reached');
-        }
-        throw new Error('Failed to generate design');
-      }
-
-      const data = await response.json();
+      setLoading(true);
       
-      if (data.error) {
-        throw new Error(data.error);
-      }
-
-      // Store the composite image for potential inpainting later
-      setCompositeImage(data.compositeImage);
+      // Clear existing design to ensure fresh generation
+      setCurrentDesign({
+        aiDescription: '',
+        frontImage: null,
+        backImage: null,
+        compositeImage: null
+      });
       
-      // Update the angle URLs for display
-      setFrontImage(data.angleUrls.front);
-      setBackImage(data.angleUrls.back);
-
-      // Set the AI-generated description
-      setAiDescription(data.aiDescription);
-      setItemName(itemName);
-
-      // Auto-select matching challenges
-      if (matchingChallenges.length > 0) {
-        setSelectedChallengeIds(matchingChallenges.map(c => c.id));
-      }
-
-      setCurrentStep(3);
-
-      // Refresh usage stats
-      await refreshUsageStats();
-
-    } catch (err) {
-      console.error('Error in design generation:', err);
-      setError(err.message || 'Failed to generate design');
+      // Reset inpainting mode state
+      setIsInpaintingMode(false);
+      setInpaintingPrompt('');
+      setTargetQuality('');
+      
+      // Extract color from prompt if not provided
+      const extractedColor = color.trim() || extractColorFromPrompt(userPrompt);
+      
+      // Generate the design using the shared function
+      const result = await generateDesign({
+        itemName,
+        itemType,
+        userPrompt,
+        gender,
+        color: extractedColor,
+        modelDescription,
+        quality,
+        userSession: session,
+        refreshUsageStats,
+        isEditing: false, // Explicitly set to false for fresh generation
+        isWaitlistApplication: false
+      });
+      
+      // Don't set currentStep here since it's already set in handleSubmit
+      
+    } catch (error) {
+      console.error('Error generating design:', error);
+      // Error is already set by the shared function
     } finally {
-      setGeneratingDesign(false);
-      setLoadingStates(prev => ({ ...prev, image: false, description: false }));
+      setLoading(false);
     }
   };
 
   const handleInpainting = async () => {
-    // For low/medium quality, we need separate front and back images
-    // For high quality, we need the composite image
-    if (quality === 'low' || quality === 'medium') {
-      if (!frontImage || !backImage) {
-        setError('Front and back images are required for editing');
-        return;
-      }
-    } else {
-    if (!compositeImage) {
-        setError('Original image is required for editing');
+    // Validation - allow empty prompt for quality upgrades
+    const isQualityUpgrade = targetQuality && targetQuality !== quality;
+    if (!inpaintingPrompt.trim() && !isQualityUpgrade) {
+      setError('Please enter modification instructions.');
       return;
-      }
     }
 
-    // Allow blank edits only if target quality is specified (quality upgrade)
-    const isQualityUpgrade = targetQuality && targetQuality !== quality;
-    const hasEditInstructions = inpaintingPrompt.trim();
-    
-    if (!hasEditInstructions && !isQualityUpgrade) {
-      setError('Please provide edit instructions or select a target quality for upgrade');
+    if (!currentDesign.compositeImage && !currentDesign.frontImage && !currentDesign.backImage) {
+      setError('Please generate a design first.');
       return;
     }
 
     try {
-      setLoadingStates(prev => ({ ...prev, image: true, description: true }));
-      setError(null);
-
-      const requestBody = {
-        prompt: inpaintingPrompt,
-        userId: session?.user?.id || session?.user?.uid,
-        quality: quality,
-        originalDescription: aiDescription, // Pass the current design description
-        isQualityUpgrade: isQualityUpgrade && !hasEditInstructions, // Flag for quality-only upgrades
-        ...(targetQuality && { targetQuality }) // Include target quality if specified
-      };
-
-      // Add appropriate image data based on quality
-      if (quality === 'low' || quality === 'medium') {
-        requestBody.frontImage = frontImage;
-        requestBody.backImage = backImage;
-      } else {
-        requestBody.originalImage = compositeImage;
-      }
-
-      const response = await fetch('/api/design/inpaint', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(requestBody),
+      setLoading(true);
+      
+      // Use the shared generateDesign function with editing parameters
+      const result = await generateDesign({
+        prompt: inpaintingPrompt.trim() || (isQualityUpgrade ? 'Quality upgrade' : ''),
+        quality: targetQuality || quality,
+        targetQuality: targetQuality || quality,
+        userSession: session,
+        refreshUsageStats,
+        originalImage: currentDesign.compositeImage,
+        frontImage: currentDesign.frontImage,
+        backImage: currentDesign.backImage,
+        isEditing: true,
+        isWaitlistApplication: false
       });
 
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Failed to apply changes');
+      // Update quality if it was changed (quality upgrade/downgrade)
+      if (targetQuality && targetQuality !== quality) {
+        setQuality(targetQuality);
+        console.log(`[Design Page] Quality updated from ${quality} to ${targetQuality}`);
       }
 
-      const data = await response.json();
-      
-      if (data.error) {
-        throw new Error(data.error);
-      }
-
-      console.log("[Frontend] 🔍 INPAINTING RESPONSE DATA:");
-      console.log("[Frontend]   Response keys:", Object.keys(data));
-      console.log("[Frontend]   angleUrls:", data.angleUrls ? Object.keys(data.angleUrls) : 'undefined');
-      console.log("[Frontend]   frontImage length:", data.frontImage?.length || 'undefined');
-      console.log("[Frontend]   backImage length:", data.backImage?.length || 'undefined');
-      console.log("[Frontend]   compositeImage length:", data.compositeImage?.length || 'undefined');
-      console.log("[Frontend]   Current quality:", quality);
-      console.log("[Frontend]   Target quality:", data.targetQuality);
-
-      // Update with new images based on quality
-      if (quality === 'low' || quality === 'medium') {
-        // For low/medium, we get separate front and back images
-        console.log("[Frontend] 📸 UPDATING PORTRAIT IMAGES (low/medium quality)");
-        console.log("[Frontend]   Setting front image from:", data.angleUrls?.front ? 'angleUrls.front' : 'undefined');
-        console.log("[Frontend]   Setting back image from:", data.angleUrls?.back ? 'angleUrls.back' : 'undefined');
-        setFrontImage(data.angleUrls.front);
-        setBackImage(data.angleUrls.back);
-        // No composite image for low/medium quality
-      } else {
-        // For high quality, we get a composite image and angle URLs
-        console.log("[Frontend] 🖼️ UPDATING LANDSCAPE IMAGES (high quality)");
-        setCompositeImage(data.compositeImage);
-        setFrontImage(data.angleUrls.front);
-        setBackImage(data.angleUrls.back);
-      }
-
-      setAiDescription(data.aiDescription);
-
-      // If we performed cross-quality editing, update the current quality
-      if (data.targetQuality && data.targetQuality !== quality) {
-        console.log(`Quality upgraded from ${quality} to ${data.targetQuality}`);
-        setQuality(data.targetQuality);
-      }
-
-      // Clear the inpainting prompt and exit inpainting mode
+      // Clear inpainting state
       setInpaintingPrompt('');
-      setTargetQuality(''); // Reset target quality
       setIsInpaintingMode(false);
+      setTargetQuality('');
 
-      // Refresh usage stats
-      await refreshUsageStats();
-
-    } catch (err) {
-      console.error('Error in inpainting:', err);
-      setError(err.message || 'Failed to apply changes');
+    } catch (error) {
+      console.error('[Design Page] Inpainting error:', error);
+      // Error is already set by the shared function
     } finally {
-      setLoadingStates(prev => ({ ...prev, image: false, description: false }));
+      setLoading(false);
+    }
+  };
+
+  // Quick quality upgrade function for image display buttons
+  const handleQuickQualityUpgrade = async (newQuality) => {
+    if (!currentDesign.compositeImage && !currentDesign.frontImage && !currentDesign.backImage) {
+      setError('Please generate a design first.');
+      return;
+    }
+
+    try {
+      setLoading(true);
+      clearError();
+      
+      // Use the shared generateDesign function with quality upgrade parameters
+      const result = await generateDesign({
+        prompt: 'Quality upgrade',
+        quality: newQuality,
+        targetQuality: newQuality,
+        userSession: session,
+        refreshUsageStats,
+        originalImage: currentDesign.compositeImage,
+        frontImage: currentDesign.frontImage,
+        backImage: currentDesign.backImage,
+        isEditing: true,
+        isWaitlistApplication: false
+      });
+
+      // Update quality
+      setQuality(newQuality);
+      console.log(`[Design Page] Quality upgraded from ${quality} to ${newQuality}`);
+
+    } catch (error) {
+      console.error('[Design Page] Quality upgrade error:', error);
+      // Error is already set by the shared function
+    } finally {
+      setLoading(false);
     }
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     
-    if (isInpaintingMode) {
-      // Submit for inpainting - mask is optional now
-      if (!inpaintingPrompt.trim()) {
-        setError('Please provide edit instructions describing what you want to change');
-        return;
-      }
-      await handleInpainting();
-    } else if (currentStep === 2) {
-      // Move to preview step first, then start generation
+    if (currentStep === 2) {
+      // Step 2: Generate design and move to step 3 (never inpainting)
       setCurrentStep(3);
       // Start generation after a brief delay to allow UI to update
       setTimeout(() => {
         handleGenerateDesign();
       }, 100);
+    } else if (currentStep === 3 && isInpaintingMode) {
+      // Step 3 with inpainting mode: Do inpainting
+      const isQualityUpgrade = targetQuality && targetQuality !== quality;
+      if (!inpaintingPrompt.trim() && !isQualityUpgrade) {
+        setError('Please provide edit instructions describing what you want to change');
+        return;
+      }
+      await handleInpainting();
     } else {
-      // Move to next step for step 1
+      // Step 1: Just move to next step - no generation
       setCurrentStep(currentStep + 1);
     }
   };
@@ -609,27 +521,27 @@ export default function DesignPage() {
       setError(null);
 
       const imageUrls = {};
-      if (frontImage) imageUrls[ANGLES.FRONT] = frontImage;
-      if (backImage) imageUrls[ANGLES.BACK] = backImage;
+      if (currentDesign.frontImage) imageUrls[ANGLES.FRONT] = currentDesign.frontImage;
+      if (currentDesign.backImage) imageUrls[ANGLES.BACK] = currentDesign.backImage;
 
       const response = await fetch('/api/saved-clothing-items', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           name: itemName,
-          description: aiDescription,
+          description: currentDesign.aiDescription,
           itemType,
           gender,
           imageUrls,
           promptRaw: userPrompt,
-          promptSanitized: aiDescription,
+          promptSanitized: currentDesign.aiDescription,
           color,
           quality,
           isPublished: true,
           promptJsonData: JSON.stringify({
             itemDescription: `${itemType} in ${color}`,
-            designDetails: aiDescription,
-            frontText: aiDescription,
+            designDetails: currentDesign.aiDescription,
+            frontText: currentDesign.aiDescription,
             backText: '',
             modelDetails: modelDescription || 'Professional model',
             style: itemType,
@@ -712,14 +624,15 @@ export default function DesignPage() {
         setColor('');
         setModelDescription('');
         setQuality('low');
-        setAiDescription('');
-        setFrontImage(null);
-        setBackImage(null);
-        setCompositeImage(null);
+        setCurrentDesign({
+          aiDescription: '',
+          frontImage: null,
+          backImage: null,
+          compositeImage: null
+        });
         setSelectedChallengeIds([]);
         setIsInpaintingMode(false);
         setInpaintingPrompt('');
-        setCurrentView('front');
         setTargetQuality('');
       }
 
@@ -817,67 +730,8 @@ export default function DesignPage() {
         <ProgressSteps steps={steps} currentStep={currentStep} />
 
         {/* Start Over Button - Only show if there's progress to clear */}
-        {(currentStep > 1 || itemName.trim() || itemType.trim() || userPrompt.trim() || frontImage || backImage) && (
-          <div className="flex justify-end mb-6 space-x-3">
-            <button
-              type="button"
-              onClick={async () => {
-                if (!window.confirm('Clear your cached design? This will remove any saved progress and cannot be undone.')) {
-                  return;
-                }
-                
-                try {
-                  setLoading(true);
-                  const response = await fetch('/api/design/progress', { 
-                    method: 'DELETE',
-                    headers: { 'Content-Type': 'application/json' }
-                  });
-                  
-                  if (response.ok) {
-                    // Reset all state to initial values
-                    setCurrentStep(1);
-                    setItemName('');
-                    setItemType('');
-                    setSelectedCategory(null);
-                    setGender('UNISEX');
-                    setUserPrompt('');
-                    setColor('');
-                    setModelDescription('');
-                    setQuality('low');
-                    setAiDescription('');
-                    setFrontImage(null);
-                    setBackImage(null);
-                    setCompositeImage(null);
-                    setSelectedChallengeIds([]);
-                    setIsInpaintingMode(false);
-                    setInpaintingPrompt('');
-                    setCurrentView('front');
-                    setTargetQuality('');
-                    setError(null);
-                    setIsEditingDescription(false);
-                    setIsEditingItemName(false);
-                    setIsEditingColor(false);
-                    
-                    setSuccess('Design cache cleared successfully');
-                    setTimeout(() => setSuccess(''), 3000);
-                  } else {
-                    const errorData = await response.json();
-                    throw new Error(errorData.error || 'Failed to clear cache');
-                  }
-                } catch (error) {
-                  console.error('Failed to clear cache:', error);
-                  setError('Failed to clear cache. Please try again or contact support.');
-                } finally {
-                  setLoading(false);
-                }
-              }}
-              className="inline-flex items-center px-4 py-2 text-sm font-medium text-blue-600 bg-white border border-blue-300 rounded-lg hover:bg-blue-50 hover:border-blue-400 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors"
-            >
-              <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-              </svg>
-              Clear Cache
-            </button>
+        {(currentStep > 1 || itemName.trim() || itemType.trim() || userPrompt.trim() || currentDesign.frontImage || currentDesign.backImage) && (
+          <div className="flex justify-end mb-6">
             <button
               type="button"
               onClick={handleStartOver}
@@ -917,79 +771,14 @@ export default function DesignPage() {
                 <label className="block text-sm font-medium text-gray-900 mb-2">
                   Item Type
                 </label>
-                <div className="space-y-4">
-                  {/* Category Selection */}
-                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                    {Object.entries(CLOTHING_CATEGORIES).map(([key, category]) => (
-                      <button
-                        key={key}
-                        type="button"
-                        onClick={() => setSelectedCategory(key)}
-                        className={`p-3 text-sm font-medium rounded-lg transition-all duration-200 ${
-                          selectedCategory === key
-                            ? 'bg-black text-white'
-                            : 'bg-gray-50 text-gray-900 hover:bg-gray-100'
-                        }`}
-                      >
-                        {category.name}
-                      </button>
-                    ))}
-                  </div>
-
-                  {/* Subcategory Selection */}
-                  {selectedCategory && (
-                    <div className="mt-4">
-                      <h4 className="text-sm font-medium text-gray-900 mb-2">Select Item Type</h4>
-                      <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 max-h-60 overflow-y-auto">
-                        {CLOTHING_CATEGORIES[selectedCategory].subcategories.map((subcat) => (
-                          <button
-                            key={subcat.id}
-                            type="button"
-                            onClick={() => setItemType(subcat.name)}
-                            className={`p-3 text-sm font-medium rounded-lg transition-all duration-200 ${
-                              itemType === subcat.name
-                                ? 'bg-black text-white'
-                                : 'bg-gray-50 text-gray-900 hover:bg-gray-100'
-                            }`}
-                          >
-                            {subcat.name}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Gender Selection - Shows after item type is selected */}
-                  {itemType && (
-                    <div className="mt-6 p-4 bg-blue-50 rounded-lg border border-blue-200">
-                      <h4 className="text-sm font-medium text-gray-900 mb-3">Target Gender</h4>
-                      <p className="text-xs text-gray-600 mb-3">
-                        We&apos;ve suggested a gender based on your item type, but you can change it to target a different audience.
-                      </p>
-                      <div className="grid grid-cols-3 gap-2">
-                        {[
-                          { value: 'MASCULINE', label: 'Men', icon: '👨' },
-                          { value: 'FEMININE', label: 'Women', icon: '👩' },
-                          { value: 'UNISEX', label: 'Unisex', icon: '👥' }
-                        ].map((option) => (
-                          <button
-                            key={option.value}
-                            type="button"
-                            onClick={() => setGender(option.value)}
-                            className={`p-3 text-sm font-medium rounded-lg transition-all duration-200 flex flex-col items-center gap-1 ${
-                              gender === option.value
-                                ? 'bg-black text-white'
-                                : 'bg-white text-gray-900 hover:bg-gray-50 border border-gray-200'
-                            }`}
-                          >
-                            <span className="text-lg">{option.icon}</span>
-                            <span>{option.label}</span>
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-                </div>
+                <ItemTypeSelector
+                  selectedCategory={selectedCategory}
+                  onCategoryChange={setSelectedCategory}
+                  itemType={itemType}
+                  onItemTypeChange={setItemType}
+                  gender={gender}
+                  onGenderChange={setGender}
+                />
               </div>
             </div>
           )}
@@ -1162,13 +951,13 @@ export default function DesignPage() {
                               </div>
                             ) : isEditingDescription ? (
                               <textarea
-                                value={aiDescription}
-                                onChange={(e) => setAiDescription(e.target.value)}
+                                value={currentDesign.aiDescription}
+                                onChange={(e) => setCurrentDesign({ ...currentDesign, aiDescription: e.target.value })}
                                 rows={4}
                                 className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-gray-900 text-sm"
                               />
-                            ) : aiDescription ? (
-                              <p className="text-sm text-gray-900 bg-gray-50 rounded-lg p-4 font-medium leading-relaxed">{aiDescription}</p>
+                            ) : currentDesign.aiDescription ? (
+                              <p className="text-sm text-gray-900 bg-gray-50 rounded-lg p-4 font-medium leading-relaxed">{currentDesign.aiDescription}</p>
                             ) : (
                               <div className="w-full h-24 bg-gray-50 rounded-lg flex items-center justify-center border border-gray-200">
                                 <div className="text-sm text-gray-400">Description will appear here</div>
@@ -1182,84 +971,13 @@ export default function DesignPage() {
                     {/* Right Column - Generated Images */}
                     <div>
                       <h4 className="text-sm font-medium text-gray-500 uppercase tracking-wider mb-4">Generated Design</h4>
-                      <div className="relative">
-                        <div className="relative">
-                          <div className="relative aspect-[683/1024] bg-gray-100 rounded-lg overflow-hidden shadow-md">
-                            {loadingStates.image ? (
-                              <div className="aspect-[683/1024] bg-gray-100 rounded-lg animate-pulse flex items-center justify-center">
-                                <div className="text-center">
-                                  <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-gray-400 mx-auto mb-4"></div>
-                                  <div className="text-sm text-gray-500">Generating your design...</div>
-                                </div>
-                              </div>
-                            ) : (frontImage || backImage) ? (
-                              <Image
-                                src={currentView === 'front' ? (frontImage || '/images/placeholder-front.png') : (backImage || '/images/placeholder-back.png')}
-                                alt={`${currentView} view`}
-                                fill
-                                className="object-cover"
-                                unoptimized
-                              />
-                            ) : (
-                              <div className="aspect-[683/1024] bg-gray-50 rounded-lg flex items-center justify-center border-2 border-dashed border-gray-200">
-                                <div className="text-center text-gray-400">
-                                  <div className="text-lg mb-2">🎨</div>
-                                  <div className="text-sm">Your design will appear here</div>
-                                </div>
-                              </div>
-                            )}
-                          </div>
-                          
-                          {/* Navigation arrows - only show when not loading and images exist */}
-                          {!loadingStates.image && frontImage && backImage && (
-                            <>
-                              <div className="absolute inset-y-0 left-0 flex items-center">
-                                <button
-                                  type="button"
-                                  onClick={() => setCurrentView(currentView === 'front' ? 'back' : 'front')}
-                                  className="bg-white/80 hover:bg-white rounded-full p-2 shadow-lg transition-all duration-200 ml-2"
-                                >
-                                  <svg className="w-5 h-5 text-gray-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-                                  </svg>
-                                </button>
-                              </div>
-                              
-                              <div className="absolute inset-y-0 right-0 flex items-center">
-                                <button
-                                  type="button"
-                                  onClick={() => setCurrentView(currentView === 'front' ? 'back' : 'front')}
-                                  className="bg-white/80 hover:bg-white rounded-full p-2 shadow-lg transition-all duration-200 mr-2"
-                                >
-                                  <svg className="w-5 h-5 text-gray-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                                  </svg>
-                                </button>
-                              </div>
-                              
-                              {/* View indicator */}
-                              <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2">
-                                <div className="flex space-x-2">
-                                  <div className={`w-2 h-2 rounded-full transition-all duration-200 ${currentView === 'front' ? 'bg-white' : 'bg-white/50'}`}></div>
-                                  <div className={`w-2 h-2 rounded-full transition-all duration-200 ${currentView === 'back' ? 'bg-white' : 'bg-white/50'}`}></div>
-                                </div>
-                              </div>
-                            </>
-                          )}
-                        </div>
-                        
-                        {/* Sketch quality warning */}
-                        {quality === 'low' && (
-                          <div className="mt-3 text-center">
-                            <p className="text-sm text-red-600 font-medium">
-                              ⚠️ Sketch Quality Design
-                            </p>
-                            <p className="text-xs text-red-500 mt-1">
-                              For better aesthetics and a more professional profile, we recommend using Studio or Runway quality for your published designs.
-                            </p>
-                          </div>
-                        )}
-                      </div>
+                      <DesignImageDisplay 
+                        currentDesign={currentDesign}
+                        loadingStates={loadingStates}
+                        quality={quality}
+                        showQualityWarning={true}
+                        onQualityUpgrade={handleQuickQualityUpgrade}
+                      />
                     </div>
                   </div>
                 </div>
@@ -1415,7 +1133,7 @@ export default function DesignPage() {
                                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7h8m0 0v8m0-8l-8 8-4-4-8 8" />
                                         </svg>
                                         <p className="text-sm text-green-700">
-                                          <strong>Quality Upgrade:</strong> Your design will be converted from {quality} to {targetQuality} quality.
+                                          <strong>Quality Upgrade:</strong> Your design will be converted from {getQualityDisplayName(quality)} to {getQualityDisplayName(targetQuality)} quality.
                                         </p>
                                       </div>
                                     </div>
@@ -1429,7 +1147,7 @@ export default function DesignPage() {
                                         </svg>
                                         <div className="text-sm text-amber-800">
                                           <p className="font-medium">Quality Downgrade Warning</p>
-                                          <p className="text-xs mt-1">You&apos;re about to downgrade from {quality} to {targetQuality} quality. This will reduce the visual quality of your design.</p>
+                                          <p className="text-xs mt-1">You&apos;re about to downgrade from {getQualityDisplayName(quality)} to {getQualityDisplayName(targetQuality)} quality. This will reduce the visual quality of your design.</p>
                                         </div>
                                       </div>
                                     </div>
@@ -1454,7 +1172,7 @@ export default function DesignPage() {
                                 const currentLevel = qualityLevels[quality];
                                 const targetLevel = qualityLevels[targetQuality];
                                 const isUpgrade = targetLevel > currentLevel;
-                                const qualityName = targetQuality.charAt(0).toUpperCase() + targetQuality.slice(1);
+                                const qualityName = getQualityDisplayName(targetQuality);
                                 
                                 if (isUpgrade) {
                                   return `Upgrade to ${qualityName}`;
@@ -1604,112 +1322,107 @@ export default function DesignPage() {
                 </div>
               )}
 
-              {/* Error Message */}
-              {error && (
-                <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg">
-                  <div className="flex">
-                    <div className="flex-shrink-0">
-                      <svg className="h-5 w-5 text-red-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
-                        <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
-                      </svg>
-                    </div>
-                    <div className="ml-3">
-                      <p className="text-sm text-red-800">{error}</p>
-                    </div>
-                  </div>
-                </div>
-              )}
+              {/* Error and Success Messages */}
+              <DesignMessages
+                error={error}
+                success={success}
+                actions={{
+                  retry: () => {
+                    clearError()
+                    handleGenerateDesign()
+                  },
+                  startOver: () => {
+                    clearError()
+                    handleStartOver()
+                  },
+                  continue: () => {
+                    clearError()
+                  }
+                }}
+                showContinue={!!(currentDesign.frontImage || currentDesign.backImage || currentDesign.compositeImage)}
+                loadingStates={loadingStates}
+                loading={loading}
+                onClose={() => {
+                  clearError()
+                }}
+              />
 
-              {/* Success Message */}
-              {success && (
-                <div className="mb-6 p-4 bg-green-50 border border-green-200 rounded-lg">
-                  <div className="flex">
-                    <div className="flex-shrink-0">
-                      <svg className="h-5 w-5 text-green-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
-                        <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-                      </svg>
-                    </div>
-                    <div className="ml-3">
-                      <p className="text-sm text-green-800">{success}</p>
-                    </div>
-                  </div>
-                </div>
-              )}
+
             </div>
           )}
 
-          {/* Navigation Buttons - Outside step conditions */}
-          <div className="flex justify-between pt-6">
-            <div>
-              {currentStep > 1 && (
-                <button
-                  type="button"
-                  onClick={() => setCurrentStep(currentStep - 1)}
-                  className="inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500"
-                >
-                  <svg className="mr-2 h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-                    <path fillRule="evenodd" d="M7.707 14.707a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414l4-4a1 1 0 011.414 1.414L5.414 9H17a1 1 0 110 2H5.414l2.293 2.293a1 1 0 010 1.414z" clipRule="evenodd" />
-                  </svg>
-                  Back
-                </button>
-              )}
-            </div>
-            <div className="flex gap-3">
-              {currentStep === 3 ? (
-                <>
-                  <button
-                    type="button"
-                    onClick={() => setCurrentStep(2)}
-                    disabled={loadingStates.image || loadingStates.description}
-                    className="inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500"
-                  >
-                    Regenerate Design
-                  </button>
-                  <button
-                    type="button"
-                    onClick={handlePublish}
-                    disabled={loadingStates.image || loadingStates.description || loading}
-                    className={`inline-flex items-center px-6 py-3 border border-transparent text-base font-medium rounded-md shadow-sm ${
-                      loadingStates.image || loadingStates.description || loading
-                        ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
-                        : 'bg-black text-white hover:bg-gray-900 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-900'
-                    }`}
-                  >
-                    {loading ? (
-                      <>
-                        <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                        </svg>
-                        Publishing...
-                      </>
-                    ) : (
-                      'Publish Design'
-                    )}
-                  </button>
-                </>
-              ) : (
-                <button
-                  type="submit"
-                  disabled={
-                    (currentStep === 1 && (!itemName.trim() || !itemType.trim())) ||
-                    (currentStep === 2 && !userPrompt.trim())
-                  }
-                  className={`inline-flex items-center px-6 py-3 border border-transparent text-base font-medium rounded-md shadow-sm ${
-                    ((currentStep === 1 && (!itemName.trim() || !itemType.trim())) ||
-                     (currentStep === 2 && !userPrompt.trim()))
-                      ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
-                      : 'bg-black text-white hover:bg-gray-900 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-900'
-                  }`}
-                >
-                  {currentStep === 2 ? 'Generate Design' : 'Continue'}
-                  <svg className="ml-2 h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-                    <path fillRule="evenodd" d="M12.293 5.293a1 1 0 011.414 0l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414-1.414L14.586 11H3a1 1 0 110-2h11.586l-2.293-2.293a1 1 0 010-1.414z" clipRule="evenodd" />
-                  </svg>
-                </button>
-              )}
-            </div>
-          </div>
+              {/* Navigation Buttons - Outside step conditions */}
+              <div className="flex justify-between pt-6">
+                <div>
+                  {currentStep > 1 && (
+                    <button
+                      type="button"
+                      onClick={() => setCurrentStep(currentStep - 1)}
+                      className="inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500"
+                    >
+                      <svg className="mr-2 h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                        <path fillRule="evenodd" d="M7.707 14.707a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414l4-4a1 1 0 011.414 1.414L5.414 9H17a1 1 0 110 2H5.414l2.293 2.293a1 1 0 010 1.414z" clipRule="evenodd" />
+                      </svg>
+                      Back
+                    </button>
+                  )}
+                </div>
+                <div className="flex gap-3">
+                  {currentStep === 3 ? (
+                    <>
+                      <button
+                        type="button"
+                        onClick={() => setCurrentStep(2)}
+                        disabled={loadingStates.image || loadingStates.description}
+                        className="inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500"
+                      >
+                        Regenerate Design
+                      </button>
+                      <button
+                        type="button"
+                        onClick={handlePublish}
+                        disabled={loadingStates.image || loadingStates.description || loading}
+                        className={`inline-flex items-center px-6 py-3 border border-transparent text-base font-medium rounded-md shadow-sm ${
+                          loadingStates.image || loadingStates.description || loading
+                            ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                            : 'bg-black text-white hover:bg-gray-900 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-900'
+                        }`}
+                      >
+                        {loading ? (
+                          <>
+                            <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                            </svg>
+                            Publishing...
+                          </>
+                        ) : (
+                          'Publish Design'
+                        )}
+                      </button>
+                    </>
+                  ) : (
+                    <button
+                      type="submit"
+                      disabled={
+                        (currentStep === 1 && (!itemName.trim() || !itemType.trim())) ||
+                        (currentStep === 2 && !userPrompt.trim())
+                      }
+                      className={`inline-flex items-center px-6 py-3 border border-transparent text-base font-medium rounded-md shadow-sm ${
+                        ((currentStep === 1 && (!itemName.trim() || !itemType.trim())) ||
+                         (currentStep === 2 && !userPrompt.trim()))
+                          ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                          : 'bg-black text-white hover:bg-gray-900 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-900'
+                      }`}
+                    >
+                      {currentStep === 2 ? 'Generate Design' : 'Continue'}
+                      <svg className="ml-2 h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                        <path fillRule="evenodd" d="M12.293 5.293a1 1 0 011.414 0l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414-1.414L14.586 11H3a1 1 0 110-2h11.586l-2.293-2.293a1 1 0 010-1.414z" clipRule="evenodd" />
+                      </svg>
+                    </button>
+                  )}
+                </div>
+              </div>
         </form>
       </div>
     </div>

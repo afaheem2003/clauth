@@ -72,8 +72,37 @@ export async function POST(request) {
 
   } catch (error) {
     console.error('Phone verification error:', error)
+    
+    // Provide specific error messages based on the error type
+    if (error.code === 'P2025') {
+      // Prisma record not found
+      return NextResponse.json(
+        { error: 'Verification record not found. Please request a new verification code.' },
+        { status: 400 }
+      )
+    }
+    
+    if (error.code?.startsWith('P')) {
+      // Other Prisma errors
+      return NextResponse.json(
+        { error: 'Database error during verification. Please try again or contact support if this persists.' },
+        { status: 500 }
+      )
+    }
+    
+    if (error.message?.includes('timeout')) {
+      return NextResponse.json(
+        { error: 'Verification timeout. Please check your connection and try again.' },
+        { status: 500 }
+      )
+    }
+    
+    // Generic fallback with more context
     return NextResponse.json(
-      { error: 'Something went wrong. Please try again.' },
+      { 
+        error: 'Phone verification failed. Please ensure you entered the correct code and try again. If the problem persists, request a new code.',
+        details: process.env.NODE_ENV === 'development' ? error.message : undefined
+      },
       { status: 500 }
     )
   }
@@ -105,8 +134,20 @@ export async function PATCH(request) {
 
   } catch (error) {
     console.error('Verification attempt error:', error)
+    
+    // More specific error handling for attempt recording
+    if (error.code?.startsWith('P')) {
+      return NextResponse.json(
+        { error: 'Database error while recording verification attempt. Please try again.' },
+        { status: 500 }
+      )
+    }
+    
     return NextResponse.json(
-      { error: 'Failed to record attempt' },
+      { 
+        error: 'Failed to record verification attempt. This may affect rate limiting.',
+        details: process.env.NODE_ENV === 'development' ? error.message : undefined
+      },
       { status: 500 }
     )
   }

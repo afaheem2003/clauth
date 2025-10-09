@@ -71,7 +71,6 @@ export default function BasicDetailsStep({
           {/* Subcategory Selection */}
           {selectedCategory && (
             <div className="mt-4">
-              <h4 className="text-sm font-medium text-gray-900 mb-2">Select Item Type</h4>
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 max-h-60 overflow-y-auto">
                 {CLOTHING_CATEGORIES[selectedCategory].subcategories.map((subcat) => (
                   <button
