@@ -6,39 +6,41 @@ generator client {
 datasource db {
   provider     = "postgresql"
   url          = env("DATABASE_URL")
-  relationMode = "foreignKeys"  // <- change this!
+  relationMode = "foreignKeys" // <- change this!
 }
 
-/* ────────────────────────────────────────────────────────────
-   NextAuth core models
-────────────────────────────────────────────────────────────── */
+/**
+ * ────────────────────────────────────────────────────────────
+ * NextAuth core models
+ * ──────────────────────────────────────────────────────────────
+ */
 model User {
-  id            String         @id @default(cuid())
+  id            String    @id @default(cuid())
   name          String?
-  email         String?        @unique
+  email         String?   @unique
   emailVerified DateTime?
   image         String?
 
   // Password authentication fields
-  password      String?        // Hashed password for email/password login
-  
-  // Phone verification fields
-  phone         String?        @unique
-  phoneVerified DateTime?
-  
-  displayName   String?        @unique
-  photoUrl      String?
-  bio           String         @default("")
-  createdAt     DateTime       @default(now())
+  password String? // Hashed password for email/password login
 
-  role          Role           @default(USER)
+  // Phone verification fields
+  phone         String?   @unique
+  phoneVerified DateTime?
+
+  displayName String?  @unique
+  photoUrl    String?
+  bio         String   @default("")
+  createdAt   DateTime @default(now())
+
+  role           Role               @default(USER)
   waitlistStatus WaitlistUserStatus @default(WAITLISTED) // New field for waitlist tracking
 
   // Referral system
-  referralCode  String?        @unique // User's unique referral code
+  referralCode String? @unique // User's unique referral code
 
   // Stripe integration
-  stripeCustomerId String?     @unique
+  stripeCustomerId String? @unique
 
   clothingItems ClothingItem[]
   votes         Vote[]
@@ -47,63 +49,72 @@ model User {
   likes         Like[]
   wardrobes     Wardrobe[]
 
+  // Uploaded design relationships
+  uploadedDesigns                    UploadedDesign[]
+  uploadedDesignVotes                UploadedDesignVote[]
+  uploadedDesignPreorders            UploadedDesignPreorder[]
+  uploadedDesignComments             UploadedDesignComment[]
+  uploadedDesignLikes                UploadedDesignLike[]
+  uploadedDesignChallengeSubmissions UploadedDesignChallengeSubmission[]
+  uploadedDesignWaitlistApplications UploadedDesignWaitlistApplication[]
+
   // Add followers/following relationships
-  followers     Follow[]       @relation("UserFollowers")
-  following     Follow[]       @relation("UserFollowing")
+  followers Follow[] @relation("UserFollowers")
+  following Follow[] @relation("UserFollowing")
 
-  shippingInfo  ShippingInfo?  @relation("UserShipping")
-  billingInfo   BillingInfo?   @relation("UserBilling")
+  shippingInfo ShippingInfo? @relation("UserShipping")
+  billingInfo  BillingInfo?  @relation("UserBilling")
 
-  accounts      Account[]
-  sessions      Session[]
+  accounts Account[]
+  sessions Session[]
 
   // Rate limiting & subscription relationships
-  dailyUsage    DailyUsage[]
-  
+  dailyUsage DailyUsage[]
+
   // Credit system relationships
-  credits       UserCredits?
-  designEdits   DesignEditHistory[]
-  boosterPurchases BoosterPurchase[]
+  credits            UserCredits?
+  designEdits        DesignEditHistory[]
+  boosterPurchases   BoosterPurchase[]
   creditTransactions CreditTransaction[]
-  
+
   // Game mode relationships
-  createdGroups     Group[]                @relation("GroupCreator")
-  groupMemberships  GroupMember[]
-  challengeSubmissions ChallengeSubmission[]
-  submissionUpvotes    SubmissionUpvote[]
+  createdGroups             Group[]                  @relation("GroupCreator")
+  groupMemberships          GroupMember[]
+  challengeSubmissions      ChallengeSubmission[]
+  submissionUpvotes         SubmissionUpvote[]
   competitionParticipations CompetitionParticipant[]
 
   // Waitlist tracking
-  waitlistInfo  WaitlistInfo?
+  waitlistInfo         WaitlistInfo?
   waitlistApplications WaitlistDesignApplication[] // Applications they've submitted
-  waitlistProgress WaitlistProgress? // Their current waitlist application progress
-  
+  waitlistProgress     WaitlistProgress? // Their current waitlist application progress
+
   // Design progress tracking
   designProgress DesignProgress? // Their current design progress (temporary storage)
-  
+
   // Community voting system
-  createdVotingRounds VotingRound[] @relation("VotingRoundCreator") // Voting rounds they created (admin)
-  applicationVotes ApplicationVote[] // Votes they've cast on applications
-  
+  createdVotingRounds VotingRound[]     @relation("VotingRoundCreator") // Voting rounds they created (admin)
+  applicationVotes    ApplicationVote[] // Votes they've cast on applications
+
   // Verification relationships
   phoneVerifications PhoneVerification[]
 }
 
 model Account {
-  id                 String   @id @default(cuid())
-  userId             String
-  type               String
-  provider           String
-  providerAccountId  String
-  refresh_token      String?
-  access_token       String?
-  expires_at         Int?
-  token_type         String?
-  scope              String?
-  id_token           String?
-  session_state      String?
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String?
+  access_token      String?
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String?
+  session_state     String?
 
-  user   User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([provider, providerAccountId])
 }
@@ -114,7 +125,7 @@ model Session {
   userId       String
   expires      DateTime
 
-  user         User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
 model VerificationToken {
@@ -125,38 +136,42 @@ model VerificationToken {
   @@unique([identifier, token])
 }
 
-/* ────────────────────────────────────────────────────────────
-   Waitlist tracking model
-────────────────────────────────────────────────────────────── */
+/**
+ * ────────────────────────────────────────────────────────────
+ * Waitlist tracking model
+ * ──────────────────────────────────────────────────────────────
+ */
 model WaitlistInfo {
-  id              String   @id @default(cuid())
-  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  userId          String   @unique
-  
-  signupDate      DateTime @default(now()) // When they first signed up
-  approvedAt      DateTime? // When they were approved (if applicable)
-  approvedBy      String?   // Admin user ID who approved them
-  
+  id     String @id @default(cuid())
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId String @unique
+
+  signupDate DateTime  @default(now()) // When they first signed up
+  approvedAt DateTime? // When they were approved (if applicable)
+  approvedBy String? // Admin user ID who approved them
+
   // Additional tracking info
-  referralSource  String?   // How they found out about the platform
-  interests       String[]  // What they're interested in
-  notes           String?   // Admin notes
-  
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
-  
+  referralSource String? // How they found out about the platform
+  interests      String[] // What they're interested in
+  notes          String? // Admin notes
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
   @@map("WaitlistInfo")
 }
 
-/* ────────────────────────────────────────────────────────────
-   Application models
-────────────────────────────────────────────────────────────── */
+/**
+ * ────────────────────────────────────────────────────────────
+ * Application models
+ * ──────────────────────────────────────────────────────────────
+ */
 enum ItemStatus {
-  CONCEPT     // Initial stage - just an idea
-  SELECTED    // Hand-picked for next drop
-  AVAILABLE   // Currently available for purchase
-  SOLD_OUT    // No longer available
-  ARCHIVED    // Removed from shop but kept for reference
+  CONCEPT // Initial stage - just an idea
+  SELECTED // Hand-picked for next drop
+  AVAILABLE // Currently available for purchase
+  SOLD_OUT // No longer available
+  ARCHIVED // Removed from shop but kept for reference
 }
 
 enum Gender {
@@ -166,59 +181,107 @@ enum Gender {
 }
 
 model ClothingItem {
-  id               String         @id @default(cuid())
-  name             String
-  itemType         String        // Category/Type (e.g. Tops, Bottoms, Outerwear)
-  gender           Gender         @default(UNISEX) // Target gender for the item
-  description      String?
-  imageUrl         String?    // Keep for backward compatibility
-  frontImage       String?    // Front view (optional for now)
-  rightImage       String?    // Right side view
-  leftImage        String?    // Left side view
-  backImage        String?    // Back view
-  promptRaw        String?
-  promptSanitized  String?
-  material         String?    // Material (e.g. Cotton, Linen, Silk)
-  size             String?    // Standard sizes (XS, S, M, L, XL, XXL)
-  color            String?    // Color of the item
-  pattern          String?    // Pattern/Print (e.g. Solid, Striped, Plaid)
-  style            String?    // Style/Occasion (e.g. Casual, Formal, Business)
-  fit              String?    // Fit/Cut (e.g. Slim, Regular, Relaxed)
-  brand            String?    // Brand/Designer name
-  promptJsonData   String?
-  quality          String?    // Generation quality: 'low', 'medium', 'high'
-  price            Decimal?   // Price of the item (only set when status becomes SELECTED)
-  cost             Decimal?   // AI-estimated cost of the item
-  isPublished      Boolean    @default(false)
-  isFeatured       Boolean    @default(false)
-  isDeleted        Boolean    @default(false)
-  createdAt        DateTime   @default(now())
-  expiresAt        DateTime?
-  estimatedShipDate DateTime? // When the item is expected to ship if goal is reached
-  creator          User       @relation(fields: [creatorId], references: [id])
-  creatorId        String
-  votes            Vote[]
-  preorders        Preorder[]
-  comments         Comment[]
-  likes            Like[]
-  customerRating   Float?     // Customer Rating (1-5 stars)
-  inStock          Boolean    @default(true) // Availability
-  wardrobeItems    WardrobeItem[]
-  designEdits      DesignEditHistory[]
+  id                   String                      @id @default(cuid())
+  name                 String
+  itemType             String // Category/Type (e.g. Tops, Bottoms, Outerwear)
+  gender               Gender                      @default(UNISEX) // Target gender for the item
+  description          String?
+  imageUrl             String? // Keep for backward compatibility
+  frontImage           String? // Front view (optional for now)
+  rightImage           String? // Right side view
+  leftImage            String? // Left side view
+  backImage            String? // Back view
+  promptRaw            String?
+  promptSanitized      String?
+  material             String? // Material (e.g. Cotton, Linen, Silk)
+  size                 String? // Standard sizes (XS, S, M, L, XL, XXL)
+  color                String? // Color of the item
+  pattern              String? // Pattern/Print (e.g. Solid, Striped, Plaid)
+  style                String? // Style/Occasion (e.g. Casual, Formal, Business)
+  fit                  String? // Fit/Cut (e.g. Slim, Regular, Relaxed)
+  brand                String? // Brand/Designer name
+  promptJsonData       String?
+  quality              String? // Generation quality: 'low', 'medium', 'high'
+  price                Decimal? // Price of the item (only set when status becomes SELECTED)
+  cost                 Decimal? // AI-estimated cost of the item
+  isPublished          Boolean                     @default(false)
+  isFeatured           Boolean                     @default(false)
+  isDeleted            Boolean                     @default(false)
+  createdAt            DateTime                    @default(now())
+  expiresAt            DateTime?
+  estimatedShipDate    DateTime? // When the item is expected to ship if goal is reached
+  creator              User                        @relation(fields: [creatorId], references: [id])
+  creatorId            String
+  votes                Vote[]
+  preorders            Preorder[]
+  comments             Comment[]
+  likes                Like[]
+  customerRating       Float? // Customer Rating (1-5 stars)
+  inStock              Boolean                     @default(true) // Availability
+  wardrobeItems        WardrobeItem[]
+  designEdits          DesignEditHistory[]
   challengeSubmissions ChallengeSubmission[] // Challenge submissions using this item
   waitlistApplications WaitlistDesignApplication[] // Waitlist applications using this item
-  
+
   // Drop-based system fields
-  status           ItemStatus @default(CONCEPT)
-  totalQuantity    Int?      // Only set when status becomes SELECTED
-  soldQuantity     Int       @default(0)
-  batchNumber      Int?      // Which drop/batch this belongs to
-  dropDate         DateTime? // When this will be/was dropped
-  selectionDate    DateTime? // When this was selected for production
-  releaseDate      DateTime? // When this was released to the shop
+  status        ItemStatus @default(CONCEPT)
+  totalQuantity Int? // Only set when status becomes SELECTED
+  soldQuantity  Int        @default(0)
+  batchNumber   Int? // Which drop/batch this belongs to
+  dropDate      DateTime? // When this will be/was dropped
+  selectionDate DateTime? // When this was selected for production
+  releaseDate   DateTime? // When this was released to the shop
 
   // Remove legacy fields that are no longer needed
   @@map("ClothingItem")
+}
+
+/**
+ * ────────────────────────────────────────────────────────────
+ * Uploaded Design Model - For user-uploaded designs
+ * ──────────────────────────────────────────────────────────────
+ */
+model UploadedDesign {
+  id                   String                              @id @default(cuid())
+  name                 String
+  itemType             String // Category/Type (e.g. Tops, Bottoms, Outerwear)
+  gender               Gender                              @default(UNISEX) // Target gender for the item
+  description          String?
+  frontImage           String // Front view (required for uploads)
+  backImage            String? // Back view (optional but recommended)
+  color                String? // Color of the item
+  material             String? // Material (e.g. Cotton, Linen, Silk)
+  style                String? // Style/Occasion (e.g. Casual, Formal, Business)
+  fit                  String? // Fit/Cut (e.g. Slim, Regular, Relaxed)
+  brand                String? // Brand/Designer name
+  price                Decimal? // Price of the item (only set when status becomes SELECTED)
+  isPublished          Boolean                             @default(false)
+  isFeatured           Boolean                             @default(false)
+  isDeleted            Boolean                             @default(false)
+  createdAt            DateTime                            @default(now())
+  estimatedShipDate    DateTime? // When the item is expected to ship if goal is reached
+  creator              User                                @relation(fields: [creatorId], references: [id])
+  creatorId            String
+  votes                UploadedDesignVote[]
+  preorders            UploadedDesignPreorder[]
+  comments             UploadedDesignComment[]
+  likes                UploadedDesignLike[]
+  customerRating       Float? // Customer Rating (1-5 stars)
+  inStock              Boolean                             @default(true) // Availability
+  wardrobeItems        UploadedDesignWardrobeItem[]
+  challengeSubmissions UploadedDesignChallengeSubmission[] // Challenge submissions using this item
+  waitlistApplications UploadedDesignWaitlistApplication[] // Waitlist applications using this item
+
+  // Drop-based system fields
+  status        ItemStatus @default(CONCEPT)
+  totalQuantity Int? // Only set when status becomes SELECTED
+  soldQuantity  Int        @default(0)
+  batchNumber   Int? // Which drop/batch this belongs to
+  dropDate      DateTime? // When this will be/was dropped
+  selectionDate DateTime? // When this was selected for production
+  releaseDate   DateTime? // When this was released to the shop
+
+  @@map("UploadedDesign")
 }
 
 model Vote {
@@ -233,41 +296,41 @@ model Vote {
 }
 
 model Preorder {
-  id              String         @id @default(cuid())
-  user            User?          @relation(fields: [userId], references: [id])
-  userId          String?
-  clothingItem    ClothingItem   @relation(fields: [clothingItemId], references: [id])
-  clothingItemId  String
-  createdAt       DateTime       @default(now())
-  price           Float
-  quantity        Int            @default(1)
-  status          PreorderStatus @default(PENDING)
-  size            String         // Add size field
-  guestEmail String? // optional email field for guest users
+  id             String         @id @default(cuid())
+  user           User?          @relation(fields: [userId], references: [id])
+  userId         String?
+  clothingItem   ClothingItem   @relation(fields: [clothingItemId], references: [id])
+  clothingItemId String
+  createdAt      DateTime       @default(now())
+  price          Float
+  quantity       Int            @default(1)
+  status         PreorderStatus @default(PENDING)
+  size           String // Add size field
+  guestEmail     String? // optional email field for guest users
 
-  shippingInfo    ShippingInfo?  @relation("PreorderShipping", fields: [shippingInfoId], references: [id])
-  shippingInfoId  String?        @unique
+  shippingInfo   ShippingInfo? @relation("PreorderShipping", fields: [shippingInfoId], references: [id])
+  shippingInfoId String?       @unique
 
-  billingInfo     BillingInfo?   @relation("PreorderBilling", fields: [billingInfoId], references: [id])
-  billingInfoId   String?        @unique
+  billingInfo   BillingInfo? @relation("PreorderBilling", fields: [billingInfoId], references: [id])
+  billingInfoId String?      @unique
 
   payment         PaymentIntent? @relation(fields: [paymentIntentId], references: [id])
   paymentIntentId String?        @unique
 }
 
 model Comment {
-  id        String    @id @default(cuid())
-  content   String
-  createdAt DateTime  @default(now())
-  author    User      @relation(fields: [authorId], references: [id])
-  authorId  String
-  clothingItem ClothingItem @relation(fields: [clothingItemId], references: [id])
+  id             String       @id @default(cuid())
+  content        String
+  createdAt      DateTime     @default(now())
+  author         User         @relation(fields: [authorId], references: [id])
+  authorId       String
+  clothingItem   ClothingItem @relation(fields: [clothingItemId], references: [id])
   clothingItemId String
 
   // Self-referencing relationship for replies
-  parent     Comment?   @relation("CommentReplies", fields: [parentId], references: [id], onDelete: Restrict, onUpdate: Restrict)
-  parentId   String?
-  replies    Comment[]  @relation("CommentReplies")
+  parent   Comment?  @relation("CommentReplies", fields: [parentId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  parentId String?
+  replies  Comment[] @relation("CommentReplies")
 
   @@index([parentId])
 }
@@ -283,65 +346,247 @@ model Like {
   @@unique([userId, clothingItemId])
 }
 
+/**
+ * ────────────────────────────────────────────────────────────
+ * Uploaded Design Related Models
+ * ──────────────────────────────────────────────────────────────
+ */
+model UploadedDesignVote {
+  id               String         @id @default(cuid())
+  user             User           @relation(fields: [userId], references: [id])
+  userId           String
+  uploadedDesign   UploadedDesign @relation(fields: [uploadedDesignId], references: [id])
+  uploadedDesignId String
+  createdAt        DateTime       @default(now())
+
+  @@unique([userId, uploadedDesignId])
+}
+
+model UploadedDesignPreorder {
+  id               String         @id @default(cuid())
+  user             User?          @relation(fields: [userId], references: [id])
+  userId           String?
+  uploadedDesign   UploadedDesign @relation(fields: [uploadedDesignId], references: [id])
+  uploadedDesignId String
+  createdAt        DateTime       @default(now())
+  price            Float
+  quantity         Int            @default(1)
+  status           PreorderStatus @default(PENDING)
+  size             String // Add size field
+  guestEmail       String? // optional email field for guest users
+
+  shippingInfo   ShippingInfo? @relation("UploadedDesignPreorderShipping", fields: [shippingInfoId], references: [id])
+  shippingInfoId String?       @unique
+
+  billingInfo   BillingInfo? @relation("UploadedDesignPreorderBilling", fields: [billingInfoId], references: [id])
+  billingInfoId String?      @unique
+
+  payment         PaymentIntent? @relation("UploadedDesignPreorderPayment", fields: [paymentIntentId], references: [id])
+  paymentIntentId String?        @unique
+}
+
+model UploadedDesignComment {
+  id               String         @id @default(cuid())
+  content          String
+  createdAt        DateTime       @default(now())
+  author           User           @relation(fields: [authorId], references: [id])
+  authorId         String
+  uploadedDesign   UploadedDesign @relation(fields: [uploadedDesignId], references: [id])
+  uploadedDesignId String
+
+  // Self-referencing relationship for replies
+  parent   UploadedDesignComment?  @relation("UploadedDesignCommentReplies", fields: [parentId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  parentId String?
+  replies  UploadedDesignComment[] @relation("UploadedDesignCommentReplies")
+
+  @@index([parentId])
+}
+
+model UploadedDesignLike {
+  id               String         @id @default(cuid())
+  user             User           @relation(fields: [userId], references: [id])
+  userId           String
+  uploadedDesign   UploadedDesign @relation(fields: [uploadedDesignId], references: [id])
+  uploadedDesignId String
+  createdAt        DateTime       @default(now())
+
+  @@unique([userId, uploadedDesignId])
+}
+
+model UploadedDesignWardrobeItem {
+  id               String         @id @default(cuid())
+  wardrobe         Wardrobe       @relation(fields: [wardrobeId], references: [id])
+  wardrobeId       String
+  uploadedDesign   UploadedDesign @relation(fields: [uploadedDesignId], references: [id])
+  uploadedDesignId String
+  addedAt          DateTime       @default(now())
+  notes            String? // Optional notes about how this item fits in the wardrobe
+
+  @@unique([wardrobeId, uploadedDesignId]) // Prevent duplicate items in a wardrobe
+}
+
+model UploadedDesignChallengeSubmission {
+  id          String         @id @default(cuid())
+  challenge   DailyChallenge @relation(fields: [challengeId], references: [id])
+  challengeId String
+  group       Group?         @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  groupId     String?
+  user        User           @relation(fields: [userId], references: [id])
+  userId      String
+
+  // Competition room assignment
+  competitionRoom   CompetitionRoom? @relation(fields: [competitionRoomId], references: [id])
+  competitionRoomId String?
+
+  // Link to uploaded design
+  uploadedDesign   UploadedDesign @relation(fields: [uploadedDesignId], references: [id])
+  uploadedDesignId String
+
+  outfitDescription String // User's text description of their outfit
+  generationStatus  SubmissionStatus @default(COMPLETED) // Always completed for uploads
+
+  // Competition fields (now room-specific instead of global)
+  isPublic                 Boolean @default(true) // Visible in room feed
+  isEligibleForCompetition Boolean @default(false) // True when user has upvoted 3+ others in their room
+  roomRank                 Int? // Calculated rank within their competition room
+
+  submittedAt DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  upvotes SubmissionUpvote[] // Upvotes received
+
+  @@unique([challengeId, userId, uploadedDesignId]) // One submission per user per challenge per design
+  @@index([challengeId, groupId])
+  @@index([userId])
+  @@index([challengeId, competitionRoomId]) // For room leaderboard queries
+  @@index([competitionRoomId, isEligibleForCompetition]) // For room rankings
+}
+
+model UploadedDesignWaitlistApplication {
+  id String @id @default(cuid())
+
+  // User who submitted the application
+  applicant   User   @relation(fields: [applicantId], references: [id], onDelete: Cascade)
+  applicantId String
+
+  // The uploaded design they submitted
+  uploadedDesign   UploadedDesign @relation(fields: [uploadedDesignId], references: [id], onDelete: Cascade)
+  uploadedDesignId String
+
+  // Referral codes they used (up to 3)
+  referralCodes String[] @default([])
+
+  // Application status
+  status ApplicationStatus @default(PENDING)
+
+  // Admin review
+  reviewedAt DateTime?
+  reviewedBy String? // Admin user ID
+  adminNotes String? // Internal admin notes
+
+  // Community voting
+  votingRounds VotingRoundUploadedApplication[] // Voting rounds this application has been in
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("UploadedDesignWaitlistApplication")
+}
+
+model VotingRoundUploadedApplication {
+  id String @id @default(cuid())
+
+  // Voting round this belongs to
+  votingRound   VotingRound @relation(fields: [votingRoundId], references: [id], onDelete: Cascade)
+  votingRoundId String
+
+  // The uploaded design application being voted on
+  application   UploadedDesignWaitlistApplication @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+  applicationId String
+
+  // Vote results for this application in this round
+  upvotes      Int   @default(0)
+  downvotes    Int   @default(0)
+  totalVotes   Int   @default(0)
+  approvalRate Float @default(0.0) // upvotes / totalVotes
+
+  // Result
+  wasApproved Boolean @default(false)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  votes ApplicationVote[]
+
+  @@unique([votingRoundId, applicationId]) // One entry per application per round
+  @@index([votingRoundId, approvalRate]) // For ranking
+}
+
 model ShippingInfo {
-  id         String   @id @default(cuid())
-  fullName   String
-  address1   String
-  address2   String?
-  city       String
-  state      String
-  zip        String
-  country    String
+  id       String  @id @default(cuid())
+  fullName String
+  address1 String
+  address2 String?
+  city     String
+  state    String
+  zip      String
+  country  String
 
-  user       User?     @relation("UserShipping", fields: [userId], references: [id])
-  userId     String?   @unique
+  user   User?   @relation("UserShipping", fields: [userId], references: [id])
+  userId String? @unique
 
-  preorder   Preorder? @relation("PreorderShipping")
+  preorder               Preorder?               @relation("PreorderShipping")
+  uploadedDesignPreorder UploadedDesignPreorder? @relation("UploadedDesignPreorderShipping")
 }
 
 model BillingInfo {
-  id         String   @id @default(cuid())
-  fullName   String
-  address1   String
-  address2   String?
-  city       String
-  state      String
-  zip        String
-  country    String
+  id       String  @id @default(cuid())
+  fullName String
+  address1 String
+  address2 String?
+  city     String
+  state    String
+  zip      String
+  country  String
 
-  cardBrand  String?
-  cardLast4  String?
-  cardToken  String?
+  cardBrand String?
+  cardLast4 String?
+  cardToken String?
 
-  user       User?     @relation("UserBilling", fields: [userId], references: [id])
-  userId     String?   @unique
+  user   User?   @relation("UserBilling", fields: [userId], references: [id])
+  userId String? @unique
 
-  preorder   Preorder? @relation("PreorderBilling")
+  preorder               Preorder?               @relation("PreorderBilling")
+  uploadedDesignPreorder UploadedDesignPreorder? @relation("UploadedDesignPreorderBilling")
 }
 
 model PaymentIntent {
-  id           String               @id @default(cuid())
+  id           String              @id @default(cuid())
   provider     String
-  intentId     String               @unique
+  intentId     String              @unique
   clientSecret String?
-  status       PaymentIntentStatus  @default(REQUIRES_CAPTURE)
-  createdAt    DateTime             @default(now())
+  status       PaymentIntentStatus @default(REQUIRES_CAPTURE)
+  createdAt    DateTime            @default(now())
 
   // ✅ New fields for address
-  fullName     String?
-  address1     String?
-  address2     String?
-  city         String?
-  state        String?
-  zip          String?
-  country      String?
+  fullName String?
+  address1 String?
+  address2 String?
+  city     String?
+  state    String?
+  zip      String?
+  country  String?
 
-  preorder     Preorder?
+  preorder               Preorder?
+  uploadedDesignPreorder UploadedDesignPreorder? @relation("UploadedDesignPreorderPayment")
 }
 
-/* ────────────────────────────────────────────────────────────
-   ENUMS
-────────────────────────────────────────────────────────────── */
+/**
+ * ────────────────────────────────────────────────────────────
+ * ENUMS
+ * ──────────────────────────────────────────────────────────────
+ */
 enum ClothingItemStatus {
   PENDING
   IN_PRODUCTION
@@ -369,54 +614,59 @@ enum Role {
 }
 
 enum WaitlistUserStatus {
-  WAITLISTED    // User is on the waitlist
-  APPROVED      // User has been approved and has full access
+  WAITLISTED // User is on the waitlist
+  APPROVED // User has been approved and has full access
 }
 
-/* ────────────────────────────────────────────────────────────
-   Wardrobe models
-────────────────────────────────────────────────────────────── */
+/**
+ * ────────────────────────────────────────────────────────────
+ * Wardrobe models
+ * ──────────────────────────────────────────────────────────────
+ */
 model Wardrobe {
-  id          String         @id @default(cuid())
+  id          String   @id @default(cuid())
   name        String
   description String?
-  isPublic    Boolean       @default(false)
-  createdAt   DateTime      @default(now())
-  updatedAt   DateTime      @updatedAt
-  style       String?       // e.g., "Casual", "Formal", "Streetwear"
-  season      String?       // e.g., "Summer", "Winter", "All Season"
-  occasion    String?       // e.g., "Work", "Party", "Everyday"
-  
+  isPublic    Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  style       String? // e.g., "Casual", "Formal", "Streetwear"
+  season      String? // e.g., "Summer", "Winter", "All Season"
+  occasion    String? // e.g., "Work", "Party", "Everyday"
+
   // Template system - ADD THIS LINE
-  templateType   String?       @default("gallery") // "minimalist", "gallery", "grid", "magazine"
-  
+  templateType String? @default("gallery") // "minimalist", "gallery", "grid", "magazine"
+
   // Banner customization fields
-  bannerType     String?       // "image", "color", "gradient"
-  bannerImage    String?       // Supabase storage URL for custom banner image
-  bannerColor    String?       // Single color hex code (e.g., "#667eea")
-  bannerGradient String[]      // Array of hex colors for gradient (e.g., ["#667eea", "#764ba2"])
-  
-  creator     User          @relation(fields: [creatorId], references: [id])
-  creatorId   String
-  
-  items       WardrobeItem[]
+  bannerType     String? // "image", "color", "gradient"
+  bannerImage    String? // Supabase storage URL for custom banner image
+  bannerColor    String? // Single color hex code (e.g., "#667eea")
+  bannerGradient String[] // Array of hex colors for gradient (e.g., ["#667eea", "#764ba2"])
+
+  creator   User   @relation(fields: [creatorId], references: [id])
+  creatorId String
+
+  items               WardrobeItem[]
+  uploadedDesignItems UploadedDesignWardrobeItem[]
 }
 
 model WardrobeItem {
-  id          String       @id @default(cuid())
-  wardrobe    Wardrobe     @relation(fields: [wardrobeId], references: [id])
-  wardrobeId  String
-  clothingItem ClothingItem @relation(fields: [clothingItemId], references: [id])
+  id             String       @id @default(cuid())
+  wardrobe       Wardrobe     @relation(fields: [wardrobeId], references: [id])
+  wardrobeId     String
+  clothingItem   ClothingItem @relation(fields: [clothingItemId], references: [id])
   clothingItemId String
-  addedAt     DateTime    @default(now())
-  notes       String?     // Optional notes about how this item fits in the wardrobe
-  
+  addedAt        DateTime     @default(now())
+  notes          String? // Optional notes about how this item fits in the wardrobe
+
   @@unique([wardrobeId, clothingItemId]) // Prevent duplicate items in a wardrobe
 }
 
-/* ────────────────────────────────────────────────────────────
-   Follow model
-────────────────────────────────────────────────────────────── */
+/**
+ * ────────────────────────────────────────────────────────────
+ * Follow model
+ * ──────────────────────────────────────────────────────────────
+ */
 model Follow {
   id          String   @id @default(cuid())
   follower    User     @relation("UserFollowing", fields: [followerId], references: [id])
@@ -430,108 +680,110 @@ model Follow {
   @@index([followingId])
 }
 
-/* ────────────────────────────────────────────────────────────
-   Credit & Subscription models
-────────────────────────────────────────────────────────────── */
+/**
+ * ────────────────────────────────────────────────────────────
+ * Credit & Subscription models
+ * ──────────────────────────────────────────────────────────────
+ */
 
 model UserCredits {
-  id                    String   @id @default(cuid())
-  user                  User     @relation(fields: [userId], references: [id])
-  userId                String
-  lowCredits            Int      @default(0)  // Available low quality credits
-  mediumCredits         Int      @default(0)  // Available medium quality credits
-  highCredits           Int      @default(0)  // Available high quality credits
-  lastMonthlyRefill     DateTime?             // When credits were last refilled
-  
-  // Subscription fields
-  subscriptionType      String   @default("FREE")  // "FREE", "CREATOR", "CREATOR_PRO"
-  dailyLowCap           Int?                       // Daily limit for low credits
-  dailyMediumCap        Int?                       // Daily limit for medium credits
-  dailyHighCap          Int?                       // Daily limit for high credits  
-  lastReset             DateTime?                  // When subscription was last reset
-  
-  createdAt             DateTime @default(now())
-  updatedAt             DateTime @updatedAt
+  id                String    @id @default(cuid())
+  user              User      @relation(fields: [userId], references: [id])
+  userId            String
+  lowCredits        Int       @default(0) // Available low quality credits
+  mediumCredits     Int       @default(0) // Available medium quality credits
+  highCredits       Int       @default(0) // Available high quality credits
+  lastMonthlyRefill DateTime? // When credits were last refilled
 
-  @@unique([userId])  // One credit balance per user
+  // Subscription fields
+  subscriptionType String    @default("FREE") // "FREE", "CREATOR", "CREATOR_PRO"
+  dailyLowCap      Int? // Daily limit for low credits
+  dailyMediumCap   Int? // Daily limit for medium credits
+  dailyHighCap     Int? // Daily limit for high credits  
+  lastReset        DateTime? // When subscription was last reset
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([userId]) // One credit balance per user
 }
 
 model DailyUsage {
-  id                    String   @id @default(cuid())
-  user                  User     @relation(fields: [userId], references: [id])
-  userId                String
-  date                  DateTime @db.Date  // Just the date (YYYY-MM-DD)
-  lowGenerations        Int      @default(0)  // Low quality generations used today
-  mediumGenerations     Int      @default(0)  // Medium quality generations used today
-  highGenerations       Int      @default(0)  // High quality generations used today
-  createdAt             DateTime @default(now())
-  updatedAt             DateTime @updatedAt
+  id                String   @id @default(cuid())
+  user              User     @relation(fields: [userId], references: [id])
+  userId            String
+  date              DateTime @db.Date // Just the date (YYYY-MM-DD)
+  lowGenerations    Int      @default(0) // Low quality generations used today
+  mediumGenerations Int      @default(0) // Medium quality generations used today
+  highGenerations   Int      @default(0) // High quality generations used today
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
 
-  @@unique([userId, date])  // One record per user per day
+  @@unique([userId, date]) // One record per user per day
   @@index([userId, date])
 }
 
 model DesignEditHistory {
-  id                    String       @id @default(cuid())
-  user                  User         @relation(fields: [userId], references: [id])
-  userId                String
-  clothingItem          ClothingItem? @relation(fields: [clothingItemId], references: [id])
-  clothingItemId        String?      // Null for unpublished designs
-  designSession         String       // Unique identifier for this design session
-  editCount             Int          @default(0)  // Number of edits made to this design
-  originalPrompt        String       // The original design prompt
-  createdAt             DateTime     @default(now())
-  updatedAt             DateTime     @updatedAt
+  id             String        @id @default(cuid())
+  user           User          @relation(fields: [userId], references: [id])
+  userId         String
+  clothingItem   ClothingItem? @relation(fields: [clothingItemId], references: [id])
+  clothingItemId String? // Null for unpublished designs
+  designSession  String // Unique identifier for this design session
+  editCount      Int           @default(0) // Number of edits made to this design
+  originalPrompt String // The original design prompt
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
 
   @@index([userId, designSession])
   @@index([clothingItemId])
 }
 
 model BoosterPack {
-  id                    String   @id @default(cuid())
-  name                  String   @unique  // "low_micro", "medium_micro", "medium_bulk", "high_micro", "high_bulk"
-  displayName           String             // "Low Booster — Micro"
-  price                 Decimal            // Price in dollars
-  lowCredits            Int      @default(0)  // Low credits provided
-  mediumCredits         Int      @default(0)  // Medium credits provided
-  highCredits           Int      @default(0)  // High credits provided
-  isActive              Boolean  @default(true)
-  stripePriceId         String?            // Stripe price ID
-  createdAt             DateTime @default(now())
-  updatedAt             DateTime @updatedAt
+  id            String   @id @default(cuid())
+  name          String   @unique // "low_micro", "medium_micro", "medium_bulk", "high_micro", "high_bulk"
+  displayName   String // "Low Booster — Micro"
+  price         Decimal // Price in dollars
+  lowCredits    Int      @default(0) // Low credits provided
+  mediumCredits Int      @default(0) // Medium credits provided
+  highCredits   Int      @default(0) // High credits provided
+  isActive      Boolean  @default(true)
+  stripePriceId String? // Stripe price ID
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
 
-  purchases             BoosterPurchase[]
+  purchases BoosterPurchase[]
 }
 
 model BoosterPurchase {
-  id                    String      @id @default(cuid())
-  user                  User        @relation(fields: [userId], references: [id])
+  id                    String         @id @default(cuid())
+  user                  User           @relation(fields: [userId], references: [id])
   userId                String
-  boosterPack           BoosterPack @relation(fields: [boosterPackId], references: [id])
+  boosterPack           BoosterPack    @relation(fields: [boosterPackId], references: [id])
   boosterPackId         String
-  lowCreditsAdded       Int         // Low credits added to user account
-  mediumCreditsAdded    Int         // Medium credits added to user account
-  highCreditsAdded      Int         // High credits added to user account
-  amountPaid            Decimal     // Amount paid in dollars
-  stripePaymentIntentId String?     // Stripe payment intent ID
+  lowCreditsAdded       Int // Low credits added to user account
+  mediumCreditsAdded    Int // Medium credits added to user account
+  highCreditsAdded      Int // High credits added to user account
+  amountPaid            Decimal // Amount paid in dollars
+  stripePaymentIntentId String? // Stripe payment intent ID
   status                PurchaseStatus @default(PENDING)
-  createdAt             DateTime    @default(now())
-  updatedAt             DateTime    @updatedAt
+  createdAt             DateTime       @default(now())
+  updatedAt             DateTime       @updatedAt
 
   @@index([userId])
 }
 
 model CreditTransaction {
-  id                    String           @id @default(cuid())
-  user                  User             @relation(fields: [userId], references: [id])
-  userId                String
-  type                  CreditTransactionType
-  lowCreditsChange      Int              @default(0)  // Can be positive or negative
-  mediumCreditsChange   Int              @default(0)  // Can be positive or negative
-  highCreditsChange     Int              @default(0)  // Can be positive or negative
-  reason                String           // Description of the transaction
-  relatedId             String?          // ID of related object (booster purchase, generation, etc.)
-  createdAt             DateTime         @default(now())
+  id                  String                @id @default(cuid())
+  user                User                  @relation(fields: [userId], references: [id])
+  userId              String
+  type                CreditTransactionType
+  lowCreditsChange    Int                   @default(0) // Can be positive or negative
+  mediumCreditsChange Int                   @default(0) // Can be positive or negative
+  highCreditsChange   Int                   @default(0) // Can be positive or negative
+  reason              String // Description of the transaction
+  relatedId           String? // ID of related object (booster purchase, generation, etc.)
+  createdAt           DateTime              @default(now())
 
   @@index([userId, createdAt])
 }
@@ -552,40 +804,43 @@ enum CreditTransactionType {
   REFUND
 }
 
-/* ────────────────────────────────────────────────────────────
-   Fashion Challenge Game Mode
-────────────────────────────────────────────────────────────── */
+/**
+ * ────────────────────────────────────────────────────────────
+ * Fashion Challenge Game Mode
+ * ──────────────────────────────────────────────────────────────
+ */
 
 model Group {
-  id          String   @id @default(cuid())
-  name        String   // Display name with spaces allowed
-  handle      String   @unique // @handle for URLs (no spaces, lowercase)
+  id          String  @id @default(cuid())
+  name        String // Display name with spaces allowed
+  handle      String  @unique // @handle for URLs (no spaces, lowercase)
   description String?
-  inviteCode  String   @unique // 8-character alphanumeric invite code
-  isPrivate   Boolean  @default(true)
-  maxMembers  Int      @default(20)
-  
-  creator     User     @relation("GroupCreator", fields: [creatorId], references: [id])
-  creatorId   String
-  
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-  
-  members     GroupMember[]
-  submissions ChallengeSubmission[]
-  
+  inviteCode  String  @unique // 8-character alphanumeric invite code
+  isPrivate   Boolean @default(true)
+  maxMembers  Int     @default(20)
+
+  creator   User   @relation("GroupCreator", fields: [creatorId], references: [id])
+  creatorId String
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  members                   GroupMember[]
+  submissions               ChallengeSubmission[]
+  uploadedDesignSubmissions UploadedDesignChallengeSubmission[]
+
   @@index([inviteCode])
   @@index([handle])
 }
 
 model GroupMember {
-  id        String   @id @default(cuid())
-  group     Group    @relation(fields: [groupId], references: [id], onDelete: Cascade)
-  groupId   String
-  user      User     @relation(fields: [userId], references: [id])
-  userId    String
-  role      GroupRole @default(DESIGNER) // CREATOR or DESIGNER
-  joinedAt  DateTime @default(now())
+  id       String    @id @default(cuid())
+  group    Group     @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  groupId  String
+  user     User      @relation(fields: [userId], references: [id])
+  userId   String
+  role     GroupRole @default(DESIGNER) // CREATOR or DESIGNER
+  joinedAt DateTime  @default(now())
 
   @@unique([groupId, userId]) // One membership per user per group
   @@index([userId])
@@ -597,86 +852,88 @@ enum GroupRole {
 }
 
 model DailyChallenge {
-  id              String   @id @default(cuid())
-  date            DateTime @unique @db.Date // The date this challenge is for
-  mainItem        String?  // Optional main clothing item to design around
-  theme           String   // Theme/aesthetic for the challenge
-  description     String?  // Optional additional description
-  
+  id          String   @id @default(cuid())
+  date        DateTime @unique @db.Date // The date this challenge is for
+  mainItem    String? // Optional main clothing item to design around
+  theme       String // Theme/aesthetic for the challenge
+  description String? // Optional additional description
+
   submissionDeadline DateTime // When submissions must be completed by
   competitionStart   DateTime // When voting/competition begins
   competitionEnd     DateTime // When voting/competition ends
-  
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
-  
-  submissions     ChallengeSubmission[]
-  competitionRooms CompetitionRoom[]
-  
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  submissions               ChallengeSubmission[]
+  uploadedDesignSubmissions UploadedDesignChallengeSubmission[]
+  competitionRooms          CompetitionRoom[]
+
   @@index([date])
 }
 
 model CompetitionRoom {
-  id              String   @id @default(cuid())
+  id              String         @id @default(cuid())
   challenge       DailyChallenge @relation(fields: [challengeId], references: [id])
   challengeId     String
-  roomNumber      Int      // Room 1, Room 2, etc. for this challenge
-  maxParticipants Int      @default(30) // Maximum participants (20-30 range)
-  
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
-  
-  participants    CompetitionParticipant[]
-  submissions     ChallengeSubmission[]
-  
+  roomNumber      Int // Room 1, Room 2, etc. for this challenge
+  maxParticipants Int            @default(30) // Maximum participants (20-30 range)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  participants              CompetitionParticipant[]
+  submissions               ChallengeSubmission[]
+  uploadedDesignSubmissions UploadedDesignChallengeSubmission[]
+
   @@unique([challengeId, roomNumber]) // Unique room numbers per challenge
   @@index([challengeId])
 }
 
 model CompetitionParticipant {
-  id              String   @id @default(cuid())
-  room            CompetitionRoom @relation(fields: [roomId], references: [id], onDelete: Cascade)
-  roomId          String
-  user            User     @relation(fields: [userId], references: [id])
-  userId          String
-  
-  assignedAt      DateTime @default(now())
-  
+  id     String          @id @default(cuid())
+  room   CompetitionRoom @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  roomId String
+  user   User            @relation(fields: [userId], references: [id])
+  userId String
+
+  assignedAt DateTime @default(now())
+
   @@unique([roomId, userId]) // One assignment per user per room
   @@index([userId])
 }
 
 model ChallengeSubmission {
-  id              String   @id @default(cuid())
-  challenge       DailyChallenge @relation(fields: [challengeId], references: [id])
-  challengeId     String
-  group           Group?   @relation(fields: [groupId], references: [id], onDelete: Cascade)
-  groupId         String?
-  user            User     @relation(fields: [userId], references: [id])
-  userId          String
-  
+  id          String         @id @default(cuid())
+  challenge   DailyChallenge @relation(fields: [challengeId], references: [id])
+  challengeId String
+  group       Group?         @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  groupId     String?
+  user        User           @relation(fields: [userId], references: [id])
+  userId      String
+
   // Competition room assignment
-  competitionRoom CompetitionRoom? @relation(fields: [competitionRoomId], references: [id])
+  competitionRoom   CompetitionRoom? @relation(fields: [competitionRoomId], references: [id])
   competitionRoomId String?
-  
+
   // Link to clothing item if submitting existing design
-  clothingItem    ClothingItem? @relation(fields: [clothingItemId], references: [id])
-  clothingItemId  String?
-  
+  clothingItem   ClothingItem? @relation(fields: [clothingItemId], references: [id])
+  clothingItemId String?
+
   outfitDescription String // User's text description of their outfit
   generatedImageUrl String? // AI-generated image URL
   generationStatus  SubmissionStatus @default(PENDING)
-  
+
   // Competition fields (now room-specific instead of global)
-  isPublic        Boolean  @default(true) // Visible in room feed
+  isPublic                 Boolean @default(true) // Visible in room feed
   isEligibleForCompetition Boolean @default(false) // True when user has upvoted 3+ others in their room
-  roomRank        Int?     // Calculated rank within their competition room
-  
-  submittedAt     DateTime @default(now())
-  updatedAt       DateTime @updatedAt
-  
-  upvotes         SubmissionUpvote[] // Upvotes received
-  
+  roomRank                 Int? // Calculated rank within their competition room
+
+  submittedAt DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  upvotes SubmissionUpvote[] // Upvotes received
+
   @@unique([challengeId, userId]) // One submission per user per challenge (removed groupId)
   @@index([challengeId, groupId])
   @@index([userId])
@@ -685,246 +942,268 @@ model ChallengeSubmission {
 }
 
 model SubmissionUpvote {
-  id           String   @id @default(cuid())
+  id           String              @id @default(cuid())
   submission   ChallengeSubmission @relation(fields: [submissionId], references: [id], onDelete: Cascade)
   submissionId String
-  user         User     @relation(fields: [userId], references: [id])
+  user         User                @relation(fields: [userId], references: [id])
   userId       String
-  
-  createdAt    DateTime @default(now())
-  
+
+  createdAt                           DateTime                           @default(now())
+  UploadedDesignChallengeSubmission   UploadedDesignChallengeSubmission? @relation(fields: [uploadedDesignChallengeSubmissionId], references: [id])
+  uploadedDesignChallengeSubmissionId String?
+
   @@unique([submissionId, userId]) // One upvote per user per submission
   @@index([userId, createdAt]) // For user's upvote history
 }
 
 enum SubmissionStatus {
-  PENDING      // Waiting for AI generation
-  GENERATING   // AI is generating the image
-  COMPLETED    // Image generated successfully
-  FAILED       // Generation failed
+  PENDING // Waiting for AI generation
+  GENERATING // AI is generating the image
+  COMPLETED // Image generated successfully
+  FAILED // Generation failed
 }
 
-/* ────────────────────────────────────────────────────────────
-   Phone Verification model
-────────────────────────────────────────────────────────────── */
+/**
+ * ────────────────────────────────────────────────────────────
+ * Phone Verification model
+ * ──────────────────────────────────────────────────────────────
+ */
 model PhoneVerification {
-  id          String    @id @default(cuid())
-  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-  userId      String
-  phone       String
-  code        String    // 6-digit verification code
-  verified    Boolean   @default(false)
-  attempts    Int       @default(0)
-  createdAt   DateTime  @default(now())
-  expiresAt   DateTime  // When the code expires (usually 10 minutes)
-  verifiedAt  DateTime?
-  
+  id         String    @id @default(cuid())
+  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId     String
+  phone      String
+  code       String // 6-digit verification code
+  verified   Boolean   @default(false)
+  attempts   Int       @default(0)
+  createdAt  DateTime  @default(now())
+  expiresAt  DateTime // When the code expires (usually 10 minutes)
+  verifiedAt DateTime?
+
   @@index([phone])
   @@index([code])
   @@map("PhoneVerification")
 }
 
-/* ────────────────────────────────────────────────────────────
-   New Waitlist Design Application System
-────────────────────────────────────────────────────────────── */
+/**
+ * ────────────────────────────────────────────────────────────
+ * New Waitlist Design Application System
+ * ──────────────────────────────────────────────────────────────
+ */
 model WaitlistDesignApplication {
-  id              String   @id @default(cuid())
-  
+  id String @id @default(cuid())
+
   // User who submitted the application
-  applicant       User     @relation(fields: [applicantId], references: [id], onDelete: Cascade)
-  applicantId     String
-  
+  applicant   User   @relation(fields: [applicantId], references: [id], onDelete: Cascade)
+  applicantId String
+
   // The clothing item they designed
-  clothingItem    ClothingItem @relation(fields: [clothingItemId], references: [id], onDelete: Cascade)
-  clothingItemId  String
-  
+  clothingItem   ClothingItem @relation(fields: [clothingItemId], references: [id], onDelete: Cascade)
+  clothingItemId String
+
   // Referral codes they used (up to 3)
-  referralCodes   String[] @default([])
-  
+  referralCodes String[] @default([])
+
   // Application status
-  status          ApplicationStatus @default(PENDING)
-  
+  status ApplicationStatus @default(PENDING)
+
   // Admin review
-  reviewedAt      DateTime?
-  reviewedBy      String?  // Admin user ID
-  adminNotes      String?  // Internal admin notes
-  
+  reviewedAt DateTime?
+  reviewedBy String? // Admin user ID
+  adminNotes String? // Internal admin notes
+
   // Community voting
-  votingRounds    VotingRoundApplication[] // Voting rounds this application has been in
-  
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
-  
+  votingRounds VotingRoundApplication[] // Voting rounds this application has been in
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
   @@map("WaitlistDesignApplication")
 }
 
 model WaitlistProgress {
-  id              String   @id @default(cuid())
-  
+  id String @id @default(cuid())
+
   // User this progress belongs to
-  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  userId          String   @unique
-  
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId String @unique
+
   // Current progress state
-  step            Int      @default(1) // 1: Input, 2: Generate/Edit, 3: Referrals, 4: Confirmation
-  generationsUsed Int      @default(0)
-  
+  step            Int @default(1) // 1: Input, 2: Generate/Edit, 3: Referrals, 4: Confirmation
+  generationsUsed Int @default(0)
+
   // Quality tracking
-  qualitiesUsed   Json     @default("{\"low\": 0, \"medium\": 0, \"high\": 0}")
-  selectedQuality String   @default("low")
-  
+  qualitiesUsed   Json   @default("{\"low\": 0, \"medium\": 0, \"high\": 0}")
+  selectedQuality String @default("low")
+
   // Form data
-  formData        Json     @default("{}")
-  
+  formData Json @default("{}")
+
   // Current design and history
-  currentDesign   Json?    // Current design object
-  designHistory   Json     @default("[]") // Array of design objects
-  currentView     String   @default("front")
-  
+  currentDesign Json? // Current design object
+  designHistory Json   @default("[]") // Array of design objects
+  currentView   String @default("front")
+
   // Timestamps
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
-  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
   @@map("WaitlistProgress")
 }
 
 model DesignProgress {
-  id              String   @id @default(cuid())
-  
+  id String @id @default(cuid())
+
   // User this progress belongs to
-  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  userId          String   @unique
-  
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId String @unique
+
   // Current progress state
-  currentStep     Int      @default(1) // 1: Basic Details, 2: Design Specifics, 3: Preview & Publish
-  
+  currentStep Int @default(1) // 1: Basic Details, 2: Design Specifics, 3: Preview & Publish
+
+  // Design mode
+  uploadMode Boolean @default(false) // true if user uploaded images, false if AI generated
+
   // Form data
-  itemName        String?
-  itemType        String?
+  itemName         String?
+  itemType         String?
   selectedCategory String?
-  gender          String   @default("UNISEX")
-  userPrompt      String?
-  color           String?
+  gender           String  @default("UNISEX")
+  userPrompt       String?
+  color            String?
   modelDescription String?
-  quality         String   @default("low")
-  
-  // Generated design data
-  aiDescription   String?
-  frontImage      String?
-  backImage       String?
-  compositeImage  String?
-  
+  quality          String? // Optional - null for uploaded designs
+
+  // Generated/Uploaded design data
+  aiDescription  String?
+  frontImage     String?
+  backImage      String?
+  compositeImage String?
+
+  // Upload-specific data (temporary storage during design process)
+  uploadedFrontImage String?
+  uploadedBackImage  String?
+
+  // Final design references (set when design is completed)
+  finalClothingItemId   String? // Reference to ClothingItem if AI-generated
+  finalUploadedDesignId String? // Reference to UploadedDesign if uploaded
+
   // Challenge data
   selectedChallengeIds Json @default("[]")
-  
-  // Edit mode state
+
+  // Edit mode state (only for AI generated)
   isInpaintingMode Boolean @default(false)
   inpaintingPrompt String?
-  currentView     String  @default("front")
-  targetQuality   String?
-  
+  currentView      String  @default("front")
+  targetQuality    String?
+
   // Timestamps
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
-  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
   @@map("DesignProgress")
 }
 
 enum ApplicationStatus {
-  PENDING     // Waiting for community vote
-  IN_VOTING   // Currently in a voting round
-  APPROVED    // Approved by community vote
-  REJECTED    // Not approved in voting round
-  WAITLISTED  // Remains on waitlist for future rounds
+  PENDING // Waiting for community vote
+  IN_VOTING // Currently in a voting round
+  APPROVED // Approved by community vote
+  REJECTED // Not approved in voting round
+  WAITLISTED // Remains on waitlist for future rounds
 }
 
-/* ────────────────────────────────────────────────────────────
-   Community Voting System for Waitlist Applications
-────────────────────────────────────────────────────────────── */
+/**
+ * ────────────────────────────────────────────────────────────
+ * Community Voting System for Waitlist Applications
+ * ──────────────────────────────────────────────────────────────
+ */
 
 model VotingRound {
-  id              String   @id @default(cuid())
-  name            String   // e.g., "Week 1 Community Vote"
-  description     String?  // Optional description
-  
+  id          String  @id @default(cuid())
+  name        String // e.g., "Week 1 Community Vote"
+  description String? // Optional description
+
   // Timing
-  startTime       DateTime
-  endTime         DateTime
-  isActive        Boolean  @default(false)
-  
+  startTime DateTime
+  endTime   DateTime
+  isActive  Boolean  @default(false)
+
   // Configuration
-  maxApplications Int      @default(20) // Max applications to include
-  approvalPercentage Int   @default(30) // Top X% of applications that get approved
-  minVotes        Int      @default(5)  // Minimum votes required for consideration
-  
+  maxApplications    Int @default(20) // Max applications to include
+  approvalPercentage Int @default(30) // Top X% of applications that get approved
+  minVotes           Int @default(5) // Minimum votes required for consideration
+
   // Results
-  totalVotes      Int      @default(0)
+  totalVotes           Int @default(0)
   applicationsApproved Int @default(0)
-  
+
   // Admin
-  createdBy       User     @relation("VotingRoundCreator", fields: [createdById], references: [id])
-  createdById     String
-  
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
-  
+  createdBy   User   @relation("VotingRoundCreator", fields: [createdById], references: [id])
+  createdById String
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
   // Relations
-  applications    VotingRoundApplication[]
-  votes           ApplicationVote[]
-  
+  applications         VotingRoundApplication[]
+  uploadedApplications VotingRoundUploadedApplication[]
+  votes                ApplicationVote[]
+
   @@index([isActive])
   @@index([startTime, endTime])
 }
 
 model VotingRoundApplication {
-  id              String   @id @default(cuid())
-  
+  id String @id @default(cuid())
+
   // Voting round this belongs to
-  votingRound     VotingRound @relation(fields: [votingRoundId], references: [id], onDelete: Cascade)
-  votingRoundId   String
-  
+  votingRound   VotingRound @relation(fields: [votingRoundId], references: [id], onDelete: Cascade)
+  votingRoundId String
+
   // The application being voted on
-  application     WaitlistDesignApplication @relation(fields: [applicationId], references: [id], onDelete: Cascade)
-  applicationId   String
-  
+  application   WaitlistDesignApplication @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+  applicationId String
+
   // Vote results for this application in this round
-  upvotes         Int      @default(0)
-  downvotes       Int      @default(0)
-  totalVotes      Int      @default(0)
-  approvalRate    Float    @default(0.0) // upvotes / totalVotes
-  
+  upvotes      Int   @default(0)
+  downvotes    Int   @default(0)
+  totalVotes   Int   @default(0)
+  approvalRate Float @default(0.0) // upvotes / totalVotes
+
   // Result
-  wasApproved     Boolean  @default(false)
-  
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
-  
+  wasApproved Boolean @default(false)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
   // Relations
-  votes           ApplicationVote[]
-  
+  votes ApplicationVote[]
+
   @@unique([votingRoundId, applicationId]) // One entry per application per round
   @@index([votingRoundId, approvalRate]) // For ranking
 }
 
 model ApplicationVote {
-  id              String   @id @default(cuid())
-  
+  id String @id @default(cuid())
+
   // Voter (must be approved user)
-  voter           User     @relation(fields: [voterId], references: [id], onDelete: Cascade)
-  voterId         String
-  
+  voter   User   @relation(fields: [voterId], references: [id], onDelete: Cascade)
+  voterId String
+
   // What they're voting on
-  votingRound     VotingRound @relation(fields: [votingRoundId], references: [id], onDelete: Cascade)
-  votingRoundId   String
-  
-  roundApplication VotingRoundApplication @relation(fields: [roundApplicationId], references: [id], onDelete: Cascade)
+  votingRound   VotingRound @relation(fields: [votingRoundId], references: [id], onDelete: Cascade)
+  votingRoundId String
+
+  roundApplication   VotingRoundApplication @relation(fields: [roundApplicationId], references: [id], onDelete: Cascade)
   roundApplicationId String
-  
+
   // Their vote
-  isUpvote        Boolean  // true = upvote, false = downvote
-  
-  createdAt       DateTime @default(now())
-  
+  isUpvote Boolean // true = upvote, false = downvote
+
+  createdAt                        DateTime                        @default(now())
+  VotingRoundUploadedApplication   VotingRoundUploadedApplication? @relation(fields: [votingRoundUploadedApplicationId], references: [id])
+  votingRoundUploadedApplicationId String?
+
   @@unique([voterId, roundApplicationId]) // One vote per user per application
   @@index([votingRoundId, voterId]) // For user's voting activity
   @@index([roundApplicationId]) // For application vote counts

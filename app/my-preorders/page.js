@@ -6,7 +6,6 @@ import Image from 'next/image';
 import Link from 'next/link';
 import OrderDetailsModal from '../../components/common/OrderDetailsModal';
 import ProgressBar from '../../components/common/ProgressBar';
-import Footer from '@/components/common/Footer';
 import { ShoppingCartIcon } from '@heroicons/react/24/outline';
 
 export default function MyPreOrdersPage() {
@@ -181,8 +180,6 @@ export default function MyPreOrdersPage() {
           </div>
         </section>
       </main>
-
-      <Footer />
     </div>
   );
 }

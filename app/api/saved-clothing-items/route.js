@@ -25,26 +25,46 @@ export async function GET(req) {
       whereClause.isPublished = true;
     }
 
-    const clothingItems = await prisma.clothingItem.findMany({
-      where: whereClause,
-      orderBy: {
-        createdAt: 'desc',
-      },
-      include: {
-        creator: {
-          select: {
-            id: true,
-            displayName: true,
-            name: true,
-          }
+    // Fetch both AI-generated and uploaded designs
+    const [clothingItems, uploadedDesigns] = await Promise.all([
+      prisma.clothingItem.findMany({
+        where: whereClause,
+        orderBy: {
+          createdAt: 'desc',
         },
-        likes: true,
-      }
-    });
+        include: {
+          creator: {
+            select: {
+              id: true,
+              displayName: true,
+              name: true,
+            }
+          },
+          likes: true,
+        }
+      }),
+      prisma.uploadedDesign.findMany({
+        where: whereClause,
+        orderBy: {
+          createdAt: 'desc',
+        },
+        include: {
+          creator: {
+            select: {
+              id: true,
+              displayName: true,
+              name: true,
+            }
+          },
+          likes: true,
+        }
+      })
+    ]);
 
-    // Process the clothing items for serialization
+    // Process AI-generated clothing items
     const processedClothingItems = clothingItems.map(item => ({
       ...item,
+      designType: 'ai-generated',
       price: item.price?.toString() ?? null,
       cost: item.cost?.toString() ?? null,
       imageUrls: {
@@ -55,7 +75,22 @@ export async function GET(req) {
       }
     }));
 
-    return NextResponse.json({ clothingItems: processedClothingItems });
+    // Process uploaded designs
+    const processedUploadedDesigns = uploadedDesigns.map(item => ({
+      ...item,
+      designType: 'uploaded',
+      price: item.price?.toString() ?? null,
+      imageUrls: {
+        front: item.frontImage,
+        back: item.backImage,
+      }
+    }));
+
+    // Combine and sort by creation date
+    const allDesigns = [...processedClothingItems, ...processedUploadedDesigns]
+      .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+
+    return NextResponse.json({ clothingItems: allDesigns });
   } catch (err) {
     console.error('❌ Failed to fetch clothing items:', err);
     return NextResponse.json({ error: 'Failed to fetch clothing items' }, { status: 500 });
@@ -92,10 +127,18 @@ export async function POST(req) {
     promptJsonData = null,
     price,
     cost,
+    isUploadedDesign = false, // New field to distinguish uploaded vs AI-generated
   } = body;
 
-  if (!name || !itemType || !imageUrls || !promptRaw) {
-    return NextResponse.json({ error: 'Missing required fields (name, itemType, imageUrls, or promptRaw).' }, { status: 400 });
+  // Different validation for uploaded vs AI-generated designs
+  if (isUploadedDesign) {
+    if (!name || !itemType || !imageUrls) {
+      return NextResponse.json({ error: 'Missing required fields for uploaded design (name, itemType, imageUrls).' }, { status: 400 });
+    }
+  } else {
+    if (!name || !itemType || !imageUrls || !promptRaw) {
+      return NextResponse.json({ error: 'Missing required fields for AI-generated design (name, itemType, imageUrls, promptRaw).' }, { status: 400 });
+    }
   }
 
   if (!imageUrls[ANGLES.FRONT]) {
@@ -117,61 +160,93 @@ export async function POST(req) {
 
   try {
     console.log("session.user.uid:", session.user.uid);
-    const clothingItem = id
-      ? await prisma.clothingItem.update({
-          where: { id },
-          data: {
-            name,
-            description,
-            itemType,
-            gender,
-            imageUrl: imageUrls[ANGLES.FRONT],
-            frontImage: imageUrls[ANGLES.FRONT],
-            rightImage: imageUrls[ANGLES.RIGHT_SIDE],
-            leftImage: imageUrls[ANGLES.LEFT_SIDE],
-            backImage: imageUrls[ANGLES.BACK],
-            promptRaw,
-            promptSanitized,
-            size,
-            color,
-            quality,
-            promptJsonData,
-            isPublished: Boolean(isPublished),
-            expiresAt,
-            price: numericPrice,
-            cost: numericCost,
-          },
-        })
-      : await prisma.clothingItem.create({
-          data: {
-            name,
-            description,
-            itemType,
-            gender,
-            imageUrl: imageUrls[ANGLES.FRONT],
-            frontImage: imageUrls[ANGLES.FRONT],
-            rightImage: imageUrls[ANGLES.RIGHT_SIDE],
-            leftImage: imageUrls[ANGLES.LEFT_SIDE],
-            backImage: imageUrls[ANGLES.BACK],
-            promptRaw,
-            promptSanitized,
-            size,
-            color,
-            quality,
-            promptJsonData,
-            isPublished: Boolean(isPublished),
-            expiresAt,
-            price: numericPrice,
-            cost: numericCost,
-            creator: {
-              connect: { id: session.user.uid },
-            },
-          },
-        });
+    
+    let result;
+    
+    if (isUploadedDesign) {
+      // Handle uploaded designs using UploadedDesign model
+      const frontImageUrl = imageUrls[ANGLES.FRONT];
+      
+      // Validate that frontImage is provided (required field)
+      if (!frontImageUrl) {
+        return NextResponse.json({ 
+          error: 'Front image is required for uploaded designs' 
+        }, { status: 400 });
+      }
 
-    return NextResponse.json({ clothingItem });
+      const uploadedDesignData = {
+        name,
+        description,
+        itemType,
+        gender,
+        frontImage: frontImageUrl,
+        backImage: imageUrls[ANGLES.BACK] || null,
+        color,
+        isPublished: Boolean(isPublished),
+        estimatedShipDate: expiresAt,
+        price: numericPrice,
+      };
+
+
+      result = id
+        ? await prisma.uploadedDesign.update({
+            where: { id },
+            data: uploadedDesignData,
+          })
+        : await prisma.uploadedDesign.create({
+            data: {
+              ...uploadedDesignData,
+              creator: {
+                connect: { id: session.user.uid },
+              },
+            },
+          });
+    } else {
+      // Handle AI-generated designs using ClothingItem model (existing logic)
+      const clothingItemData = {
+        name,
+        description,
+        itemType,
+        gender,
+        imageUrl: imageUrls[ANGLES.FRONT],
+        frontImage: imageUrls[ANGLES.FRONT],
+        rightImage: imageUrls[ANGLES.RIGHT_SIDE],
+        leftImage: imageUrls[ANGLES.LEFT_SIDE],
+        backImage: imageUrls[ANGLES.BACK],
+        promptRaw,
+        promptSanitized,
+        size,
+        color,
+        quality,
+        promptJsonData,
+        isPublished: Boolean(isPublished),
+        expiresAt,
+        price: numericPrice,
+        cost: numericCost,
+      };
+
+      result = id
+        ? await prisma.clothingItem.update({
+            where: { id },
+            data: clothingItemData,
+          })
+        : await prisma.clothingItem.create({
+            data: {
+              ...clothingItemData,
+              creator: {
+                connect: { id: session.user.uid },
+              },
+            },
+          });
+    }
+
+    // Return consistent response format
+    return NextResponse.json({ 
+      clothingItem: result,
+      designType: isUploadedDesign ? 'uploaded' : 'ai-generated'
+    });
   } catch (err) {
-    console.error('❌ Failed to save clothing item:', err);
-    return NextResponse.json({ error: 'Failed to save clothing item' }, { status: 500 });
+    console.error('❌ Failed to save design:', err);
+    return NextResponse.json({ error: 'Failed to save design' }, { status: 500 });
   }
 }

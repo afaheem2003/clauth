@@ -184,13 +184,6 @@ export default function WaitlistStatusPage() {
             </div>
           </div>
         </div>
-
-        {/* Footer */}
-        <div className="py-6 text-center">
-          <p className="text-xs text-gray-400 tracking-widest">
-            © 2024 CLAUTH — REDEFINING FASHION
-          </p>
-        </div>
       </div>
     )
   }
@@ -450,15 +443,6 @@ export default function WaitlistStatusPage() {
       </div>
         </div>
       )}
-
-      {/* Footer */}
-      <div className="border-t border-gray-200 bg-white">
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-          <div className="text-center text-gray-400 text-sm font-light tracking-widest">
-            © 2024 CLAUTH. ALL RIGHTS RESERVED.
-          </div>
-        </div>
-      </div>
     </div>
   )
 } 

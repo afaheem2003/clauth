@@ -8,41 +8,69 @@ export default async function ClothingItemPage({ params }) {
   const session = await getServerSession(authOptions);
   const { id } = await params;
   
-  // Get clothing item with creator and likes
-  const clothingItem = await prisma.clothingItem.findUnique({
-    where: { 
-      id,
-      isDeleted: false, // Don't show deleted items
-    },
-    include: {
-      creator: true,
-      likes: true,
-      comments: {
-        include: {
-          author: true
-        },
-        orderBy: {
-          createdAt: 'desc'
+  // Try to find the item in both ClothingItem and UploadedDesign tables
+  const [clothingItem, uploadedDesign] = await Promise.all([
+    prisma.clothingItem.findUnique({
+      where: { 
+        id,
+        isDeleted: false, // Don't show deleted items
+      },
+      include: {
+        creator: true,
+        likes: true,
+        comments: {
+          include: {
+            author: true
+          },
+          orderBy: {
+            createdAt: 'desc'
+          }
         }
       }
-    }
-  });
+    }),
+    prisma.uploadedDesign.findUnique({
+      where: { 
+        id,
+        isDeleted: false, // Don't show deleted items
+      },
+      include: {
+        creator: true,
+        likes: true,
+        comments: {
+          include: {
+            author: true
+          },
+          orderBy: {
+            createdAt: 'desc'
+          }
+        }
+      }
+    })
+  ]);
 
-  // If item doesn't exist, show 404
-  if (!clothingItem) {
+  // Use whichever one exists
+  const designItem = clothingItem || uploadedDesign;
+
+  // If item doesn't exist in either table, show 404
+  if (!designItem) {
     notFound();
   }
 
-  // Convert Decimal values to strings for client component
+  // Convert Decimal values to strings for client component and add design type
   const processedItem = {
-    ...clothingItem,
-    price: clothingItem.price?.toString() || null,
-    cost: clothingItem.cost?.toString() || null,
+    ...designItem,
+    designType: clothingItem ? 'ai-generated' : 'uploaded',
+    price: designItem.price?.toString() || null,
+    cost: designItem.cost?.toString() || null,
+    // Ensure consistent image field names for the client
+    imageUrl: designItem.frontImage || designItem.imageUrl,
+    frontImage: designItem.frontImage,
+    backImage: designItem.backImage,
   };
 
   return <ClothingItemClient 
     clothingItem={processedItem}
-    initialComments={clothingItem.comments}
+    initialComments={designItem.comments}
     session={session}
   />;
 } 

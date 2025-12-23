@@ -10,17 +10,46 @@ export async function GET() {
   }
 
   try {
-    const clothingItems = await prisma.clothingItem.findMany({
-      where: {
-        isPublished: true,
-        isDeleted: false,
-      },
-      orderBy: {
-        createdAt: 'desc',
-      },
-    });
+    const whereClause = {
+      isPublished: true,
+      isDeleted: false,
+    };
 
-    return NextResponse.json({ clothingItems });
+    // Fetch both AI-generated and uploaded designs
+    const [clothingItems, uploadedDesigns] = await Promise.all([
+      prisma.clothingItem.findMany({
+        where: whereClause,
+        orderBy: {
+          createdAt: 'desc',
+        },
+      }),
+      prisma.uploadedDesign.findMany({
+        where: whereClause,
+        orderBy: {
+          createdAt: 'desc',
+        },
+      })
+    ]);
+
+    // Process and combine both types
+    const processedClothingItems = clothingItems.map(item => ({
+      ...item,
+      designType: 'ai-generated',
+      imageUrl: item.frontImage || item.imageUrl,
+    }));
+
+    const processedUploadedDesigns = uploadedDesigns.map(item => ({
+      ...item,
+      designType: 'uploaded',
+      imageUrl: item.frontImage,
+      backImage: item.backImage,
+    }));
+
+    // Combine and sort by creation date
+    const allDesigns = [...processedClothingItems, ...processedUploadedDesigns]
+      .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+
+    return NextResponse.json({ clothingItems: allDesigns });
   } catch (err) {
     console.error("Error fetching clothing items:", err);
     return NextResponse.json(

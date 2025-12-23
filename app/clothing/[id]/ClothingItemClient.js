@@ -305,7 +305,7 @@ export default function ClothingItemClient({ clothingItem, initialComments, sess
           {/* Main Content */}
           <div className="flex flex-col lg:flex-row gap-8">
             {/* Left Column - Image */}
-            <div className="lg:flex-1 lg:max-w-[50%]">
+            <div className="lg:flex-none lg:w-96">
               <div className="relative aspect-[683/1024] overflow-hidden bg-gray-50 rounded-lg shadow-md">
                 <div className="w-full h-full relative group">
                   <Image
@@ -383,6 +383,23 @@ export default function ClothingItemClient({ clothingItem, initialComments, sess
             <div className="lg:flex-1 flex flex-col min-h-[90vh]">
               {/* Details Section */}
               <div className="bg-white p-8 space-y-8">
+                {/* Creation Method Badge */}
+                {(clothingItem.promptRaw || clothingItem.promptSanitized || clothingItem.quality) ? (
+                  <div className="inline-flex items-center gap-2 px-4 py-2 bg-gray-100 border border-gray-300 rounded-lg w-fit">
+                    <svg className="w-4 h-4 text-gray-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
+                    </svg>
+                    <span className="text-sm font-medium text-gray-900">Developed with Clauth</span>
+                  </div>
+                ) : (
+                  <div className="inline-flex items-center gap-2 px-4 py-2 bg-gray-100 border border-gray-300 rounded-lg w-fit">
+                    <svg className="w-4 h-4 text-gray-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+                    </svg>
+                    <span className="text-sm font-medium text-gray-900">Uploaded Design</span>
+                  </div>
+                )}
+
                 {/* Type */}
                 <div>
                   <h3 className="text-sm font-medium text-gray-500">Type</h3>

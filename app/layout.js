@@ -1,5 +1,6 @@
 import "./globals.css";
 import Nav from "@/components/common/Nav";
+import Footer from "@/components/common/Footer";
 import AuthGuard from "@/components/common/AuthGuard";
 import Providers from "./providers"; // <-- Our new Providers file
 
@@ -18,6 +19,7 @@ export default function RootLayout({ children }) {
         <Providers>
           <Nav />
           <AuthGuard>{children}</AuthGuard>
+          <Footer />
         </Providers>
       </body>
     </html>

@@ -89,10 +89,8 @@ export async function POST(request) {
         expiresAt: expiresAt.toISOString()
       })
     } catch (twilioError) {
-      console.error('Twilio error:', twilioError)
-      
-      // For development, we'll still create the verification but not send SMS
       if (process.env.NODE_ENV === 'development') {
+        console.error('Twilio error:', twilioError)
         console.log(`Development mode - SMS failed but code available: ${code}`)
         return NextResponse.json({
           message: 'Verification code generated (development mode)',
@@ -108,7 +106,9 @@ export async function POST(request) {
     }
 
   } catch (error) {
-    console.error('Verification send error:', error)
+    if (process.env.NODE_ENV === 'development') {
+      console.error('Verification send error:', error)
+    }
     
     // Provide specific error messages based on the error type
     if (error.code === 'P2025') {

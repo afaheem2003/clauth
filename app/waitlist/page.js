@@ -3,12 +3,13 @@
 import { useState, useEffect } from 'react'
 import { useSession } from 'next-auth/react'
 import Link from 'next/link'
-import Image from 'next/image'
+import NextImage from 'next/image'
 import { CLOTHING_CATEGORIES } from '@/app/constants/clothingCategories'
 import { useDesignGeneration } from '@/hooks/useDesignGeneration'
 import DesignImageDisplay from '@/components/design/DesignImageDisplay'
 import DesignMessages from '@/components/design/DesignMessages'
 import ItemTypeSelector from '@/components/design/ItemTypeSelector'
+import ImageCropper from '@/components/design/ImageCropper'
 
 export default function WaitlistPage() {
   const { data: session, status } = useSession()
@@ -36,6 +37,7 @@ export default function WaitlistPage() {
   const [step, setStep] = useState(0) // 0: How it Works, 1: Input, 2: Generate/Edit, 3: Referrals, 4: Confirmation
   const [isLoading, setIsLoading] = useState(false)
   const [isLoadingProgress, setIsLoadingProgress] = useState(false)
+  const [hasAttemptedSubmit, setHasAttemptedSubmit] = useState(false) // Track if user has tried to submit
   
   // Quality tracking - 2 Studio (medium) + 1 Runway (high)
   const [qualitiesUsed, setQualitiesUsed] = useState({
@@ -43,6 +45,20 @@ export default function WaitlistPage() {
     runway: 0   // high quality generations
   })
   const [selectedQuality, setSelectedQuality] = useState('studio') // User-selected quality for next generation
+  
+  // Upload mode state - toggle between AI generation and user uploads
+  const [uploadMode, setUploadMode] = useState(false) // Default to AI generation
+  const [uploadedFrontImage, setUploadedFrontImage] = useState(null)
+  const [uploadedBackImage, setUploadedBackImage] = useState(null)
+  const [uploadValidationMessages, setUploadValidationMessages] = useState({ front: '', back: '' })
+  const [uploadValidating, setUploadValidating] = useState({ front: false, back: false })
+  
+  // Image cropper state
+  const [cropperState, setCropperState] = useState({
+    isOpen: false,
+    image: null,
+    type: null // 'front' or 'back'
+  })
   
   // Form data
   const [formData, setFormData] = useState({
@@ -105,7 +121,7 @@ export default function WaitlistPage() {
       
       return () => clearTimeout(timeoutId)
     }
-  }, [session?.user?.uid, step, generationsUsed, currentDesign, designHistory, formData, qualitiesUsed, selectedQuality])
+  }, [session?.user?.uid, step, generationsUsed, currentDesign, designHistory, formData, qualitiesUsed, selectedQuality, uploadMode, uploadedFrontImage, uploadedBackImage])
 
   const saveProgress = async () => {
     if (!session?.user?.uid) return
@@ -117,7 +133,10 @@ export default function WaitlistPage() {
       designHistory,
       qualitiesUsed,
       selectedQuality,
-      formData
+      formData,
+      uploadMode,
+      uploadedFrontImage,
+      uploadedBackImage
     }
     
     try {
@@ -210,6 +229,9 @@ export default function WaitlistPage() {
         }
         
         setSelectedQuality(progressData.selectedQuality === 'low' || progressData.selectedQuality === 'medium' ? 'studio' : progressData.selectedQuality || 'studio')
+        setUploadMode(progressData.uploadMode || false)
+        setUploadedFrontImage(progressData.uploadedFrontImage || null)
+        setUploadedBackImage(progressData.uploadedBackImage || null)
         setFormData(progressData.formData || {
           name: '',
           description: '',
@@ -249,7 +271,195 @@ export default function WaitlistPage() {
     }
   }
 
+  // Image upload handler - validates content, then opens cropper for user to manually crop
+  const handleImageUpload = async (file, type) => {
+    if (!file) return
+    
+    // Validate file size (max 10MB for user uploads)
+    if (file.size > 10 * 1024 * 1024) {
+      setError(`${type === 'front' ? 'Front' : 'Back'} image file size must be less than 10MB`)
+      return
+    }
+    
+    // Validate file type
+    if (!file.type.startsWith('image/')) {
+      setError(`Please upload a valid image file (PNG, JPG, etc.) for ${type} view`)
+      return
+    }
+    
+    // Set validating state
+    setUploadValidating(prev => ({ ...prev, [type]: true }))
+    setUploadValidationMessages(prev => ({ ...prev, [type]: 'Validating image...' }))
+    clearError()
+    
+    // Load image and check if it's large enough
+    const reader = new FileReader()
+    reader.onloadend = async () => {
+      const img = new Image()
+      img.onload = async () => {
+        const width = img.width
+        const height = img.height
+        
+        console.log(`[Upload] ${type} image dimensions: ${width}x${height}`)
+        
+        // Check if image is large enough to crop to target dimensions
+        const targetWidth = 683
+        const targetHeight = 1024
+        
+        if (width < targetWidth || height < targetHeight) {
+          setError(`Image is too small. Minimum dimensions: ${targetWidth}×${targetHeight}px. Your image: ${width}×${height}px`)
+          setUploadValidating(prev => ({ ...prev, [type]: false }))
+          setUploadValidationMessages(prev => ({ ...prev, [type]: '' }))
+          return
+        }
+        
+        // Validate image content with AI
+        try {
+          console.log(`[Upload] Validating ${type} image content...`)
+          const validationResponse = await fetch('/api/design/validate-image', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              image: reader.result,
+              type: type
+            })
+          })
+          
+          if (!validationResponse.ok) {
+            throw new Error('Failed to validate image')
+          }
+          
+          const validationData = await validationResponse.json()
+          const validation = validationData.validation
+          
+          console.log(`[Upload] Validation result:`, validation)
+          
+          if (!validation.isValid) {
+            // Image failed validation
+            const violationsList = validation.violations && validation.violations.length > 0
+              ? '\n\n• ' + validation.violations.join('\n• ')
+              : ''
+            
+            const errorMessage = `${type === 'front' ? 'Front' : 'Back'} image validation failed:\n\n${validation.reason}${violationsList}${validation.suggestions ? '\n\nSuggestion: ' + validation.suggestions : ''}`
+            
+            setError(errorMessage)
+            setUploadValidating(prev => ({ ...prev, [type]: false }))
+            setUploadValidationMessages(prev => ({ ...prev, [type]: '' }))
+            return
+          }
+          
+          console.log(`[Upload] ${type} image passed validation`)
+          
+        } catch (validationError) {
+          console.error(`[Upload] Validation error:`, validationError)
+          setError(`Failed to validate ${type} image. Please try again.`)
+          setUploadValidating(prev => ({ ...prev, [type]: false }))
+          setUploadValidationMessages(prev => ({ ...prev, [type]: '' }))
+          return
+        }
+        
+        // Clear validating state
+        setUploadValidating(prev => ({ ...prev, [type]: false }))
+        setUploadValidationMessages(prev => ({ ...prev, [type]: '' }))
+        
+        // Check if dimensions match exactly - no need to crop
+        if (width === targetWidth && height === targetHeight) {
+          console.log(`[Upload] ${type} image has perfect dimensions, skipping crop`)
+          if (type === 'front') {
+            setUploadedFrontImage(reader.result)
+            setUploadValidationMessages(prev => ({ ...prev, front: '✓ Image ready' }))
+          } else {
+            setUploadedBackImage(reader.result)
+            setUploadValidationMessages(prev => ({ ...prev, back: '✓ Image ready' }))
+          }
+          clearError()
+          return
+        }
+        
+        // Image needs cropping - open cropper
+        console.log(`[Upload] ${type} image needs cropping, opening cropper`)
+        setCropperState({
+          isOpen: true,
+          image: reader.result,
+          type: type
+        })
+        clearError()
+      }
+      
+      img.onerror = () => {
+        setError(`Failed to load ${type} image. Please try a different file.`)
+        setUploadValidating(prev => ({ ...prev, [type]: false }))
+        setUploadValidationMessages(prev => ({ ...prev, [type]: '' }))
+      }
+      
+      img.src = reader.result
+    }
+    
+    reader.onerror = () => {
+      setError(`Failed to read ${type} image file`)
+      setUploadValidating(prev => ({ ...prev, [type]: false }))
+      setUploadValidationMessages(prev => ({ ...prev, [type]: '' }))
+    }
+    
+    reader.readAsDataURL(file)
+  }
+  
+  // Handle crop completion
+  const handleCropComplete = (croppedImage) => {
+    const { type } = cropperState
+    
+    console.log(`[Crop Complete] Cropped ${type} image to 683x1024px`)
+    
+    if (type === 'front') {
+      setUploadedFrontImage(croppedImage)
+      setUploadValidationMessages(prev => ({ ...prev, front: '✓ Image ready' }))
+    } else {
+      setUploadedBackImage(croppedImage)
+      setUploadValidationMessages(prev => ({ ...prev, back: '✓ Image ready' }))
+    }
+    
+    // Close cropper
+    setCropperState({
+      isOpen: false,
+      image: null,
+      type: null
+    })
+  }
+  
+  // Handle crop cancellation
+  const handleCropCancel = () => {
+    console.log('[Crop Cancel] User cancelled cropping')
+    setCropperState({
+      isOpen: false,
+      image: null,
+      type: null
+    })
+  }
+
   const handleInitialSubmit = () => {
+    if (uploadMode) {
+      // Upload mode: validate uploads and move to step 2
+      if (!uploadedFrontImage || !uploadedBackImage) {
+        setError('Please upload both front and back images')
+        return
+      }
+      
+      if (!formData.prompt.trim() || !formData.itemType) {
+        setError('Please fill in all required fields')
+        return
+      }
+      
+      // Set the uploaded images as current design
+      setCurrentDesign({
+        aiDescription: formData.prompt || `${formData.name} - ${formData.itemType}`,
+        frontImage: uploadedFrontImage,
+        backImage: uploadedBackImage,
+        compositeImage: null
+      })
+      
+      setStep(2) // Move to generation stage
+    } else {
+      // AI Generation mode: validate and move to step 2
     if (!formData.prompt.trim() || !formData.itemType) {
       setError('Please fill in all required fields')
       return
@@ -257,6 +467,7 @@ export default function WaitlistPage() {
     setStep(2) // Move to generation stage
     // Start generation immediately
     generateWaitlistDesign(formData.prompt)
+    }
   }
 
   const submitApplication = async () => {
@@ -270,6 +481,7 @@ export default function WaitlistPage() {
     }
 
     if (!formData.name.trim()) {
+      setHasAttemptedSubmit(true)
       setError('Please provide a name for your design')
       return
     }
@@ -282,14 +494,15 @@ export default function WaitlistPage() {
         description: formData.description?.trim() || '',
         imageUrl: currentDesign.frontImage || currentDesign.compositeImage || currentDesign.imageUrl,
         backImageUrl: currentDesign.backImage || currentDesign.backImageUrl,
-        promptRaw: currentDesign.prompt,
+        promptRaw: uploadMode ? formData.prompt : currentDesign.prompt,
         itemType: formData.itemType,
         gender: formData.gender,
-        quality: (currentDesign.quality === 'studio' || currentDesign.quality === 'medium') ? 'medium' : 'high', // Convert back to API format
+        quality: uploadMode ? 'medium' : ((currentDesign.quality === 'studio' || currentDesign.quality === 'medium') ? 'medium' : 'high'), // Convert back to API format
         referralCodes: formData.referralCodes.filter(code => code.trim()),
         modelDescription: formData.modelDescription?.trim() || '',
         remainingOutfit: formData.remainingOutfit?.trim() || '',
-        editInstructions: formData.editInstructions?.trim() || ''
+        editInstructions: formData.editInstructions?.trim() || '',
+        isUploadedDesign: uploadMode // Flag to indicate design type
       }
 
       console.log('Submitting waitlist application:', requestData)
@@ -797,6 +1010,12 @@ export default function WaitlistPage() {
                           setStep(1)
                           setCurrentDesign(null)
                           setDesignHistory([])
+                          setUploadMode(false)
+                          setUploadedFrontImage(null)
+                          setUploadedBackImage(null)
+                          setUploadValidationMessages({ front: '', back: '' })
+                          setUploadValidating({ front: false, back: false })
+                          setHasAttemptedSubmit(false)
                           setFormData({
                             name: '',
                             description: '',
@@ -828,6 +1047,12 @@ export default function WaitlistPage() {
                           setGenerationsUsed(0)
                           setQualitiesUsed({ studio: 0, runway: 0 })
                           setSelectedQuality('studio')
+                          setUploadMode(false)
+                          setUploadedFrontImage(null)
+                          setUploadedBackImage(null)
+                          setUploadValidationMessages({ front: '', back: '' })
+                          setUploadValidating({ front: false, back: false })
+                          setHasAttemptedSubmit(false)
                           setFormData({
                             name: '',
                             description: '',
@@ -936,11 +1161,11 @@ export default function WaitlistPage() {
             <div className="text-center">
               <h2 className="text-2xl font-light text-black mb-4">Describe Your Design</h2>
               <p className="text-gray-600">
-                Tell us what you want to create. We'll generate it in the next step.
+                Tell us what you want to create. {uploadMode ? 'Upload your own images or let AI generate them.' : 'We\'ll generate it in the next step.'}
               </p>
             </div>
 
-            <div className="space-y-6">
+            <div className="space-y-8">
               {/* Item Type Selection */}
               <ItemTypeSelector
                 selectedCategory={formData.selectedCategory}
@@ -961,6 +1186,365 @@ export default function WaitlistPage() {
                 }))}
               />
 
+              {/* Mode Toggle */}
+              <div className="bg-gradient-to-r from-indigo-50 to-purple-50 border border-indigo-200 rounded-xl p-5">
+                <label className="block text-sm font-semibold text-gray-900 mb-4">
+                  Design Creation Method
+                </label>
+                <div className="grid grid-cols-2 gap-4">
+                  <button
+                    type="button"
+                    onClick={() => setUploadMode(false)}
+                    className={`flex flex-col items-center px-6 py-4 rounded-xl border-2 transition-all ${
+                      !uploadMode
+                        ? 'border-indigo-600 bg-white shadow-md'
+                        : 'border-gray-300 bg-white/50 hover:border-gray-400'
+                    }`}
+                  >
+                    <span className="text-3xl mb-2">🤖</span>
+                    <span className={`block font-semibold ${!uploadMode ? 'text-indigo-700' : 'text-gray-700'}`}>
+                      AI Generate
+                    </span>
+                    <span className="text-xs text-gray-600 mt-1 text-center">
+                      Let AI create your design
+                    </span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setUploadMode(true)}
+                    className={`flex flex-col items-center px-6 py-4 rounded-xl border-2 transition-all ${
+                      uploadMode
+                        ? 'border-indigo-600 bg-white shadow-md'
+                        : 'border-gray-300 bg-white/50 hover:border-gray-400'
+                    }`}
+                  >
+                    <span className="text-3xl mb-2">📤</span>
+                    <span className={`block font-semibold ${uploadMode ? 'text-indigo-700' : 'text-gray-700'}`}>
+                      Upload Images
+                    </span>
+                    <span className="text-xs text-gray-600 mt-1 text-center">
+                      Upload your own designs
+                    </span>
+                  </button>
+                </div>
+              </div>
+
+              {uploadMode ? (
+                /* UPLOAD MODE UI */
+                <div className="space-y-6">
+                  {/* AI Generation Tips - Collapsible */}
+                  <details className="group bg-white border border-gray-300 rounded-lg overflow-hidden">
+                    <summary className="flex items-center justify-between px-4 py-3 cursor-pointer hover:bg-gray-50 transition-colors">
+                      <div className="flex items-center gap-2">
+                        <svg className="w-5 h-5 text-gray-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                        <span className="text-sm font-medium text-gray-900">Need to generate images? Click for suggested tools & prompts</span>
+                      </div>
+                      <svg className="w-4 h-4 text-gray-500 transition-transform group-open:rotate-180" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                      </svg>
+                    </summary>
+                    
+                    <div className="px-4 py-4 bg-gray-50 border-t border-gray-200 space-y-4">
+                      {/* Recommended AI Tools */}
+                      <div>
+                        <h4 className="text-sm font-semibold text-gray-900 mb-2">Suggested AI Tools</h4>
+                        <div className="grid grid-cols-3 gap-2 text-xs">
+                          <a href="https://chatgpt.com" target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 px-3 py-2 bg-white border border-gray-300 rounded hover:border-gray-900 transition-colors text-gray-900">
+                            <span className="font-medium">ChatGPT</span>
+                            <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                            </svg>
+                          </a>
+                          <a href="https://www.midjourney.com" target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 px-3 py-2 bg-white border border-gray-300 rounded hover:border-gray-900 transition-colors text-gray-900">
+                            <span className="font-medium">Midjourney</span>
+                            <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                            </svg>
+                          </a>
+                          <a href="https://gemini.google.com/app" target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 px-3 py-2 bg-white border border-gray-300 rounded hover:border-gray-900 transition-colors text-gray-900">
+                            <span className="font-medium">Gemini (Imagen 4)</span>
+                            <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                            </svg>
+                          </a>
+                        </div>
+                      </div>
+
+                      {/* Front Image Prompt */}
+                      <div>
+                        <div className="flex items-center justify-between mb-2">
+                          <h4 className="text-sm font-semibold text-gray-900">Suggested Front View Prompt</h4>
+                          <button
+                            onClick={() => {
+                              const prompt = `Create a portrait-oriented fashion image.
+
+ITEM:
+${formData.itemType || '[Your item type]'} in [Your color]
+${formData.prompt || '[Your design description]'}
+
+SUGGESTIONS:
+- Model: ${formData.gender === 'MASCULINE' ? 'Male' : formData.gender === 'FEMININE' ? 'Female' : 'Any'} ${formData.modelDescription ? `- ${formData.modelDescription}` : ''}
+- Full-body shot showing the complete outfit
+- Clean background (studio, outdoor, or your choice)
+- Good lighting to show fabric details
+
+Feel free to adjust the style, background, and model to match your creative vision!`;
+                              navigator.clipboard.writeText(prompt);
+                              alert('Suggested prompt copied!');
+                            }}
+                            className="text-xs px-2 py-1 bg-gray-900 text-white rounded hover:bg-black transition-colors"
+                          >
+                            Copy
+                          </button>
+                        </div>
+                        <div className="bg-white border border-gray-300 rounded p-3 text-xs font-mono text-gray-700 max-h-48 overflow-y-auto">
+                          <div className="whitespace-pre-wrap">
+{`Create a portrait-oriented fashion image.
+
+ITEM: ${formData.itemType || '[Your item]'} in [color]
+${formData.prompt ? `Design: ${formData.prompt}` : 'Design: [your description]'}
+
+SUGGESTIONS:
+- Model: ${formData.gender === 'MASCULINE' ? 'Male' : formData.gender === 'FEMININE' ? 'Female' : 'Any'} ${formData.modelDescription ? `- ${formData.modelDescription}` : ''}
+- Full-body view showing complete outfit
+- Clean background of your choice
+- Good lighting for fabric details
+
+Customize as you like!`}
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Back Image Prompt */}
+                      <div>
+                        <div className="flex items-center justify-between mb-2">
+                          <h4 className="text-sm font-semibold text-gray-900">Suggested Back View Prompt</h4>
+                          <button
+                            onClick={() => {
+                              const prompt = `Create a back view fashion image.
+
+TIP: For best results, try to match the front view style.
+
+ITEM (BACK VIEW):
+${formData.itemType || '[Your item type]'} in [Your color]
+${formData.prompt || '[Describe back design - logos, patterns, etc.]'}
+
+SUGGESTIONS:
+- Model facing away from camera showing back
+- Similar lighting and background as front view
+- Full-body view from head to toe
+- Same model/styling if possible
+
+Adapt to your creative vision!`;
+                              navigator.clipboard.writeText(prompt);
+                              alert('Suggested prompt copied!');
+                            }}
+                            className="text-xs px-2 py-1 bg-gray-900 text-white rounded hover:bg-black transition-colors"
+                          >
+                            Copy
+                          </button>
+                        </div>
+                        <div className="bg-white border border-gray-300 rounded p-3 text-xs font-mono text-gray-700 max-h-48 overflow-y-auto">
+                          <div className="whitespace-pre-wrap">
+{`Create a back view fashion image.
+
+TIP: Match your front view style for consistency
+
+ITEM (BACK): ${formData.itemType || '[Your item]'} 
+Back details: ${formData.prompt || '[back design elements]'}
+
+SUGGESTIONS:
+- Model facing away from camera
+- Similar lighting & background as front
+- Full-body view
+
+Customize to your preference!`}
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Quick Tips */}
+                      <div className="bg-white border border-gray-300 rounded p-3">
+                        <h4 className="text-xs font-semibold text-gray-900 mb-2">💡 Helpful Tips</h4>
+                        <ul className="text-xs text-gray-700 space-y-1 list-disc list-inside">
+                          <li>These prompts are <strong>suggestions</strong> - feel free to use your own creative approach!</li>
+                          <li>Use portrait orientation for best results</li>
+                          <li>Save images at high resolution for best quality</li>
+                          <li>Matching model and lighting between views creates a cohesive look</li>
+                        </ul>
+                      </div>
+                    </div>
+                  </details>
+
+                  <div className="bg-gray-100 border-l-4 border-gray-900 p-4 rounded">
+                    <div className="flex">
+                      <div className="flex-shrink-0">
+                        <svg className="h-5 w-5 text-gray-700" viewBox="0 0 20 20" fill="currentColor">
+                          <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
+                        </svg>
+                      </div>
+                      <div className="ml-3">
+                        <p className="text-sm text-gray-900">
+                          <strong>Upload Mode:</strong> Upload front and back images. 
+                          <strong> Required dimensions: 683×1024px portrait.</strong>
+                          {' '}If your images are larger, you&apos;ll be able to crop them to the perfect size.
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Front Image Upload */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-900 mb-3">
+                      Front Image <span className="text-red-500">*</span>
+                    </label>
+                    <div className="flex flex-col gap-4">
+                      {uploadValidating.front ? (
+                        <div className="flex flex-col items-center justify-center w-full h-64 border-2 border-gray-300 border-dashed rounded-lg bg-gray-50">
+                          <div className="flex flex-col items-center justify-center pt-5 pb-6 px-4">
+                            <svg className="animate-spin h-12 w-12 text-gray-400 mb-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                            </svg>
+                            <p className="text-sm text-gray-700 font-medium mb-1">Validating image...</p>
+                            <p className="text-xs text-gray-500">Checking content and quality</p>
+                          </div>
+                        </div>
+                      ) : uploadedFrontImage ? (
+                        <div className="relative group w-full">
+                          <img 
+                            src={uploadedFrontImage} 
+                            alt="Front view" 
+                            className="w-full h-auto max-h-96 object-contain rounded-lg border-2 border-gray-900 shadow-lg bg-white"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setUploadedFrontImage(null);
+                              setUploadValidationMessages(prev => ({ ...prev, front: '' }));
+                            }}
+                            className="absolute -top-2 -right-2 bg-gray-900 text-white rounded-full p-2 hover:bg-black shadow-lg transition-all"
+                          >
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                            </svg>
+                          </button>
+                          {uploadValidationMessages.front && (
+                            <div className="absolute bottom-2 left-2 bg-gray-900 text-white px-3 py-1 rounded text-xs font-medium shadow-md">
+                              {uploadValidationMessages.front}
+                            </div>
+                          )}
+                        </div>
+                      ) : (
+                        <label className="flex flex-col items-center justify-center w-full h-64 border-2 border-gray-300 border-dashed rounded-lg cursor-pointer bg-white hover:bg-gray-50 hover:border-gray-400 transition-all">
+                          <div className="flex flex-col items-center justify-center pt-5 pb-6 px-4">
+                            <svg className="w-12 h-12 mb-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+                            </svg>
+                            <p className="mb-2 text-sm text-gray-700">
+                              <span className="font-semibold">Click to upload front image</span> or drag and drop
+                            </p>
+                            <p className="text-xs text-gray-500">PNG, JPG up to 10MB</p>
+                            <p className="text-xs text-gray-900 font-medium mt-1">Ideal: 683×1024px portrait</p>
+                          </div>
+                          <input 
+                            type="file" 
+                            className="hidden" 
+                            accept="image/png,image/jpeg,image/jpg"
+                            onChange={(e) => handleImageUpload(e.target.files[0], 'front')}
+                            disabled={uploadValidating.front}
+                          />
+                        </label>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Back Image Upload */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-900 mb-3">
+                      Back Image <span className="text-red-500">*</span>
+                    </label>
+                    <div className="flex flex-col gap-4">
+                      {uploadValidating.back ? (
+                        <div className="flex flex-col items-center justify-center w-full h-64 border-2 border-gray-300 border-dashed rounded-lg bg-gray-50">
+                          <div className="flex flex-col items-center justify-center pt-5 pb-6 px-4">
+                            <svg className="animate-spin h-12 w-12 text-gray-400 mb-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                            </svg>
+                            <p className="text-sm text-gray-700 font-medium mb-1">Validating image...</p>
+                            <p className="text-xs text-gray-500">Checking content and quality</p>
+                          </div>
+                        </div>
+                      ) : uploadedBackImage ? (
+                        <div className="relative group w-full">
+                          <img 
+                            src={uploadedBackImage} 
+                            alt="Back view" 
+                            className="w-full h-auto max-h-96 object-contain rounded-lg border-2 border-gray-900 shadow-lg bg-white"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setUploadedBackImage(null);
+                              setUploadValidationMessages(prev => ({ ...prev, back: '' }));
+                            }}
+                            className="absolute -top-2 -right-2 bg-gray-900 text-white rounded-full p-2 hover:bg-black shadow-lg transition-all"
+                          >
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                            </svg>
+                          </button>
+                          {uploadValidationMessages.back && (
+                            <div className="absolute bottom-2 left-2 bg-gray-900 text-white px-3 py-1 rounded text-xs font-medium shadow-md">
+                              {uploadValidationMessages.back}
+                            </div>
+                          )}
+                        </div>
+                      ) : (
+                        <label className="flex flex-col items-center justify-center w-full h-64 border-2 border-gray-300 border-dashed rounded-lg cursor-pointer bg-white hover:bg-gray-50 hover:border-gray-400 transition-all">
+                          <div className="flex flex-col items-center justify-center pt-5 pb-6 px-4">
+                            <svg className="w-12 h-12 mb-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+                            </svg>
+                            <p className="mb-2 text-sm text-gray-700">
+                              <span className="font-semibold">Click to upload back image</span> or drag and drop
+                            </p>
+                            <p className="text-xs text-gray-500">PNG, JPG up to 10MB</p>
+                            <p className="text-xs text-gray-900 font-medium mt-1">Ideal: 683×1024px portrait</p>
+                          </div>
+                          <input 
+                            type="file" 
+                            className="hidden" 
+                            accept="image/png,image/jpeg,image/jpg"
+                            onChange={(e) => handleImageUpload(e.target.files[0], 'back')}
+                            disabled={uploadValidating.back}
+                          />
+                        </label>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Description for uploads */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-900 mb-3">
+                      Design Description <span className="text-red-500">*</span>
+                    </label>
+                    <textarea
+                      value={formData.prompt}
+                      onChange={(e) => setFormData(prev => ({ ...prev, prompt: e.target.value }))}
+                      placeholder="Describe your uploaded design... This will be shown on the published item."
+                      className="w-full p-4 border border-gray-300 rounded-lg focus:ring-2 focus:ring-black focus:border-transparent text-gray-900 placeholder-gray-500 resize-none h-32"
+                      maxLength={1000}
+                      required
+                    />
+                  </div>
+                </div>
+              ) : (
+                /* AI GENERATION MODE UI */
+                <>
               {/* Design Prompt */}
               <div>
                 <label className="block text-sm font-medium text-gray-800 mb-2">
@@ -999,6 +1583,8 @@ export default function WaitlistPage() {
                   className="w-full p-4 border border-gray-300 rounded-lg resize-none h-24 focus:ring-2 focus:ring-black focus:border-transparent text-gray-900 placeholder-gray-500"
                 />
               </div>
+                </>
+              )}
               
               <div className="flex space-x-4">
                 <button
@@ -1009,10 +1595,23 @@ export default function WaitlistPage() {
                 </button>
                 <button
                   onClick={handleInitialSubmit}
-                  disabled={!formData.prompt.trim() || !formData.itemType}
+                  disabled={
+                    (uploadMode && (!uploadedFrontImage || !uploadedBackImage || !formData.prompt.trim() || !formData.itemType || uploadValidating.front || uploadValidating.back)) ||
+                    (!uploadMode && (!formData.prompt.trim() || !formData.itemType))
+                  }
                   className="flex-1 bg-black text-white px-6 py-3 font-medium hover:bg-gray-900 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors rounded-lg"
                 >
-                  Continue to Generation
+                  {uploadValidating.front || uploadValidating.back ? (
+                    <>
+                      <svg className="animate-spin -ml-1 mr-2 h-5 w-5 inline" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                      </svg>
+                      Validating...
+                    </>
+                  ) : (
+                    uploadMode ? 'Continue with Uploads' : 'Continue to Generation'
+                  )}
                 </button>
               </div>
             </div>
@@ -1032,8 +1631,235 @@ export default function WaitlistPage() {
               </div>
             </div>
 
-            {/* Quality Selection */}
-            {(qualitiesUsed.studio < 2 || qualitiesUsed.runway < 1) && qualitiesUsed.runway === 0 && (
+            {/* Mode Toggle for Step 2 - Allow switching between AI and Upload */}
+            <div className="max-w-2xl mx-auto mb-8">
+              <div className="bg-gradient-to-r from-indigo-50 to-purple-50 border border-indigo-200 rounded-xl p-5">
+                <label className="block text-sm font-semibold text-gray-900 mb-4">
+                  Design Creation Method
+                </label>
+                <div className="grid grid-cols-2 gap-4">
+                  <button
+                    type="button"
+                    onClick={() => setUploadMode(false)}
+                    className={`flex flex-col items-center px-6 py-4 rounded-xl border-2 transition-all ${
+                      !uploadMode
+                        ? 'border-indigo-600 bg-white shadow-md'
+                        : 'border-gray-300 bg-white/50 hover:border-gray-400'
+                    }`}
+                  >
+                    <span className="text-3xl mb-2">🤖</span>
+                    <span className={`block font-semibold ${!uploadMode ? 'text-indigo-700' : 'text-gray-700'}`}>
+                      AI Generate
+                    </span>
+                    <span className="text-xs text-gray-600 mt-1 text-center">
+                      Let AI create your design
+                    </span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setUploadMode(true)}
+                    className={`flex flex-col items-center px-6 py-4 rounded-xl border-2 transition-all ${
+                      uploadMode
+                        ? 'border-indigo-600 bg-white shadow-md'
+                        : 'border-gray-300 bg-white/50 hover:border-gray-400'
+                    }`}
+                  >
+                    <span className="text-3xl mb-2">📤</span>
+                    <span className={`block font-semibold ${uploadMode ? 'text-indigo-700' : 'text-gray-700'}`}>
+                      Upload Images
+                    </span>
+                    <span className="text-xs text-gray-600 mt-1 text-center">
+                      Upload your own designs
+                    </span>
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            {uploadMode && (
+              /* UPLOAD MODE UI FOR STEP 2 */
+              <div className="max-w-2xl mx-auto space-y-6">
+                {/* Upload Instructions */}
+                <div className="bg-gray-100 border-l-4 border-gray-900 p-4 rounded">
+                  <div className="flex">
+                    <div className="flex-shrink-0">
+                      <svg className="h-5 w-5 text-gray-700" viewBox="0 0 20 20" fill="currentColor">
+                        <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
+                      </svg>
+                    </div>
+                    <div className="ml-3">
+                      <p className="text-sm text-gray-900">
+                        <strong>Upload Mode:</strong> Upload front and back images. 
+                        <strong> Required dimensions: 683×1024px portrait.</strong>
+                        {' '}If your images are larger, you&apos;ll be able to crop them to the perfect size.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Front Image Upload */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-900 mb-3">
+                    Front Image <span className="text-red-500">*</span>
+                  </label>
+                  <div className="flex flex-col gap-4">
+                    {uploadValidating.front ? (
+                      <div className="flex flex-col items-center justify-center w-full h-64 border-2 border-gray-300 border-dashed rounded-lg bg-gray-50">
+                        <div className="flex flex-col items-center justify-center pt-5 pb-6 px-4">
+                          <svg className="animate-spin h-12 w-12 text-gray-400 mb-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                          </svg>
+                          <p className="text-sm text-gray-700 font-medium mb-1">Validating image...</p>
+                          <p className="text-xs text-gray-500">Checking content and quality</p>
+                        </div>
+                      </div>
+                    ) : uploadedFrontImage ? (
+                      <div className="relative group w-full">
+                        <img 
+                          src={uploadedFrontImage} 
+                          alt="Front view" 
+                          className="w-full h-auto max-h-96 object-contain rounded-lg border-2 border-gray-900 shadow-lg bg-white"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setUploadedFrontImage(null);
+                            setUploadValidationMessages(prev => ({ ...prev, front: '' }));
+                          }}
+                          className="absolute -top-2 -right-2 bg-gray-900 text-white rounded-full p-2 hover:bg-black shadow-lg transition-all"
+                        >
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                          </svg>
+                        </button>
+                        {uploadValidationMessages.front && (
+                          <div className="absolute bottom-2 left-2 bg-gray-900 text-white px-3 py-1 rounded text-xs font-medium shadow-md">
+                            {uploadValidationMessages.front}
+                          </div>
+                        )}
+                      </div>
+                    ) : (
+                      <label className="flex flex-col items-center justify-center w-full h-64 border-2 border-gray-300 border-dashed rounded-lg cursor-pointer bg-white hover:bg-gray-50 hover:border-gray-400 transition-all">
+                        <div className="flex flex-col items-center justify-center pt-5 pb-6 px-4">
+                          <svg className="w-12 h-12 mb-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+                          </svg>
+                          <p className="mb-2 text-sm text-gray-700">
+                            <span className="font-semibold">Click to upload front image</span> or drag and drop
+                          </p>
+                          <p className="text-xs text-gray-500">PNG, JPG up to 10MB</p>
+                          <p className="text-xs text-gray-900 font-medium mt-1">Ideal: 683×1024px portrait</p>
+                        </div>
+                        <input 
+                          type="file" 
+                          className="hidden" 
+                          accept="image/png,image/jpeg,image/jpg"
+                          onChange={(e) => handleImageUpload(e.target.files[0], 'front')}
+                          disabled={uploadValidating.front}
+                        />
+                      </label>
+                    )}
+                  </div>
+                </div>
+
+                {/* Back Image Upload */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-900 mb-3">
+                    Back Image <span className="text-red-500">*</span>
+                  </label>
+                  <div className="flex flex-col gap-4">
+                    {uploadValidating.back ? (
+                      <div className="flex flex-col items-center justify-center w-full h-64 border-2 border-gray-300 border-dashed rounded-lg bg-gray-50">
+                        <div className="flex flex-col items-center justify-center pt-5 pb-6 px-4">
+                          <svg className="animate-spin h-12 w-12 text-gray-400 mb-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                          </svg>
+                          <p className="text-sm text-gray-700 font-medium mb-1">Validating image...</p>
+                          <p className="text-xs text-gray-500">Checking content and quality</p>
+                        </div>
+                      </div>
+                    ) : uploadedBackImage ? (
+                      <div className="relative group w-full">
+                        <img 
+                          src={uploadedBackImage} 
+                          alt="Back view" 
+                          className="w-full h-auto max-h-96 object-contain rounded-lg border-2 border-gray-900 shadow-lg bg-white"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setUploadedBackImage(null);
+                            setUploadValidationMessages(prev => ({ ...prev, back: '' }));
+                          }}
+                          className="absolute -top-2 -right-2 bg-gray-900 text-white rounded-full p-2 hover:bg-black shadow-lg transition-all"
+                        >
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                          </svg>
+                        </button>
+                        {uploadValidationMessages.back && (
+                          <div className="absolute bottom-2 left-2 bg-gray-900 text-white px-3 py-1 rounded text-xs font-medium shadow-md">
+                            {uploadValidationMessages.back}
+                          </div>
+                        )}
+                      </div>
+                    ) : (
+                      <label className="flex flex-col items-center justify-center w-full h-64 border-2 border-gray-300 border-dashed rounded-lg cursor-pointer bg-white hover:bg-gray-50 hover:border-gray-400 transition-all">
+                        <div className="flex flex-col items-center justify-center pt-5 pb-6 px-4">
+                          <svg className="w-12 h-12 mb-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+                          </svg>
+                          <p className="mb-2 text-sm text-gray-700">
+                            <span className="font-semibold">Click to upload back image</span> or drag and drop
+                          </p>
+                          <p className="text-xs text-gray-500">PNG, JPG up to 10MB</p>
+                          <p className="text-xs text-gray-900 font-medium mt-1">Ideal: 683×1024px portrait</p>
+                          </div>
+                        <input 
+                          type="file" 
+                          className="hidden" 
+                          accept="image/png,image/jpeg,image/jpg"
+                          onChange={(e) => handleImageUpload(e.target.files[0], 'back')}
+                          disabled={uploadValidating.back}
+                        />
+                      </label>
+                    )}
+                  </div>
+                </div>
+
+                {/* Continue Button for Upload Mode */}
+                <div className="max-w-2xl mx-auto">
+                  <button
+                    onClick={() => {
+                      if (uploadedFrontImage && uploadedBackImage) {
+                        // Create a design object with uploaded images
+                        setCurrentDesign({
+                          frontImage: uploadedFrontImage,
+                          backImage: uploadedBackImage,
+                          prompt: formData.prompt,
+                          itemType: formData.itemType,
+                          gender: formData.gender,
+                          isUploaded: true
+                        });
+                        setStep(3); // Skip to referrals step
+                      }
+                    }}
+                    disabled={!uploadedFrontImage || !uploadedBackImage}
+                    className="w-full bg-black text-white px-6 py-4 font-medium hover:bg-gray-900 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors rounded-lg"
+                  >
+                    {!uploadedFrontImage || !uploadedBackImage 
+                      ? 'Upload both front and back images to continue' 
+                      : 'Continue with Uploaded Images →'
+                    }
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* AI GENERATION MODE - Quality Selection */}
+            {!uploadMode && (qualitiesUsed.studio < 2 || qualitiesUsed.runway < 1) && qualitiesUsed.runway === 0 && (
               <div className="max-w-2xl mx-auto mb-8">
                 <div className="bg-white rounded-xl p-8 border border-gray-200 shadow-sm">
                   <h3 className="text-xl font-medium text-gray-900 mb-6 text-center">Choose Quality for Next Generation</h3>
@@ -1190,18 +2016,24 @@ export default function WaitlistPage() {
               <div className="space-y-6">
                 <div>
                   <label className="block text-sm font-medium text-gray-900 mb-2">
-                    Design Name {!formData.name.trim() && <span className="text-red-500">*</span>}
+                    Design Name {hasAttemptedSubmit && !formData.name.trim() && <span className="text-red-500">*</span>}
                   </label>
                   <input
                     type="text"
                     value={formData.name}
-                    onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
+                    onChange={(e) => {
+                      setFormData(prev => ({ ...prev, name: e.target.value }))
+                      // Clear validation error when user starts typing
+                      if (hasAttemptedSubmit && e.target.value.trim()) {
+                        setHasAttemptedSubmit(false)
+                      }
+                    }}
                     placeholder="Name your design"
                     className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-black focus:border-transparent text-gray-900 ${
-                      !formData.name.trim() ? 'border-red-300 bg-red-50' : 'border-gray-300'
+                      hasAttemptedSubmit && !formData.name.trim() ? 'border-red-300 bg-red-50' : 'border-gray-300'
                     }`}
                   />
-                  {!formData.name.trim() && (
+                  {hasAttemptedSubmit && !formData.name.trim() && (
                     <p className="text-sm text-red-600 mt-1">Please provide a name for your design</p>
                   )}
                 </div>
@@ -1245,18 +2077,20 @@ export default function WaitlistPage() {
                         <span className="text-gray-600">Gender:</span>
                         <span className="font-medium text-gray-900">{formData.gender === 'MASCULINE' ? 'Male' : formData.gender === 'FEMININE' ? 'Female' : 'Unisex'}</span>
                       </div>
+                      {!uploadMode && (
                       <div className="flex justify-between">
                         <span className="text-gray-600">Quality:</span>
                         <span className="font-medium text-gray-900">
                           {(currentDesign.quality === 'studio' || currentDesign.quality === 'medium') ? 'Studio' : 'Runway'}
                         </span>
                       </div>
+                      )}
                     </div>
                   </div>
                 )}
 
-                {/* Edit Design Section */}
-                {currentDesign && (
+                {/* Edit Design Section - only for AI generated designs */}
+                {!uploadMode && currentDesign && (
                   <div>
                     <label className="block text-sm font-medium text-gray-900 mb-2">
                       Edit Instructions (Optional)
@@ -1275,7 +2109,7 @@ export default function WaitlistPage() {
 
                 {/* Action Buttons */}
                 <div className="space-y-3">
-                  {((qualitiesUsed.studio < 2 || qualitiesUsed.runway < 1) && qualitiesUsed.runway === 0 && currentDesign) && (
+                  {!uploadMode && ((qualitiesUsed.studio < 2 || qualitiesUsed.runway < 1) && qualitiesUsed.runway === 0 && currentDesign) && (
                     <button
                       onClick={() => {
                         const hasEditInstructions = formData.editInstructions?.trim()
@@ -1296,8 +2130,8 @@ export default function WaitlistPage() {
                     </button>
                   )}
 
-                  {/* Show generate button for first generation */}
-                  {generationsUsed === 0 && qualitiesUsed.runway === 0 && (
+                  {/* Show generate button for first generation - only in AI mode */}
+                  {!uploadMode && generationsUsed === 0 && qualitiesUsed.runway === 0 && (
                     <button
                       onClick={() => generateWaitlistDesign(formData.prompt)}
                       disabled={loadingStates.image}
@@ -1312,6 +2146,7 @@ export default function WaitlistPage() {
                       <button
                         onClick={() => {
                           if (!formData.name.trim()) {
+                            setHasAttemptedSubmit(true)
                             // Focus on the name field to make it obvious what's missing
                             document.querySelector('input[placeholder="Name your design"]')?.focus();
                             return;
@@ -1346,6 +2181,12 @@ export default function WaitlistPage() {
                             setGenerationsUsed(0)
                             setQualitiesUsed({ studio: 0, runway: 0 })
                             setSelectedQuality('studio')
+                            setUploadMode(false)
+                            setUploadedFrontImage(null)
+                            setUploadedBackImage(null)
+                            setUploadValidationMessages({ front: '', back: '' })
+                            setUploadValidating({ front: false, back: false })
+                            setHasAttemptedSubmit(false)
                             setFormData({
                               name: '',
                               description: '',
@@ -1375,12 +2216,13 @@ export default function WaitlistPage() {
 
               {/* Right Column - Generated Image */}
               <div>
-                <h4 className="text-sm font-medium text-gray-500 uppercase tracking-wider mb-4">Generated Design</h4>
+                <h4 className="text-sm font-medium text-gray-500 uppercase tracking-wider mb-4">{uploadMode ? 'Uploaded Design' : 'Generated Design'}</h4>
                 <DesignImageDisplay
                   currentDesign={currentDesign}
                   loadingStates={loadingStates}
                   quality={currentDesign?.quality || selectedQuality}
-                  onQualityUpgrade={handleQuickQualityUpgrade}
+                  showQualityIndicator={!uploadMode}
+                  onQualityUpgrade={!uploadMode ? handleQuickQualityUpgrade : null}
                   creditsAvailable={qualitiesUsed}
                   designHistory={designHistory}
                 />
@@ -1446,7 +2288,7 @@ export default function WaitlistPage() {
                             }}
                           >
                             <div className="relative">
-                              <Image
+                              <NextImage
                                 src={imageUrl}
                                 alt={`Design ${index + 1}`}
                                 width={140}
@@ -1483,6 +2325,7 @@ export default function WaitlistPage() {
                             <p className={`text-sm font-medium ${isCurrent ? 'text-blue-700' : 'text-gray-700'}`}>
                               Design {index + 1}
                             </p>
+                            {!uploadMode && design.quality && (
                             <div className={`inline-flex items-center space-x-1 px-2 py-0.5 rounded-full text-xs ${
                               (design.quality === 'studio' || design.quality === 'medium')
                                 ? 'bg-blue-50 text-blue-600'
@@ -1495,6 +2338,7 @@ export default function WaitlistPage() {
                               }`}></div>
                               <span>{(design.quality === 'studio' || design.quality === 'medium') ? 'Studio' : 'Runway'}</span>
                             </div>
+                            )}
                           </div>
                         </div>
                       )
@@ -1624,7 +2468,7 @@ export default function WaitlistPage() {
                     loadingStates={loadingStates}
                     showQualityIndicator={false}
                     quality={currentDesign?.quality || selectedQuality}
-                    onQualityUpgrade={handleQuickQualityUpgrade}
+                    onQualityUpgrade={!uploadMode ? handleQuickQualityUpgrade : null}
                     creditsAvailable={qualitiesUsed}
                     designHistory={designHistory}
                   />
@@ -1638,8 +2482,12 @@ export default function WaitlistPage() {
                       <p>Item Type: {formData.itemType}</p>
                       <p>Category: {formData.selectedCategory ? CLOTHING_CATEGORIES[formData.selectedCategory].name : 'Not selected'}</p>
                       <p>Gender: {formData.gender === 'MASCULINE' ? 'Male' : formData.gender === 'FEMININE' ? 'Female' : 'Unisex'}</p>
+                      {!uploadMode && (
+                        <>
                       <p>Quality: {(currentDesign.quality === 'studio' || currentDesign.quality === 'medium') ? 'Studio' : 'Runway'}</p>
                       <p>Generations used: Studio ({qualitiesUsed.studio}/2) • Runway ({qualitiesUsed.runway}/1)</p>
+                        </>
+                      )}
                       {formData.referralCodes.filter(code => code.trim()).length > 0 && (
                         <p>Referral codes: {formData.referralCodes.filter(code => code.trim()).join(', ')}</p>
                       )}
@@ -1711,6 +2559,16 @@ export default function WaitlistPage() {
           </div>
         )}
       </div>
+      
+      {/* Image Cropper Modal */}
+      {cropperState.isOpen && (
+        <ImageCropper
+          image={cropperState.image}
+          type={cropperState.type}
+          onCropComplete={handleCropComplete}
+          onCancel={handleCropCancel}
+        />
+      )}
     </div>
   )
 } 

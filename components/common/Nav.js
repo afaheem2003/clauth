@@ -164,13 +164,6 @@ export default function Nav() {
 
         {/* RIGHT SIDE ACTIONS */}
         <div className="flex items-center gap-3">
-          {/* Credit Balance - Only show for users with full access */}
-          {session?.user && hasFullAccess && (
-            <div className="hidden sm:block">
-              <CreditBalance />
-            </div>
-          )}
-
           {/* Cart Icon - Only show if shop is enabled and user has full access */}
           {isShopEnabled && hasFullAccess && (
             <button
@@ -209,7 +202,7 @@ export default function Nav() {
               </button>
 
               {drop && (
-                <div className="absolute right-0 mt-3 w-56 rounded-2xl shadow-xl bg-white ring-1 ring-gray-300 py-2 text-sm border border-gray-200 animate-in slide-in-from-top-2 duration-200">
+                <div className="absolute right-0 mt-3 w-80 rounded-2xl shadow-xl bg-white ring-1 ring-gray-300 py-2 text-sm border border-gray-200 animate-in slide-in-from-top-2 duration-200">
                   <div className="px-4 py-3 border-b border-gray-200">
                     <p className="text-sm font-medium text-black">{session.user.name}</p>
                     <p className="text-xs text-gray-600 truncate">{session.user.email}</p>
@@ -220,6 +213,15 @@ export default function Nav() {
                       <p className="text-xs text-orange-600 mt-1">On Waitlist</p>
                     )}
                   </div>
+                  
+                  {/* Credit Balance */}
+                  {hasFullAccess && (
+                    <div className="px-3 py-2.5 border-b border-gray-200 overflow-x-hidden flex justify-center">
+                      <div className="scale-[0.82] transform">
+                        <CreditBalance />
+                      </div>
+                    </div>
+                  )}
                   
                   {/* Only show menu items for users with full access */}
                   {hasFullAccess && (
@@ -327,19 +329,28 @@ export default function Nav() {
           </div>
 
           {session?.user && (
-            <div className="mb-6 p-4 bg-white/5 rounded-xl border border-white/10">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 bg-white rounded-full flex items-center justify-center text-black font-semibold">
-                  {session.user.name?.charAt(0)?.toUpperCase() || 'U'}
-                </div>
-                <div>
-                  <p className="text-white font-medium">{session.user.name}</p>
-                  <p className="text-white/60 text-sm truncate">{session.user.email}</p>
-                  {isAdmin && (
-                    <p className="text-blue-400 text-xs">Administrator</p>
-                  )}
+            <div className="space-y-4 mb-6">
+              <div className="p-4 bg-white/5 rounded-xl border border-white/10">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 bg-white rounded-full flex items-center justify-center text-black font-semibold">
+                    {session.user.name?.charAt(0)?.toUpperCase() || 'U'}
+                  </div>
+                  <div>
+                    <p className="text-white font-medium">{session.user.name}</p>
+                    <p className="text-white/60 text-sm truncate">{session.user.email}</p>
+                    {isAdmin && (
+                      <p className="text-blue-400 text-xs">Administrator</p>
+                    )}
+                  </div>
                 </div>
               </div>
+              
+              {/* Credit Balance in Mobile Menu */}
+              {hasFullAccess && (
+                <div className="p-4 bg-white/5 rounded-xl border border-white/10">
+                  <CreditBalance />
+                </div>
+              )}
             </div>
           )}
 

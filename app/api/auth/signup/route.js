@@ -89,7 +89,9 @@ export async function POST(request) {
         }
       })
     } catch (error) {
-      console.log('WaitlistInfo table not ready yet:', error.message)
+      if (process.env.NODE_ENV === 'development') {
+        console.log('WaitlistInfo table not ready yet:', error.message)
+      }
     }
 
     return NextResponse.json({
@@ -99,7 +101,9 @@ export async function POST(request) {
     })
 
   } catch (error) {
-    console.error('Signup error:', error)
+    if (process.env.NODE_ENV === 'development') {
+      console.error('Signup error:', error)
+    }
     
     // Provide specific error messages based on the error type
     if (error.code === 'P2002') {

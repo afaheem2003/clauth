@@ -29,14 +29,23 @@ export async function POST(request) {
       quality, 
       referralCodes = [],
       modelDescription,
-      remainingOutfit
+      remainingOutfit,
+      isUploadedDesign = false // New field to distinguish uploaded vs AI-generated
     } = requestBody
 
-    // Validate required fields
-    if (!name || !imageUrl || !itemType || !gender) {
-      return NextResponse.json({ 
-        error: 'Design name, image, item type, and gender are required' 
-      }, { status: 400 })
+    // Different validation for uploaded vs AI-generated designs
+    if (isUploadedDesign) {
+      if (!name || !imageUrl || !itemType || !gender) {
+        return NextResponse.json({ 
+          error: 'Design name, image, item type, and gender are required for uploaded design' 
+        }, { status: 400 })
+      }
+    } else {
+      if (!name || !imageUrl || !itemType || !gender || !promptRaw) {
+        return NextResponse.json({ 
+          error: 'Design name, image, item type, gender, and prompt are required for AI-generated design' 
+        }, { status: 400 })
+      }
     }
 
     // Validate referral codes (max 3)
@@ -83,53 +92,95 @@ export async function POST(request) {
       }, { status: 400 })
     }
 
-    // Create the clothing item first
-    console.log('Creating clothing item with data:', {
-      name: name.trim(),
-      description: description?.trim(),
-      imageUrl,
-      backImage: backImageUrl,
-      promptRaw,
-      itemType,
-      gender,
-      quality: quality || 'medium',
-      modelDescription,
-      remainingOutfit
-    })
+    let designItem;
+    let application;
 
-    const clothingItem = await prisma.clothingItem.create({
-      data: {
+    if (isUploadedDesign) {
+      // Create uploaded design
+      console.log('Creating uploaded design with data:', {
+        name: name.trim(),
+        description: description?.trim(),
+        frontImage: imageUrl,
+        backImage: backImageUrl,
+        itemType,
+        gender
+      })
+
+      designItem = await prisma.uploadedDesign.create({
+        data: {
+          name: name.trim(),
+          description: description?.trim(),
+          frontImage: imageUrl,
+          backImage: backImageUrl,
+          itemType,
+          gender,
+          creatorId: session.user.uid,
+          status: 'CONCEPT',
+          isPublished: false, // Not published until approved
+        }
+      })
+
+      console.log('Created uploaded design:', designItem)
+
+      // Create the waitlist application linked to the uploaded design
+      application = await prisma.uploadedDesignWaitlistApplication.create({
+        data: {
+          applicantId: session.user.uid,
+          uploadedDesignId: designItem.id,
+          referralCodes: validReferralCodes,
+          status: 'PENDING'
+        }
+      })
+    } else {
+      // Create AI-generated clothing item (existing logic)
+      console.log('Creating clothing item with data:', {
         name: name.trim(),
         description: description?.trim(),
         imageUrl,
         backImage: backImageUrl,
-        promptRaw: promptRaw + (modelDescription ? `\n\nModel: ${modelDescription}` : '') + (remainingOutfit ? `\n\nOutfit: ${remainingOutfit}` : ''),
+        promptRaw,
         itemType,
         gender,
         quality: quality || 'medium',
-        creatorId: session.user.uid,
-        status: 'CONCEPT',
-        isPublished: false, // Not published until approved
-      }
-    })
+        modelDescription,
+        remainingOutfit
+      })
 
-    console.log('Created clothing item:', clothingItem)
+      designItem = await prisma.clothingItem.create({
+        data: {
+          name: name.trim(),
+          description: description?.trim(),
+          imageUrl,
+          backImage: backImageUrl,
+          promptRaw: promptRaw + (modelDescription ? `\n\nModel: ${modelDescription}` : '') + (remainingOutfit ? `\n\nOutfit: ${remainingOutfit}` : ''),
+          itemType,
+          gender,
+          quality: quality || 'medium',
+          creatorId: session.user.uid,
+          status: 'CONCEPT',
+          isPublished: false, // Not published until approved
+        }
+      })
 
-    // Create the waitlist application linked to the clothing item
-    const application = await prisma.waitlistDesignApplication.create({
-      data: {
-        applicantId: session.user.uid,
-        clothingItemId: clothingItem.id,
-        referralCodes: validReferralCodes,
-        status: 'PENDING'
-      }
-    })
+      console.log('Created clothing item:', designItem)
+
+      // Create the waitlist application linked to the clothing item
+      application = await prisma.waitlistDesignApplication.create({
+        data: {
+          applicantId: session.user.uid,
+          clothingItemId: designItem.id,
+          referralCodes: validReferralCodes,
+          status: 'PENDING'
+        }
+      })
+    }
 
     return NextResponse.json({
       success: true,
       message: 'Application submitted successfully!',
       applicationId: application.id,
-      clothingItemId: clothingItem.id
+      designItemId: designItem.id,
+      designType: isUploadedDesign ? 'uploaded' : 'ai-generated'
     })
 
   } catch (error) {
@@ -150,19 +201,47 @@ export async function GET(request) {
       return NextResponse.json({ error: 'Authentication required' }, { status: 401 })
     }
 
-    const applications = await prisma.waitlistDesignApplication.findMany({
-      where: {
-        applicantId: session.user.uid
-      },
-      include: {
-        clothingItem: true
-      },
-      orderBy: {
-        createdAt: 'desc'
-      }
-    })
+    // Fetch both AI-generated and uploaded design applications
+    const [aiApplications, uploadedApplications] = await Promise.all([
+      prisma.waitlistDesignApplication.findMany({
+        where: {
+          applicantId: session.user.uid
+        },
+        include: {
+          clothingItem: true
+        },
+        orderBy: {
+          createdAt: 'desc'
+        }
+      }),
+      prisma.uploadedDesignWaitlistApplication.findMany({
+        where: {
+          applicantId: session.user.uid
+        },
+        include: {
+          uploadedDesign: true
+        },
+        orderBy: {
+          createdAt: 'desc'
+        }
+      })
+    ]);
 
-    return NextResponse.json({ applications })
+    // Combine and format applications
+    const allApplications = [
+      ...aiApplications.map(app => ({
+        ...app,
+        designType: 'ai-generated',
+        designItem: app.clothingItem
+      })),
+      ...uploadedApplications.map(app => ({
+        ...app,
+        designType: 'uploaded',
+        designItem: app.uploadedDesign
+      }))
+    ].sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+
+    return NextResponse.json({ applications: allApplications })
 
   } catch (error) {
     console.error('Get applications error:', error)
