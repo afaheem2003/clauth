@@ -17,15 +17,20 @@ export default function WaitlistPage() {
   // Feature flag: Check if AI generation is enabled
   // Default to false so AI features are hidden until API confirms they're enabled
   const [aiGenerationEnabled, setAiGenerationEnabled] = useState(false)
+  const [waitlistEnabled, setWaitlistEnabled] = useState(true)
   
   useEffect(() => {
-    // Check server-side feature flag
+    // Check server-side feature flags
     fetch('/api/waitlist/feature-flags')
       .then(res => res.json())
       .then(data => {
         setAiGenerationEnabled(data.aiGenerationEnabled === true)
+        setWaitlistEnabled(data.waitlistEnabled !== false) // Default to true if not specified
       })
-      .catch(() => setAiGenerationEnabled(false)) // Default to disabled on error
+      .catch(() => {
+        setAiGenerationEnabled(false)
+        setWaitlistEnabled(true)
+      })
   }, [])
   
   // Use shared design generation hook
@@ -89,12 +94,12 @@ export default function WaitlistPage() {
     editInstructions: ''
   })
 
-  // Redirect if already approved
+  // Redirect if already approved (only when waitlist mode is enabled)
   useEffect(() => {
-    if (session?.user?.waitlistStatus === 'APPROVED') {
+    if (waitlistEnabled && session?.user?.waitlistStatus === 'APPROVED') {
       window.location.href = '/'
     }
-  }, [session])
+  }, [session, waitlistEnabled])
 
   // Progress saving and loading
   useEffect(() => {

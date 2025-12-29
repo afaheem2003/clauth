@@ -73,14 +73,22 @@ async function getTrendingCreations() {
 export default async function HomePage() {
   const session = await getServerSession(authOptions);
   
+  // Check if waitlist mode is enabled
+  const waitlistEnabled = process.env.WAITLIST_ENABLED === 'true';
+  
   // If user is not authenticated, redirect to waitlist
-  if (!session) {
+  if (!session && waitlistEnabled) {
     redirect('/waitlist');
   }
 
   // If user is waitlisted, redirect to waitlist status
-  if (session.user.waitlistStatus === 'WAITLISTED') {
+  if (session?.user?.waitlistStatus === 'WAITLISTED' && waitlistEnabled) {
     redirect('/waitlist-status');
+  }
+  
+  // If no session and waitlist not enabled, redirect to login
+  if (!session) {
+    redirect('/login');
   }
 
   const trendingCreations = await getTrendingCreations();
