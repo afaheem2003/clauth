@@ -1,8 +1,28 @@
 "use client";
 
 import Link from 'next/link';
+import { useSession } from 'next-auth/react';
 
 export default function Footer() {
+  const { data: session } = useSession();
+  
+  // Don't show footer navigation to waitlisted users
+  // Only show to approved users or admins
+  const isApproved = session?.user?.waitlistStatus === 'APPROVED' || session?.user?.role === 'ADMIN';
+  
+  // Show minimal footer for waitlisted users
+  if (session?.user && !isApproved) {
+    return (
+      <footer className="border-t border-gray-100 bg-white">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+          <p className="text-xs text-gray-400 text-center tracking-widest">
+            © {new Date().getFullYear()} CLAUTH. ALL RIGHTS RESERVED.
+          </p>
+        </div>
+      </footer>
+    );
+  }
+  
   return (
     <footer className="border-t border-gray-100 bg-white">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16">

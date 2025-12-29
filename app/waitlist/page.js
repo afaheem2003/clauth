@@ -14,6 +14,20 @@ import ImageCropper from '@/components/design/ImageCropper'
 export default function WaitlistPage() {
   const { data: session, status } = useSession()
   
+  // Feature flag: Check if AI generation is enabled
+  // Default to false so AI features are hidden until API confirms they're enabled
+  const [aiGenerationEnabled, setAiGenerationEnabled] = useState(false)
+  
+  useEffect(() => {
+    // Check server-side feature flag
+    fetch('/api/waitlist/feature-flags')
+      .then(res => res.json())
+      .then(data => {
+        setAiGenerationEnabled(data.aiGenerationEnabled === true)
+      })
+      .catch(() => setAiGenerationEnabled(false)) // Default to disabled on error
+  }, [])
+  
   // Use shared design generation hook
   const {
     currentDesign,
@@ -47,7 +61,8 @@ export default function WaitlistPage() {
   const [selectedQuality, setSelectedQuality] = useState('studio') // User-selected quality for next generation
   
   // Upload mode state - toggle between AI generation and user uploads
-  const [uploadMode, setUploadMode] = useState(false) // Default to AI generation
+  // Force upload mode if AI generation is disabled
+  const [uploadMode, setUploadMode] = useState(!aiGenerationEnabled)
   const [uploadedFrontImage, setUploadedFrontImage] = useState(null)
   const [uploadedBackImage, setUploadedBackImage] = useState(null)
   const [uploadValidationMessages, setUploadValidationMessages] = useState({ front: '', back: '' })
@@ -104,6 +119,13 @@ export default function WaitlistPage() {
     };
   }, [])
 
+  // Force upload mode when AI generation is disabled
+  useEffect(() => {
+    if (!aiGenerationEnabled) {
+      setUploadMode(true)
+    }
+  }, [aiGenerationEnabled])
+  
   // Auto-select runway when studio is no longer available
   useEffect(() => {
     if (qualitiesUsed.studio >= 2 && qualitiesUsed.runway < 1 && selectedQuality === 'studio') {
@@ -815,7 +837,10 @@ export default function WaitlistPage() {
                 </div>
                 <h3 className="text-xl font-semibold mb-4 text-gray-900">Create & Perfect</h3>
                 <p className="text-gray-800 leading-relaxed">
-                  Watch our AI bring your design to life! You get 2 Studio generations for experimenting and 1 premium Runway generation for that perfect final design.
+                  {aiGenerationEnabled 
+                    ? 'Watch our AI bring your design to life! You get 2 Studio generations for experimenting and 1 premium Runway generation for that perfect final design.'
+                    : 'Upload front and back images of your clothing design. Our system will validate and process them for your application.'
+                  }
               </p>
             </div>
 
@@ -830,10 +855,11 @@ export default function WaitlistPage() {
               </div>
             </div>
 
-            {/* Generation System */}
-            <div className="bg-gray-50 rounded-xl p-8">
-              <h2 className="text-2xl font-light text-center mb-2 text-gray-900">Your Creative Arsenal</h2>
-              <p className="text-center text-gray-800 mb-8">Here's what you get to work with</p>
+            {/* Generation System - Only show if AI generation is enabled */}
+            {aiGenerationEnabled && (
+              <div className="bg-gray-50 rounded-xl p-8">
+                <h2 className="text-2xl font-light text-center mb-2 text-gray-900">Your Creative Arsenal</h2>
+                <p className="text-center text-gray-800 mb-8">Here's what you get to work with</p>
               
               <div className="grid md:grid-cols-2 gap-8 max-w-3xl mx-auto">
                 <div className="bg-white rounded-xl p-6 border border-gray-200 shadow-sm">
@@ -894,6 +920,7 @@ export default function WaitlistPage() {
                 </div>
               </div>
             </div>
+            )}
 
             {/* What We're Looking For */}
             <div>
@@ -919,10 +946,12 @@ export default function WaitlistPage() {
                       <span className="text-green-500 mr-3 mt-1">•</span>
                       <span>Designs that push boundaries and challenge conventions</span>
                     </li>
-                    <li className="flex items-start">
-                      <span className="text-green-500 mr-3 mt-1">•</span>
-                      <span>Smart use of all your generation credits</span>
-                    </li>
+                    {aiGenerationEnabled && (
+                      <li className="flex items-start">
+                        <span className="text-green-500 mr-3 mt-1">•</span>
+                        <span>Smart use of all your generation credits</span>
+                      </li>
+                    )}
                   </ul>
                 </div>
                 
@@ -981,7 +1010,10 @@ export default function WaitlistPage() {
             Apply for Early Access
           </h1>
           <p className="text-lg text-gray-800 font-light">
-            Use 2 Studio generations to iterate, then 1 Runway generation for your final design
+            {aiGenerationEnabled 
+              ? 'Use 2 Studio generations to iterate, then 1 Runway generation for your final design'
+              : 'Upload your clothing design images to apply for early access'
+            }
           </p>
           
           {/* Sleek Reset Options - only show when there's an error or user is stuck */}
@@ -1161,7 +1193,10 @@ export default function WaitlistPage() {
             <div className="text-center">
               <h2 className="text-2xl font-light text-black mb-4">Describe Your Design</h2>
               <p className="text-gray-600">
-                Tell us what you want to create. {uploadMode ? 'Upload your own images or let AI generate them.' : 'We\'ll generate it in the next step.'}
+                {aiGenerationEnabled 
+                  ? `Tell us what you want to create. ${uploadMode ? 'Upload your own images or let AI generate them.' : "We'll generate it in the next step."}`
+                  : 'Tell us about your design and upload your images.'
+                }
               </p>
             </div>
 
@@ -1187,60 +1222,63 @@ export default function WaitlistPage() {
               />
 
               {/* Mode Toggle */}
-              <div className="bg-gradient-to-r from-indigo-50 to-purple-50 border border-indigo-200 rounded-xl p-5">
-                <label className="block text-sm font-semibold text-gray-900 mb-4">
-                  Design Creation Method
-                </label>
-                <div className="grid grid-cols-2 gap-4">
-                  <button
-                    type="button"
-                    onClick={() => setUploadMode(false)}
-                    className={`flex flex-col items-center px-6 py-4 rounded-xl border-2 transition-all ${
-                      !uploadMode
-                        ? 'border-indigo-600 bg-white shadow-md'
-                        : 'border-gray-300 bg-white/50 hover:border-gray-400'
-                    }`}
-                  >
-                    <span className="text-3xl mb-2">🤖</span>
-                    <span className={`block font-semibold ${!uploadMode ? 'text-indigo-700' : 'text-gray-700'}`}>
-                      AI Generate
-                    </span>
-                    <span className="text-xs text-gray-600 mt-1 text-center">
-                      Let AI create your design
-                    </span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setUploadMode(true)}
-                    className={`flex flex-col items-center px-6 py-4 rounded-xl border-2 transition-all ${
-                      uploadMode
-                        ? 'border-indigo-600 bg-white shadow-md'
-                        : 'border-gray-300 bg-white/50 hover:border-gray-400'
-                    }`}
-                  >
-                    <span className="text-3xl mb-2">📤</span>
-                    <span className={`block font-semibold ${uploadMode ? 'text-indigo-700' : 'text-gray-700'}`}>
-                      Upload Images
-                    </span>
-                    <span className="text-xs text-gray-600 mt-1 text-center">
-                      Upload your own designs
-                    </span>
-                  </button>
+              {aiGenerationEnabled && (
+                <div className="bg-gradient-to-r from-indigo-50 to-purple-50 border border-indigo-200 rounded-xl p-5">
+                  <label className="block text-sm font-semibold text-gray-900 mb-4">
+                    Design Creation Method
+                  </label>
+                  <div className="grid grid-cols-2 gap-4">
+                    <button
+                      type="button"
+                      onClick={() => setUploadMode(false)}
+                      className={`flex flex-col items-center px-6 py-4 rounded-xl border-2 transition-all ${
+                        !uploadMode
+                          ? 'border-indigo-600 bg-white shadow-md'
+                          : 'border-gray-300 bg-white/50 hover:border-gray-400'
+                      }`}
+                    >
+                      <span className="text-3xl mb-2">🤖</span>
+                      <span className={`block font-semibold ${!uploadMode ? 'text-indigo-700' : 'text-gray-700'}`}>
+                        AI Generate
+                      </span>
+                      <span className="text-xs text-gray-600 mt-1 text-center">
+                        Let AI create your design
+                      </span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setUploadMode(true)}
+                      className={`flex flex-col items-center px-6 py-4 rounded-xl border-2 transition-all ${
+                        uploadMode
+                          ? 'border-indigo-600 bg-white shadow-md'
+                          : 'border-gray-300 bg-white/50 hover:border-gray-400'
+                      }`}
+                    >
+                      <span className="text-3xl mb-2">📤</span>
+                      <span className={`block font-semibold ${uploadMode ? 'text-indigo-700' : 'text-gray-700'}`}>
+                        Upload Images
+                      </span>
+                      <span className="text-xs text-gray-600 mt-1 text-center">
+                        Upload your own designs
+                      </span>
+                    </button>
+                  </div>
                 </div>
-              </div>
+              )}
 
-              {uploadMode ? (
+              {uploadMode || !aiGenerationEnabled ? (
                 /* UPLOAD MODE UI */
                 <div className="space-y-6">
-                  {/* AI Generation Tips - Collapsible */}
-                  <details className="group bg-white border border-gray-300 rounded-lg overflow-hidden">
-                    <summary className="flex items-center justify-between px-4 py-3 cursor-pointer hover:bg-gray-50 transition-colors">
-                      <div className="flex items-center gap-2">
-                        <svg className="w-5 h-5 text-gray-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                        </svg>
-                        <span className="text-sm font-medium text-gray-900">Need to generate images? Click for suggested tools & prompts</span>
-                      </div>
+                  {/* AI Generation Tips - Collapsible (only show if AI generation is enabled) */}
+                  {aiGenerationEnabled && (
+                    <details className="group bg-white border border-gray-300 rounded-lg overflow-hidden">
+                      <summary className="flex items-center justify-between px-4 py-3 cursor-pointer hover:bg-gray-50 transition-colors">
+                        <div className="flex items-center gap-2">
+                          <svg className="w-5 h-5 text-gray-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                          </svg>
+                          <span className="text-sm font-medium text-gray-900">Need to generate images? Click for suggested tools & prompts</span>
+                        </div>
                       <svg className="w-4 h-4 text-gray-500 transition-transform group-open:rotate-180" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
                       </svg>
@@ -1377,6 +1415,7 @@ Customize to your preference!`}
                       </div>
                     </div>
                   </details>
+                  )}
 
                   <div className="bg-gray-100 border-l-4 border-gray-900 p-4 rounded">
                     <div className="flex">
@@ -1623,58 +1662,16 @@ Customize to your preference!`}
           <div className="space-y-8">
             <div className="text-center">
               <h2 className="text-2xl font-light text-black mb-4">Your Design</h2>
-              <div className="space-y-2">
-                <p className="text-gray-800">
-                  Generation Usage: Studio ({qualitiesUsed.studio}/2) • Runway ({qualitiesUsed.runway}/1)
-                </p>
-                {generationsUsed === 0 && <p className="text-sm text-gray-600">(Ready to generate your first design)</p>}
-              </div>
+              {aiGenerationEnabled && (
+                <div className="space-y-2">
+                  <p className="text-gray-800">
+                    Generation Usage: Studio ({qualitiesUsed.studio}/2) • Runway ({qualitiesUsed.runway}/1)
+                  </p>
+                  {generationsUsed === 0 && <p className="text-sm text-gray-600">(Ready to generate your first design)</p>}
+                </div>
+              )}
             </div>
 
-            {/* Mode Toggle for Step 2 - Allow switching between AI and Upload */}
-            <div className="max-w-2xl mx-auto mb-8">
-              <div className="bg-gradient-to-r from-indigo-50 to-purple-50 border border-indigo-200 rounded-xl p-5">
-                <label className="block text-sm font-semibold text-gray-900 mb-4">
-                  Design Creation Method
-                </label>
-                <div className="grid grid-cols-2 gap-4">
-                  <button
-                    type="button"
-                    onClick={() => setUploadMode(false)}
-                    className={`flex flex-col items-center px-6 py-4 rounded-xl border-2 transition-all ${
-                      !uploadMode
-                        ? 'border-indigo-600 bg-white shadow-md'
-                        : 'border-gray-300 bg-white/50 hover:border-gray-400'
-                    }`}
-                  >
-                    <span className="text-3xl mb-2">🤖</span>
-                    <span className={`block font-semibold ${!uploadMode ? 'text-indigo-700' : 'text-gray-700'}`}>
-                      AI Generate
-                    </span>
-                    <span className="text-xs text-gray-600 mt-1 text-center">
-                      Let AI create your design
-                    </span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setUploadMode(true)}
-                    className={`flex flex-col items-center px-6 py-4 rounded-xl border-2 transition-all ${
-                      uploadMode
-                        ? 'border-indigo-600 bg-white shadow-md'
-                        : 'border-gray-300 bg-white/50 hover:border-gray-400'
-                    }`}
-                  >
-                    <span className="text-3xl mb-2">📤</span>
-                    <span className={`block font-semibold ${uploadMode ? 'text-indigo-700' : 'text-gray-700'}`}>
-                      Upload Images
-                    </span>
-                    <span className="text-xs text-gray-600 mt-1 text-center">
-                      Upload your own designs
-                    </span>
-                  </button>
-                </div>
-              </div>
-            </div>
 
             {uploadMode && (
               /* UPLOAD MODE UI FOR STEP 2 */
@@ -1859,7 +1856,7 @@ Customize to your preference!`}
             )}
 
             {/* AI GENERATION MODE - Quality Selection */}
-            {!uploadMode && (qualitiesUsed.studio < 2 || qualitiesUsed.runway < 1) && qualitiesUsed.runway === 0 && (
+            {aiGenerationEnabled && !uploadMode && (qualitiesUsed.studio < 2 || qualitiesUsed.runway < 1) && qualitiesUsed.runway === 0 && (
               <div className="max-w-2xl mx-auto mb-8">
                 <div className="bg-white rounded-xl p-8 border border-gray-200 shadow-sm">
                   <h3 className="text-xl font-medium text-gray-900 mb-6 text-center">Choose Quality for Next Generation</h3>
@@ -2001,7 +1998,10 @@ Customize to your preference!`}
                     </div>
                     <h3 className="text-xl font-semibold text-gray-900 mb-2">Final Design Complete! ⭐</h3>
                     <p className="text-gray-700 mb-4">
-                      You've used your Runway generation - the highest quality available. This is your final design and cannot be changed.
+                      {aiGenerationEnabled 
+                        ? "You've used your Runway generation - the highest quality available. This is your final design and cannot be changed."
+                        : "Your design images have been uploaded and validated. Ready to submit your application!"
+                      }
                     </p>
                     <p className="text-sm text-purple-600 font-medium">
                       Ready to submit your masterpiece? Continue to the next step!

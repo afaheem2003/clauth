@@ -25,7 +25,8 @@ model User {
   password String? // Hashed password for email/password login
 
   // Phone verification fields
-  phone         String?   @unique
+  // TEMPORARILY removed @unique for testing multiple accounts with same phone
+  phone         String?
   phoneVerified DateTime?
 
   displayName String?  @unique

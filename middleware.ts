@@ -30,6 +30,24 @@ export async function middleware(req: NextRequest) {
     return NextResponse.next()
   }
 
+  // Check if user needs to complete profile (username)
+  // This happens after they sign up but before they can access the app
+  if (token && !token.displayName && path !== '/complete-profile' && !path.startsWith('/api/')) {
+    return NextResponse.redirect(new URL('/complete-profile', req.url))
+  }
+
+  // Allow complete-profile page for users without displayName
+  if (path === '/complete-profile') {
+    if (!token) {
+      return NextResponse.redirect(new URL('/login', req.url))
+    }
+    // If they already have a username, redirect to home
+    if (token.displayName) {
+      return NextResponse.redirect(new URL('/', req.url))
+    }
+    return NextResponse.next()
+  }
+
   // Handle waitlist mode (highest priority)
   if (waitlistEnabled) {
     // Admins and approved users get full access

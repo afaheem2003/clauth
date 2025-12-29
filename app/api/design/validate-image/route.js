@@ -38,106 +38,91 @@ export async function POST(request) {
       );
     }
 
-    // Remove data URL prefix if present
-    const base64Image = image.replace(/^data:image\/\w+;base64,/, '');
-
     if (process.env.NODE_ENV === 'development') {
-      console.log('[Image Validation] Analyzing image...');
+      console.log(`[Image Moderation] Checking ${type} image for inappropriate content...`);
     }
 
-    const response = await openai.chat.completions.create({
-      model: "gpt-4o-mini",
-      messages: [
+    // Use OpenAI's FREE Moderation API for content safety
+    const moderationResponse = await openai.moderations.create({
+      model: "omni-moderation-latest",
+      input: [
         {
-          role: "system",
-          content: `You are an image content moderator for a family-friendly fashion e-commerce platform. Your task is to validate uploaded images to ensure they meet our platform guidelines.
-
-VALIDATION CRITERIA:
-
-1. CLOTHING/ACCESSORY PRESENCE (REQUIRED):
-   - Image MUST show a clothing item or fashion accessory
-   - Acceptable items: shirts, pants, dresses, jackets, shoes, bags, hats, jewelry, etc.
-   - The clothing item must be the primary focus of the image
-
-2. MODEL PRESENCE (REQUIRED):
-   - Image MUST show the clothing item being worn/modeled by a person
-   - Flat lay photos or product-only shots are NOT acceptable
-   - Mannequins are acceptable if the clothing is clearly displayed
-
-3. FAMILY-FRIENDLY CONTENT (REQUIRED):
-   - NO actual nudity (exposed genitals, nipples, or buttocks)
-   - Swimwear (bikinis, swim trunks, one-pieces) is ACCEPTABLE
-   - Activewear, sportswear, and athletic clothing is ACCEPTABLE
-   - Fashion-appropriate clothing for the item type is ACCEPTABLE
-   - NO extreme fetish wear or explicitly sexual content
-   - NO violence, weapons, or disturbing imagery
-   - NO hate symbols, offensive gestures, or inappropriate text
-
-4. IMAGE QUALITY (REQUIRED):
-   - Image must be clear and in focus
-   - Clothing item must be clearly visible and identifiable
-   - Adequate lighting to see the clothing details
-   - NOT overly dark, blurry, or pixelated
-
-5. PROFESSIONAL SUITABILITY (REQUIRED):
-   - Image should be suitable for an e-commerce fashion platform
-   - NO memes, cartoons, or non-photographic content
-   - NO watermarks, logos, or excessive text overlays
-   - NO inappropriate backgrounds or settings
-
-6. PERSPECTIVE (for ${type} view):
-   - ${type === 'front' ? 'Image should show the FRONT view of the clothing item' : 'Image should show the BACK view of the clothing item'}
-   - Full body or upper body shots are preferred
-   - The clothing item should be clearly visible from the specified angle
-
-Your response must be a JSON object with these exact fields:
-{
-  "isValid": boolean,
-  "reason": "Brief explanation if rejected, or confirmation if approved",
-  "violations": ["array of specific issues found, empty if none"],
-  "suggestions": "Brief suggestion for improvement if rejected, empty string if approved"
-}`
-        },
-        {
-          role: "user",
-          content: [
-            {
-              type: "text",
-              text: `Please validate this ${type} view image for our fashion platform. Analyze it carefully against all criteria.`
-            },
-            {
-              type: "image_url",
-              image_url: {
-                url: `data:image/jpeg;base64,${base64Image}`,
-                detail: "high"
-              }
-            }
-          ]
+          type: "image_url",
+          image_url: {
+            url: image, // Accepts data URLs directly
+          }
         }
       ],
-      response_format: { type: "json_object" },
-      max_tokens: 500
     });
 
-    const validationResult = JSON.parse(response.choices[0].message.content);
-    
+    const result = moderationResponse.results[0];
+    const flagged = result.flagged;
+    const categories = result.categories;
+    const categoryScores = result.category_scores;
+
     if (process.env.NODE_ENV === 'development') {
-      console.log('[Image Validation] Result:', validationResult);
+      console.log('[Image Moderation] Result:', {
+        flagged,
+        categories,
+        scores: categoryScores
+      });
     }
 
+    // Define which categories are blocking for fashion uploads
+    const blockingCategories = {
+      sexual: categories.sexual,
+      'sexual/minors': categories['sexual/minors'],
+      harassment: categories.harassment,
+      'harassment/threatening': categories['harassment/threatening'],
+      hate: categories.hate,
+      'hate/threatening': categories['hate/threatening'],
+      violence: categories.violence,
+      'violence/graphic': categories['violence/graphic'],
+      'self-harm': categories['self-harm'],
+      'self-harm/intent': categories['self-harm/intent'],
+      'self-harm/instructions': categories['self-harm/instructions'],
+    };
+
+    // Check if any blocking category was flagged
+    const violations = [];
+    for (const [category, isFlagged] of Object.entries(blockingCategories)) {
+      if (isFlagged) {
+        violations.push(category.replace(/\//g, ' or '));
+      }
+    }
+
+    if (flagged && violations.length > 0) {
+      // Image failed moderation
+      return NextResponse.json({
+        success: true,
+        validation: {
+          isValid: false,
+          reason: 'Image contains inappropriate or unsafe content that violates our community guidelines.',
+          violations: violations.map(v => `Content flagged for: ${v}`),
+          suggestions: 'Please upload a family-friendly image showing clothing on a model without inappropriate content.'
+        }
+      });
+    }
+
+    // Image passed moderation
     return NextResponse.json({
       success: true,
-      validation: validationResult
+      validation: {
+        isValid: true,
+        reason: `${type === 'front' ? 'Front' : 'Back'} image passed safety checks`,
+        violations: [],
+        suggestions: ''
+      }
     });
 
   } catch (error) {
     if (process.env.NODE_ENV === 'development') {
-      console.error('[Image Validation] Error:', error);
+      console.error('[Image Moderation] Error:', error);
     }
     
     if (error instanceof OpenAI.APIError) {
       return NextResponse.json(
-        { error: `Vision API error: ${error.message}` },
+        { error: `Moderation API error: ${error.message}` },
         { status: error.status || 500 }
       );
     }
