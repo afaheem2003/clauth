@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useSession } from 'next-auth/react'
 import Link from 'next/link'
 import NextImage from 'next/image'
@@ -18,6 +18,7 @@ export default function WaitlistPage() {
   // Default to false so AI features are hidden until API confirms they're enabled
   const [aiGenerationEnabled, setAiGenerationEnabled] = useState(false)
   const [waitlistEnabled, setWaitlistEnabled] = useState(true)
+  const hasLoadedProgress = useRef(false)
   
   useEffect(() => {
     // Check server-side feature flags
@@ -96,14 +97,15 @@ export default function WaitlistPage() {
 
   // Redirect if already approved (only when waitlist mode is enabled)
   useEffect(() => {
-    if (waitlistEnabled && session?.user?.waitlistStatus === 'APPROVED') {
+    if (waitlistEnabled && session?.user?.waitlistStatus === 'APPROVED' && status !== 'loading') {
       window.location.href = '/'
     }
-  }, [session, waitlistEnabled])
+  }, [session, waitlistEnabled, status])
 
   // Progress saving and loading
   useEffect(() => {
-    if (session?.user?.uid) {
+    if (session?.user?.uid && !hasLoadedProgress.current) {
+      hasLoadedProgress.current = true
       loadProgress()
     }
   }, [session?.user?.uid])
@@ -204,6 +206,7 @@ export default function WaitlistPage() {
       
       if (data.hasSubmittedApplication) {
         // User has already submitted an application, redirect to status page
+        setIsLoadingProgress(false) // Set loading to false before redirect
         window.location.href = '/waitlist-status'
         return
       }
