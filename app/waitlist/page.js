@@ -95,21 +95,20 @@ export default function WaitlistPage() {
     editInstructions: ''
   })
 
-  // Redirect if already approved (only when waitlist mode is enabled)
-  // Admins can access waitlist page to test/view it
+  // Redirect if already approved or admin (only when waitlist mode is enabled)
   useEffect(() => {
-    if (waitlistEnabled && session?.user?.waitlistStatus === 'APPROVED' && session?.user?.role !== 'ADMIN' && status !== 'loading') {
+    if (waitlistEnabled && (session?.user?.waitlistStatus === 'APPROVED' || session?.user?.role === 'ADMIN') && status !== 'loading') {
       window.location.href = '/'
     }
   }, [session, waitlistEnabled, status])
 
-  // Progress saving and loading
+  // Progress saving and loading (skip for admins since they'll be redirected)
   useEffect(() => {
-    if (session?.user?.uid && !hasLoadedProgress.current) {
+    if (session?.user?.uid && !hasLoadedProgress.current && session?.user?.role !== 'ADMIN') {
       hasLoadedProgress.current = true
       loadProgress()
     }
-  }, [session?.user?.uid])
+  }, [session?.user?.uid, session?.user?.role])
 
   // Handle click outside for dropdown menu
   useEffect(() => {
@@ -205,8 +204,7 @@ export default function WaitlistPage() {
       
       const data = await response.json()
       
-      // Admins can view waitlist page even if they have submitted an application
-      if (data.hasSubmittedApplication && session?.user?.role !== 'ADMIN') {
+      if (data.hasSubmittedApplication) {
         // User has already submitted an application, redirect to status page
         setIsLoadingProgress(false) // Set loading to false before redirect
         window.location.href = '/waitlist-status'
