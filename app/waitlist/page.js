@@ -96,8 +96,9 @@ export default function WaitlistPage() {
   })
 
   // Redirect if already approved (only when waitlist mode is enabled)
+  // Admins can access waitlist page to test/view it
   useEffect(() => {
-    if (waitlistEnabled && session?.user?.waitlistStatus === 'APPROVED' && status !== 'loading') {
+    if (waitlistEnabled && session?.user?.waitlistStatus === 'APPROVED' && session?.user?.role !== 'ADMIN' && status !== 'loading') {
       window.location.href = '/'
     }
   }, [session, waitlistEnabled, status])
@@ -204,7 +205,8 @@ export default function WaitlistPage() {
       
       const data = await response.json()
       
-      if (data.hasSubmittedApplication) {
+      // Admins can view waitlist page even if they have submitted an application
+      if (data.hasSubmittedApplication && session?.user?.role !== 'ADMIN') {
         // User has already submitted an application, redirect to status page
         setIsLoadingProgress(false) // Set loading to false before redirect
         window.location.href = '/waitlist-status'
