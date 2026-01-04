@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react'
 import { useSession } from 'next-auth/react'
+import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import NextImage from 'next/image'
 import { CLOTHING_CATEGORIES } from '@/app/constants/clothingCategories'
@@ -13,6 +14,7 @@ import ImageCropper from '@/components/design/ImageCropper'
 
 export default function WaitlistPage() {
   const { data: session, status } = useSession()
+  const router = useRouter()
   
   // Feature flag: Check if AI generation is enabled
   // Default to false so AI features are hidden until API confirms they're enabled
@@ -98,9 +100,9 @@ export default function WaitlistPage() {
   // Redirect if already approved or admin (only when waitlist mode is enabled)
   useEffect(() => {
     if (waitlistEnabled && (session?.user?.waitlistStatus === 'APPROVED' || session?.user?.role === 'ADMIN') && status !== 'loading') {
-      window.location.href = '/'
+      router.push('/')
     }
-  }, [session, waitlistEnabled, status])
+  }, [session, waitlistEnabled, status, router])
 
   // Progress saving and loading (skip for admins since they'll be redirected)
   useEffect(() => {
@@ -179,7 +181,7 @@ export default function WaitlistPage() {
         const errorData = await response.json()
         if (errorData.error?.includes('application already submitted')) {
           // User has submitted an application, redirect to status page
-          window.location.href = '/waitlist-status'
+          router.push('/waitlist-status')
           return
         }
         throw new Error(errorData.error || 'Failed to save progress')
@@ -207,7 +209,7 @@ export default function WaitlistPage() {
       if (data.hasSubmittedApplication) {
         // User has already submitted an application, redirect to status page
         setIsLoadingProgress(false) // Set loading to false before redirect
-        window.location.href = '/waitlist-status'
+        router.push('/waitlist-status')
         return
       }
       
