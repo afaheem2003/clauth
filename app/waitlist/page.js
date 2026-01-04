@@ -785,30 +785,44 @@ export default function WaitlistPage() {
     return (
       <div className="min-h-screen bg-white">
         {/* Top Navigation Bar */}
-        <div className="border-b border-gray-100 bg-white/80 backdrop-blur-sm sticky top-0 z-50">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div className="flex justify-between items-center h-16">
-              <Link href="/" className="text-xl font-extralight text-black tracking-tight hover:text-gray-600 transition-colors">
-                CLAUTH
-              </Link>
-              <div className="flex items-center gap-4">
-                {session?.user && (
-                  <>
-                    <span className="text-sm text-gray-600 hidden sm:block">
-                      {session.user.email}
+        <header className="bg-white border-b border-gray-300 sticky top-0 z-50 shadow-md">
+          <div className="container mx-auto px-4 sm:px-6 h-16 flex items-center justify-between">
+            <Link 
+              href="/" 
+              className="text-2xl font-bold text-black hover:text-gray-700 transition-all duration-300"
+            >
+              Clauth
+            </Link>
+            
+            <div className="flex items-center gap-3">
+              {session?.user ? (
+                <>
+                  <div className="hidden sm:flex items-center gap-2 px-3 py-1.5 bg-gray-50 rounded-lg">
+                    <div className="w-7 h-7 bg-black rounded-full flex items-center justify-center text-white font-semibold text-xs">
+                      {session.user.name?.charAt(0)?.toUpperCase() || session.user.email?.charAt(0)?.toUpperCase() || 'U'}
+                    </div>
+                    <span className="text-sm text-gray-700 font-medium max-w-[150px] truncate">
+                      {session.user.name || session.user.email}
                     </span>
-                    <button
-                      onClick={() => signOut({ callbackUrl: '/login' })}
-                      className="text-sm text-gray-600 hover:text-black transition-colors font-light"
-                    >
-                      Sign Out
-                    </button>
-                  </>
-                )}
-              </div>
+                  </div>
+                  <button
+                    onClick={() => signOut({ callbackUrl: '/login' })}
+                    className="px-4 py-2 text-sm font-medium text-gray-700 hover:text-black hover:bg-gray-100 rounded-xl transition-all duration-200"
+                  >
+                    Sign Out
+                  </button>
+                </>
+              ) : (
+                <Link
+                  href="/login"
+                  className="px-4 py-2 text-sm font-medium text-white bg-black hover:bg-gray-800 rounded-xl shadow-lg hover:shadow-xl transition-all duration-200 transform hover:scale-105"
+                >
+                  Sign In
+                </Link>
+              )}
             </div>
           </div>
-        </div>
+        </header>
 
         <div className="flex items-center justify-center min-h-[calc(100vh-4rem)]">
           <div className="max-w-2xl mx-auto px-4 text-center">
@@ -841,30 +855,44 @@ export default function WaitlistPage() {
     return (
       <div className="min-h-screen bg-white">
         {/* Top Navigation Bar */}
-        <div className="border-b border-gray-100 bg-white/80 backdrop-blur-sm sticky top-0 z-50">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div className="flex justify-between items-center h-16">
-              <Link href="/" className="text-xl font-extralight text-black tracking-tight hover:text-gray-600 transition-colors">
-                CLAUTH
-              </Link>
-              <div className="flex items-center gap-4">
-                {session?.user && (
-                  <>
-                    <span className="text-sm text-gray-600 hidden sm:block">
-                      {session.user.email}
+        <header className="bg-white border-b border-gray-300 sticky top-0 z-50 shadow-md">
+          <div className="container mx-auto px-4 sm:px-6 h-16 flex items-center justify-between">
+            <Link 
+              href="/" 
+              className="text-2xl font-bold text-black hover:text-gray-700 transition-all duration-300"
+            >
+              Clauth
+            </Link>
+            
+            <div className="flex items-center gap-3">
+              {session?.user ? (
+                <>
+                  <div className="hidden sm:flex items-center gap-2 px-3 py-1.5 bg-gray-50 rounded-lg">
+                    <div className="w-7 h-7 bg-black rounded-full flex items-center justify-center text-white font-semibold text-xs">
+                      {session.user.name?.charAt(0)?.toUpperCase() || session.user.email?.charAt(0)?.toUpperCase() || 'U'}
+                    </div>
+                    <span className="text-sm text-gray-700 font-medium max-w-[150px] truncate">
+                      {session.user.name || session.user.email}
                     </span>
-                    <button
-                      onClick={() => signOut({ callbackUrl: '/login' })}
-                      className="text-sm text-gray-600 hover:text-black transition-colors font-light"
-                    >
-                      Sign Out
-                    </button>
-                  </>
-                )}
-              </div>
+                  </div>
+                  <button
+                    onClick={() => signOut({ callbackUrl: '/login' })}
+                    className="px-4 py-2 text-sm font-medium text-gray-700 hover:text-black hover:bg-gray-100 rounded-xl transition-all duration-200"
+                  >
+                    Sign Out
+                  </button>
+                </>
+              ) : (
+                <Link
+                  href="/login"
+                  className="px-4 py-2 text-sm font-medium text-white bg-black hover:bg-gray-800 rounded-xl shadow-lg hover:shadow-xl transition-all duration-200 transform hover:scale-105"
+                >
+                  Sign In
+                </Link>
+              )}
             </div>
           </div>
-        </div>
+        </header>
 
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
           <div className="text-center mb-12">
@@ -1068,30 +1096,44 @@ export default function WaitlistPage() {
   return (
     <div className="min-h-screen bg-white">
       {/* Top Navigation Bar */}
-      <div className="border-b border-gray-100 bg-white/80 backdrop-blur-sm sticky top-0 z-50">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center h-16">
-            <Link href="/" className="text-xl font-extralight text-black tracking-tight hover:text-gray-600 transition-colors">
-              CLAUTH
-            </Link>
-            <div className="flex items-center gap-4">
-              {session?.user && (
-                <>
-                  <span className="text-sm text-gray-600 hidden sm:block">
-                    {session.user.email}
+      <header className="bg-white border-b border-gray-300 sticky top-0 z-50 shadow-md">
+        <div className="container mx-auto px-4 sm:px-6 h-16 flex items-center justify-between">
+          <Link 
+            href="/" 
+            className="text-2xl font-bold text-black hover:text-gray-700 transition-all duration-300"
+          >
+            Clauth
+          </Link>
+          
+          <div className="flex items-center gap-3">
+            {session?.user ? (
+              <>
+                <div className="hidden sm:flex items-center gap-2 px-3 py-1.5 bg-gray-50 rounded-lg">
+                  <div className="w-7 h-7 bg-black rounded-full flex items-center justify-center text-white font-semibold text-xs">
+                    {session.user.name?.charAt(0)?.toUpperCase() || session.user.email?.charAt(0)?.toUpperCase() || 'U'}
+                  </div>
+                  <span className="text-sm text-gray-700 font-medium max-w-[150px] truncate">
+                    {session.user.name || session.user.email}
                   </span>
-                  <button
-                    onClick={() => signOut({ callbackUrl: '/login' })}
-                    className="text-sm text-gray-600 hover:text-black transition-colors font-light"
-                  >
-                    Sign Out
-                  </button>
-                </>
-              )}
-            </div>
+                </div>
+                <button
+                  onClick={() => signOut({ callbackUrl: '/login' })}
+                  className="px-4 py-2 text-sm font-medium text-gray-700 hover:text-black hover:bg-gray-100 rounded-xl transition-all duration-200"
+                >
+                  Sign Out
+                </button>
+              </>
+            ) : (
+              <Link
+                href="/login"
+                className="px-4 py-2 text-sm font-medium text-white bg-black hover:bg-gray-800 rounded-xl shadow-lg hover:shadow-xl transition-all duration-200 transform hover:scale-105"
+              >
+                Sign In
+              </Link>
+            )}
           </div>
         </div>
-      </div>
+      </header>
 
       <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
         {/* Header */}
