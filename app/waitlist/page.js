@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useRef } from 'react'
-import { useSession } from 'next-auth/react'
+import { useSession, signOut } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import NextImage from 'next/image'
@@ -783,8 +783,35 @@ export default function WaitlistPage() {
 
   if (step === 5) {
     return (
-      <div className="min-h-screen bg-white flex items-center justify-center">
-        <div className="max-w-2xl mx-auto px-4 text-center">
+      <div className="min-h-screen bg-white">
+        {/* Top Navigation Bar */}
+        <div className="border-b border-gray-100 bg-white/80 backdrop-blur-sm sticky top-0 z-50">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div className="flex justify-between items-center h-16">
+              <Link href="/" className="text-xl font-extralight text-black tracking-tight hover:text-gray-600 transition-colors">
+                CLAUTH
+              </Link>
+              <div className="flex items-center gap-4">
+                {session?.user && (
+                  <>
+                    <span className="text-sm text-gray-600 hidden sm:block">
+                      {session.user.email}
+                    </span>
+                    <button
+                      onClick={() => signOut({ callbackUrl: '/login' })}
+                      className="text-sm text-gray-600 hover:text-black transition-colors font-light"
+                    >
+                      Sign Out
+                    </button>
+                  </>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div className="flex items-center justify-center min-h-[calc(100vh-4rem)]">
+          <div className="max-w-2xl mx-auto px-4 text-center">
           <div className="w-24 h-24 bg-green-100 rounded-full mx-auto mb-8 flex items-center justify-center">
             <svg className="w-12 h-12 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
@@ -804,6 +831,7 @@ export default function WaitlistPage() {
             Check Status
           </Link>
         </div>
+        </div>
       </div>
     )
   }
@@ -812,6 +840,32 @@ export default function WaitlistPage() {
   if (step === 0) {
     return (
       <div className="min-h-screen bg-white">
+        {/* Top Navigation Bar */}
+        <div className="border-b border-gray-100 bg-white/80 backdrop-blur-sm sticky top-0 z-50">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div className="flex justify-between items-center h-16">
+              <Link href="/" className="text-xl font-extralight text-black tracking-tight hover:text-gray-600 transition-colors">
+                CLAUTH
+              </Link>
+              <div className="flex items-center gap-4">
+                {session?.user && (
+                  <>
+                    <span className="text-sm text-gray-600 hidden sm:block">
+                      {session.user.email}
+                    </span>
+                    <button
+                      onClick={() => signOut({ callbackUrl: '/login' })}
+                      className="text-sm text-gray-600 hover:text-black transition-colors font-light"
+                    >
+                      Sign Out
+                    </button>
+                  </>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
           <div className="text-center mb-12">
             <h1 className="text-5xl font-extralight text-black mb-4 tracking-tight">
@@ -1013,6 +1067,32 @@ export default function WaitlistPage() {
 
   return (
     <div className="min-h-screen bg-white">
+      {/* Top Navigation Bar */}
+      <div className="border-b border-gray-100 bg-white/80 backdrop-blur-sm sticky top-0 z-50">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex justify-between items-center h-16">
+            <Link href="/" className="text-xl font-extralight text-black tracking-tight hover:text-gray-600 transition-colors">
+              CLAUTH
+            </Link>
+            <div className="flex items-center gap-4">
+              {session?.user && (
+                <>
+                  <span className="text-sm text-gray-600 hidden sm:block">
+                    {session.user.email}
+                  </span>
+                  <button
+                    onClick={() => signOut({ callbackUrl: '/login' })}
+                    className="text-sm text-gray-600 hover:text-black transition-colors font-light"
+                  >
+                    Sign Out
+                  </button>
+                </>
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
+
       <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
         {/* Header */}
         <div className="text-center mb-12">
