@@ -18,7 +18,7 @@ export default function WaitlistPage() {
   
   // #region agent log
   useEffect(() => {
-    console.log('[DEBUG_WAITLIST] Component mounted/rendered', {location:'waitlist/page.js:16',status,hasSession:!!session,userRole:session?.user?.role,timestamp:new Date().toISOString(),hypothesisId:'C,E'});
+    console.log('[DEBUG_WAITLIST] Component mounted/rendered', {location:'waitlist/page.js:16',status,hasSession:!!session,userRole:session?.user?.role,timestamp:new Date().toISOString(),currentPath:window.location.pathname,fullUrl:window.location.href,hypothesisId:'C,E'});
   })
   // #endregion
   
@@ -125,20 +125,19 @@ export default function WaitlistPage() {
       // Always redirect admins
       if (session?.user?.role === 'ADMIN') {
         // #region agent log
-        console.log('[DEBUG_WAITLIST] 🚨 ADMIN REDIRECT TRIGGERED - Calling router.push', {location:'waitlist/page.js:109',role:session.user.role,email:session.user.email,hypothesisId:'A,C'});
+        console.log('[DEBUG_WAITLIST] 🚨 ADMIN REDIRECT TRIGGERED - Using window.location', {location:'waitlist/page.js:109',role:session.user.role,email:session.user.email,currentPath:window.location.pathname,hypothesisId:'A,C,F'});
         // #endregion
-        router.push('/')
-        // #region agent log
-        console.log('[DEBUG_WAITLIST] router.push("/") called, returning', {location:'waitlist/page.js:112',hypothesisId:'A,C'});
-        // #endregion
+        // Use window.location.href for full page reload to ensure JWT cookie is sent
+        window.location.href = '/'
         return
       }
       // Redirect approved users only if waitlist mode is enabled
       if (waitlistEnabled && session?.user?.waitlistStatus === 'APPROVED') {
         // #region agent log
-        console.log('[DEBUG_WAITLIST] Approved user redirect triggered', {location:'waitlist/page.js:119',waitlistStatus:session.user.waitlistStatus,hypothesisId:'A,C'});
+        console.log('[DEBUG_WAITLIST] Approved user redirect triggered', {location:'waitlist/page.js:119',waitlistStatus:session.user.waitlistStatus,hypothesisId:'A,C,F'});
         // #endregion
-        router.push('/')
+        // Use window.location.href for full page reload to ensure JWT cookie is sent
+        window.location.href = '/'
       }
     }
   }, [session, waitlistEnabled, status, router])
