@@ -492,13 +492,18 @@ export default function WaitlistPage() {
       setStep(2) // Move to generation stage
     } else {
       // AI Generation mode: validate and move to step 2
-    if (!formData.prompt.trim() || !formData.itemType) {
-      setError('Please fill in all required fields')
-      return
-    }
-    setStep(2) // Move to generation stage
-    // Start generation immediately
-    generateWaitlistDesign(formData.prompt)
+      if (!aiGenerationEnabled) {
+        setError('AI generation is currently disabled. Please use upload mode instead.')
+        return
+      }
+      
+      if (!formData.prompt.trim() || !formData.itemType) {
+        setError('Please fill in all required fields')
+        return
+      }
+      setStep(2) // Move to generation stage
+      // Start generation immediately
+      generateWaitlistDesign(formData.prompt)
     }
   }
 
@@ -529,12 +534,16 @@ export default function WaitlistPage() {
         promptRaw: uploadMode ? formData.prompt : currentDesign.prompt,
         itemType: formData.itemType,
         gender: formData.gender,
-        quality: uploadMode ? 'medium' : ((currentDesign.quality === 'studio' || currentDesign.quality === 'medium') ? 'medium' : 'high'), // Convert back to API format
         referralCodes: formData.referralCodes.filter(code => code.trim()),
         modelDescription: formData.modelDescription?.trim() || '',
         remainingOutfit: formData.remainingOutfit?.trim() || '',
         editInstructions: formData.editInstructions?.trim() || '',
         isUploadedDesign: uploadMode // Flag to indicate design type
+      }
+
+      // Only add quality for AI-generated designs
+      if (!uploadMode && currentDesign.quality) {
+        requestData.quality = (currentDesign.quality === 'studio' || currentDesign.quality === 'medium') ? 'medium' : 'high'
       }
 
       console.log('Submitting waitlist application:', requestData)
@@ -1805,7 +1814,7 @@ Customize to your preference!`}
             </div>
 
 
-            {uploadMode && (
+            {(uploadMode || !aiGenerationEnabled) && (
               /* UPLOAD MODE UI FOR STEP 2 */
               <div className="max-w-2xl mx-auto space-y-6">
                 {/* Upload Instructions */}
@@ -1958,24 +1967,57 @@ Customize to your preference!`}
                   </div>
                 </div>
 
+                {/* Design Name */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-900 mb-2">
+                    Design Name <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    value={formData.name}
+                    onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
+                    placeholder="Name your design"
+                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-black focus:border-transparent text-gray-900"
+                  />
+                </div>
+
+                {/* Description */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-900 mb-2">
+                    Description
+                  </label>
+                  <textarea
+                    value={formData.description}
+                    onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
+                    placeholder="Describe your design..."
+                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-black focus:border-transparent text-gray-900 h-24 resize-none"
+                  />
+                </div>
+
                 {/* Continue Button for Upload Mode */}
                 <div className="max-w-2xl mx-auto">
                   <button
                     onClick={() => {
-                      if (uploadedFrontImage && uploadedBackImage) {
-                        // Create a design object with uploaded images
-                        setCurrentDesign({
-                          frontImage: uploadedFrontImage,
-                          backImage: uploadedBackImage,
-                          prompt: formData.prompt,
-                          itemType: formData.itemType,
-                          gender: formData.gender,
-                          isUploaded: true
-                        });
-                        setStep(3); // Skip to referrals step
+                      if (!uploadedFrontImage || !uploadedBackImage) {
+                        setError('Please upload both front and back images');
+                        return;
                       }
+                      if (!formData.name.trim()) {
+                        setError('Please provide a name for your design');
+                        return;
+                      }
+                      // Create a design object with uploaded images
+                      setCurrentDesign({
+                        frontImage: uploadedFrontImage,
+                        backImage: uploadedBackImage,
+                        prompt: formData.prompt,
+                        itemType: formData.itemType,
+                        gender: formData.gender,
+                        isUploaded: true
+                      });
+                      setStep(3); // Skip to referrals step
                     }}
-                    disabled={!uploadedFrontImage || !uploadedBackImage}
+                    disabled={!uploadedFrontImage || !uploadedBackImage || uploadValidating.front || uploadValidating.back}
                     className="w-full bg-black text-white px-6 py-4 font-medium hover:bg-gray-900 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors rounded-lg"
                   >
                     {!uploadedFrontImage || !uploadedBackImage 
@@ -2143,6 +2185,8 @@ Customize to your preference!`}
               </div>
             )}
 
+            {/* Only show AI generation details when AI is enabled */}
+            {aiGenerationEnabled && !uploadMode && (
             <div className="grid lg:grid-cols-2 gap-12">
               {/* Left Column - Design Details */}
               <div className="space-y-6">
@@ -2222,7 +2266,7 @@ Customize to your preference!`}
                 )}
 
                 {/* Edit Design Section - only for AI generated designs */}
-                {!uploadMode && currentDesign && (
+                {aiGenerationEnabled && !uploadMode && currentDesign && (
                   <div>
                     <label className="block text-sm font-medium text-gray-900 mb-2">
                       Edit Instructions (Optional)
@@ -2241,7 +2285,7 @@ Customize to your preference!`}
 
                 {/* Action Buttons */}
                 <div className="space-y-3">
-                  {!uploadMode && ((qualitiesUsed.studio < 2 || qualitiesUsed.runway < 1) && qualitiesUsed.runway === 0 && currentDesign) && (
+                  {aiGenerationEnabled && !uploadMode && ((qualitiesUsed.studio < 2 || qualitiesUsed.runway < 1) && qualitiesUsed.runway === 0 && currentDesign) && (
                     <button
                       onClick={() => {
                         const hasEditInstructions = formData.editInstructions?.trim()
@@ -2263,7 +2307,7 @@ Customize to your preference!`}
                   )}
 
                   {/* Show generate button for first generation - only in AI mode */}
-                  {!uploadMode && generationsUsed === 0 && qualitiesUsed.runway === 0 && (
+                  {aiGenerationEnabled && !uploadMode && generationsUsed === 0 && qualitiesUsed.runway === 0 && (
                     <button
                       onClick={() => generateWaitlistDesign(formData.prompt)}
                       disabled={loadingStates.image}
@@ -2360,9 +2404,10 @@ Customize to your preference!`}
                 />
               </div>
             </div>
+            )}
 
                         {/* Design History */}
-            {designHistory.length > 1 && (
+            {aiGenerationEnabled && !uploadMode && designHistory.length > 1 && (
               <div className="mt-10">
                 <div className="flex items-center justify-between mb-6">
                   <div>
@@ -2607,21 +2652,29 @@ Customize to your preference!`}
 
                   <div>
                     <h3 className="text-xl font-semibold mb-2 text-gray-900">{formData.name}</h3>
-                    {formData.description && (
-                      <p className="text-gray-800 mb-4">{formData.description}</p>
+                    
+                    {/* Show description if it exists */}
+                    {(formData.description || currentDesign?.aiDescription) && (
+                      <p className="text-gray-600 mb-4 italic">
+                        {formData.description || currentDesign?.aiDescription}
+                      </p>
                     )}
+                    
                     <div className="text-sm text-gray-800 space-y-1">
-                      <p>Item Type: {formData.itemType}</p>
-                      <p>Category: {formData.selectedCategory ? CLOTHING_CATEGORIES[formData.selectedCategory].name : 'Not selected'}</p>
-                      <p>Gender: {formData.gender === 'MASCULINE' ? 'Male' : formData.gender === 'FEMININE' ? 'Female' : 'Unisex'}</p>
-                      {!uploadMode && (
+                      <p><span className="font-medium">Item Type:</span> {formData.itemType}</p>
+                      <p><span className="font-medium">Category:</span> {formData.selectedCategory ? CLOTHING_CATEGORIES[formData.selectedCategory].name : 'Not selected'}</p>
+                      <p><span className="font-medium">Gender:</span> {formData.gender === 'MASCULINE' ? 'Male' : formData.gender === 'FEMININE' ? 'Female' : 'Unisex'}</p>
+                      
+                      {/* Only show AI-specific fields for AI-generated designs */}
+                      {aiGenerationEnabled && !uploadMode && currentDesign && !currentDesign.isUploaded && (
                         <>
-                      <p>Quality: {(currentDesign.quality === 'studio' || currentDesign.quality === 'medium') ? 'Studio' : 'Runway'}</p>
-                      <p>Generations used: Studio ({qualitiesUsed.studio}/2) • Runway ({qualitiesUsed.runway}/1)</p>
+                          <p><span className="font-medium">Quality:</span> {(currentDesign.quality === 'studio' || currentDesign.quality === 'medium') ? 'Studio' : 'Runway'}</p>
+                          <p><span className="font-medium">Generations used:</span> Studio ({qualitiesUsed.studio}/2) • Runway ({qualitiesUsed.runway}/1)</p>
                         </>
                       )}
+                      
                       {formData.referralCodes.filter(code => code.trim()).length > 0 && (
-                        <p>Referral codes: {formData.referralCodes.filter(code => code.trim()).join(', ')}</p>
+                        <p><span className="font-medium">Referral codes:</span> {formData.referralCodes.filter(code => code.trim()).join(', ')}</p>
                       )}
                     </div>
                   </div>

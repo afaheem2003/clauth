@@ -305,7 +305,7 @@ export default function WaitlistStatusPage() {
                   <div className="bg-white rounded-3xl shadow-lg border border-gray-200 overflow-hidden">
                     <div className="aspect-[2/3] relative bg-gradient-to-br from-gray-50 to-gray-100">
                       <Image
-                        src={currentView === 'front' ? (app.clothingItem.imageUrl || '/images/placeholder-front.png') : (app.clothingItem.backImage || app.clothingItem.imageUrl || '/images/placeholder-back.png')}
+                        src={currentView === 'front' ? (app.designItem?.imageUrl || app.designItem?.frontImage || '/images/placeholder-front.png') : (app.designItem?.backImage || app.designItem?.imageUrl || app.designItem?.frontImage || '/images/placeholder-back.png')}
                         alt={`${currentView} view`}
                         fill
                         className="object-cover"
@@ -345,38 +345,40 @@ export default function WaitlistStatusPage() {
                         </div>
                       </div>
                       
-                      {/* Quality Badge */}
-                      <div className="absolute top-4 right-4">
-                        <div className="bg-gradient-to-r from-purple-500 to-pink-500 text-white px-3 py-1.5 rounded-full text-xs font-medium">
-                          {app.clothingItem.quality === 'high' ? 'Runway Quality' : 'Studio Quality'}
+                      {/* Quality Badge - Only show for AI-generated designs */}
+                      {app.designType === 'ai-generated' && app.designItem?.quality && (
+                        <div className="absolute top-4 right-4">
+                          <div className="bg-gradient-to-r from-purple-500 to-pink-500 text-white px-3 py-1.5 rounded-full text-xs font-medium">
+                            {app.designItem.quality === 'high' ? 'Runway Quality' : 'Studio Quality'}
+                          </div>
                         </div>
-                      </div>
+                      )}
                     </div>
                     
                     <div className="p-8">
                       <div className="flex items-center justify-between mb-6">
-                        <h3 className="text-2xl font-light text-gray-900">{app.clothingItem.name}</h3>
+                        <h3 className="text-2xl font-light text-gray-900">{app.designItem?.name}</h3>
                         <div className={`px-3 py-1 rounded-full text-xs font-medium ${getStatusBadge(app.status)}`}>
                           {app.status}
                         </div>
                       </div>
                       
-                      {app.clothingItem.description && (
-                        <p className="text-gray-600 mb-6 leading-relaxed">{app.clothingItem.description}</p>
+                      {app.designItem?.description && (
+                        <p className="text-gray-600 mb-6 leading-relaxed">{app.designItem.description}</p>
                       )}
                       
                       <div className="grid grid-cols-2 gap-4 text-sm">
                         <div className="bg-gray-50 rounded-xl p-4">
                           <p className="text-gray-500 font-medium mb-1">Type</p>
-                          <p className="text-gray-900">{app.clothingItem.itemType}</p>
+                          <p className="text-gray-900">{app.designItem?.itemType}</p>
                         </div>
                         <div className="bg-gray-50 rounded-xl p-4">
                           <p className="text-gray-500 font-medium mb-1">Gender</p>
-                          <p className="text-gray-900">{app.clothingItem.gender === 'MASCULINE' ? 'Male' : app.clothingItem.gender === 'FEMININE' ? 'Female' : 'Unisex'}</p>
+                          <p className="text-gray-900">{app.designItem?.gender === 'MASCULINE' ? 'Male' : app.designItem?.gender === 'FEMININE' ? 'Female' : 'Unisex'}</p>
                         </div>
                         <div className="bg-gray-50 rounded-xl p-4">
                           <p className="text-gray-500 font-medium mb-1">Category</p>
-                          <p className="text-gray-900">{app.clothingItem.category || 'Fashion'}</p>
+                          <p className="text-gray-900">{app.designItem?.category || 'Fashion'}</p>
                         </div>
                         <div className="bg-gray-50 rounded-xl p-4">
                           <p className="text-gray-500 font-medium mb-1">Submitted</p>
