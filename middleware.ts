@@ -12,6 +12,21 @@ export async function middleware(req: NextRequest) {
   const isApproved = token?.waitlistStatus === 'APPROVED'
   const isWaitlisted = token?.waitlistStatus === 'WAITLISTED' && !isAdmin
   const path = req.nextUrl.pathname
+  
+  // #region agent log
+  console.log('[DEBUG_MIDDLEWARE]', {
+    path,
+    hasToken: !!token,
+    role: token?.role,
+    waitlistStatus: token?.waitlistStatus,
+    displayName: token?.displayName,
+    email: token?.email,
+    isAdmin,
+    isApproved,
+    isWaitlisted,
+    waitlistEnabled
+  })
+  // #endregion
 
   const isBypassed = [
     '/api/auth/callback',
@@ -34,6 +49,9 @@ export async function middleware(req: NextRequest) {
   // This happens after they sign up but before they can access the app
   // Admins can bypass this requirement
   if (token && !token.displayName && !isAdmin && path !== '/complete-profile' && !path.startsWith('/api/')) {
+    // #region agent log
+    console.log('[DEBUG_MIDDLEWARE] Redirecting to /complete-profile', { path, displayName: token.displayName, isAdmin })
+    // #endregion
     return NextResponse.redirect(new URL('/complete-profile', req.url))
   }
 
@@ -72,11 +90,17 @@ export async function middleware(req: NextRequest) {
 
     // Waitlisted users can only access waitlist-status (after login)
     if (token && isWaitlisted) {
+      // #region agent log
+      console.log('[DEBUG_MIDDLEWARE] Redirecting waitlisted user to /waitlist-status', { path, isWaitlisted })
+      // #endregion
       return NextResponse.redirect(new URL('/waitlist-status', req.url))
     }
 
     // Non-authenticated users go to waitlist (unless they're already there)
     if (!token && path !== '/waitlist') {
+      // #region agent log
+      console.log('[DEBUG_MIDDLEWARE] Redirecting unauthenticated user to /waitlist', { path })
+      // #endregion
       return NextResponse.redirect(new URL('/waitlist', req.url))
     }
   }
