@@ -97,10 +97,19 @@ export default function WaitlistPage() {
     editInstructions: ''
   })
 
-  // Redirect if already approved or admin (only when waitlist mode is enabled)
+  // Redirect if already approved or admin
+  // Admins should always bypass waitlist, regardless of waitlist mode
   useEffect(() => {
-    if (waitlistEnabled && (session?.user?.waitlistStatus === 'APPROVED' || session?.user?.role === 'ADMIN') && status !== 'loading') {
-      router.push('/')
+    if (status !== 'loading') {
+      // Always redirect admins
+      if (session?.user?.role === 'ADMIN') {
+        router.push('/')
+        return
+      }
+      // Redirect approved users only if waitlist mode is enabled
+      if (waitlistEnabled && session?.user?.waitlistStatus === 'APPROVED') {
+        router.push('/')
+      }
     }
   }, [session, waitlistEnabled, status, router])
 
