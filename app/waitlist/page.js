@@ -18,7 +18,7 @@ export default function WaitlistPage() {
   
   // #region agent log
   useEffect(() => {
-    fetch('http://127.0.0.1:7242/ingest/ee61a447-aaff-48fb-9929-56461307e2f0',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'waitlist/page.js:16',message:'WaitlistPage component mounted/rendered',data:{status,hasSession:!!session,userRole:session?.user?.role,timestamp:new Date().toISOString()},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'C,E'})}).catch(()=>{});
+    console.log('[DEBUG_WAITLIST] Component mounted/rendered', {location:'waitlist/page.js:16',status,hasSession:!!session,userRole:session?.user?.role,timestamp:new Date().toISOString(),hypothesisId:'C,E'});
   })
   // #endregion
   
@@ -30,21 +30,21 @@ export default function WaitlistPage() {
   
   useEffect(() => {
     // #region agent log
-    fetch('http://127.0.0.1:7242/ingest/ee61a447-aaff-48fb-9929-56461307e2f0',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'waitlist/page.js:27',message:'Feature flags fetch started',data:{},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'D'})}).catch(()=>{});
+    console.log('[DEBUG_WAITLIST] Feature flags fetch started', {location:'waitlist/page.js:27',hypothesisId:'D'});
     // #endregion
     // Check server-side feature flags
     fetch('/api/waitlist/feature-flags')
       .then(res => res.json())
       .then(data => {
         // #region agent log
-        fetch('http://127.0.0.1:7242/ingest/ee61a447-aaff-48fb-9929-56461307e2f0',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'waitlist/page.js:30',message:'Feature flags received',data:{aiGenerationEnabled:data.aiGenerationEnabled,waitlistEnabled:data.waitlistEnabled},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'D'})}).catch(()=>{});
+        console.log('[DEBUG_WAITLIST] Feature flags received', {location:'waitlist/page.js:30',aiGenerationEnabled:data.aiGenerationEnabled,waitlistEnabled:data.waitlistEnabled,hypothesisId:'D'});
         // #endregion
         setAiGenerationEnabled(data.aiGenerationEnabled === true)
         setWaitlistEnabled(data.waitlistEnabled !== false) // Default to true if not specified
       })
       .catch((err) => {
         // #region agent log
-        fetch('http://127.0.0.1:7242/ingest/ee61a447-aaff-48fb-9929-56461307e2f0',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'waitlist/page.js:34',message:'Feature flags fetch failed',data:{error:err?.message},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'D'})}).catch(()=>{});
+        console.log('[DEBUG_WAITLIST] Feature flags fetch failed', {location:'waitlist/page.js:34',error:err?.message,hypothesisId:'D'});
         // #endregion
         setAiGenerationEnabled(false)
         setWaitlistEnabled(true)
@@ -116,27 +116,27 @@ export default function WaitlistPage() {
   // Admins should always bypass waitlist, regardless of waitlist mode
   useEffect(() => {
     // #region agent log
-    fetch('http://127.0.0.1:7242/ingest/ee61a447-aaff-48fb-9929-56461307e2f0',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'waitlist/page.js:103',message:'Redirect useEffect triggered',data:{status,hasSession:!!session,userRole:session?.user?.role,userStatus:session?.user?.waitlistStatus,waitlistEnabled,sessionEmail:session?.user?.email},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'B'})}).catch(()=>{});
+    console.log('[DEBUG_WAITLIST] Redirect useEffect triggered', {location:'waitlist/page.js:103',status,hasSession:!!session,userRole:session?.user?.role,userStatus:session?.user?.waitlistStatus,waitlistEnabled,sessionEmail:session?.user?.email,hypothesisId:'B'});
     // #endregion
     if (status !== 'loading') {
       // #region agent log
-      fetch('http://127.0.0.1:7242/ingest/ee61a447-aaff-48fb-9929-56461307e2f0',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'waitlist/page.js:106',message:'Status is not loading, checking admin',data:{isAdmin:session?.user?.role==='ADMIN',role:session?.user?.role},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'A,B'})}).catch(()=>{});
+      console.log('[DEBUG_WAITLIST] Status is not loading, checking admin', {location:'waitlist/page.js:106',isAdmin:session?.user?.role==='ADMIN',role:session?.user?.role,hypothesisId:'A,B'});
       // #endregion
       // Always redirect admins
       if (session?.user?.role === 'ADMIN') {
         // #region agent log
-        fetch('http://127.0.0.1:7242/ingest/ee61a447-aaff-48fb-9929-56461307e2f0',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'waitlist/page.js:109',message:'ADMIN REDIRECT TRIGGERED - Calling router.push',data:{role:session.user.role,email:session.user.email},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'A,C'})}).catch(()=>{});
+        console.log('[DEBUG_WAITLIST] 🚨 ADMIN REDIRECT TRIGGERED - Calling router.push', {location:'waitlist/page.js:109',role:session.user.role,email:session.user.email,hypothesisId:'A,C'});
         // #endregion
         router.push('/')
         // #region agent log
-        fetch('http://127.0.0.1:7242/ingest/ee61a447-aaff-48fb-9929-56461307e2f0',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'waitlist/page.js:112',message:'router.push called, returning',data:{},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'A,C'})}).catch(()=>{});
+        console.log('[DEBUG_WAITLIST] router.push("/") called, returning', {location:'waitlist/page.js:112',hypothesisId:'A,C'});
         // #endregion
         return
       }
       // Redirect approved users only if waitlist mode is enabled
       if (waitlistEnabled && session?.user?.waitlistStatus === 'APPROVED') {
         // #region agent log
-        fetch('http://127.0.0.1:7242/ingest/ee61a447-aaff-48fb-9929-56461307e2f0',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'waitlist/page.js:119',message:'Approved user redirect triggered',data:{waitlistStatus:session.user.waitlistStatus},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'A,C'})}).catch(()=>{});
+        console.log('[DEBUG_WAITLIST] Approved user redirect triggered', {location:'waitlist/page.js:119',waitlistStatus:session.user.waitlistStatus,hypothesisId:'A,C'});
         // #endregion
         router.push('/')
       }
