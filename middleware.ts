@@ -38,8 +38,13 @@ export async function middleware(req: NextRequest) {
 
   // Check if user needs to complete profile (username)
   // This happens after they sign up but before they can access the app
+  // Force users to complete profile if:
+  // 1. They don't have a displayName, OR
+  // 2. Their displayName is invalid (contains spaces, wrong format - likely from OAuth full name)
   // Admins can bypass this requirement
-  if (token && !token.displayName && !isAdmin && path !== '/complete-profile' && !path.startsWith('/api/')) {
+  const displayNameStr = typeof token?.displayName === 'string' ? token.displayName : ''
+  const hasValidUsername = displayNameStr && /^[a-zA-Z0-9_]{3,20}$/.test(displayNameStr)
+  if (token && !hasValidUsername && !isAdmin && path !== '/complete-profile' && !path.startsWith('/api/')) {
     return NextResponse.redirect(new URL('/complete-profile', req.url))
   }
 

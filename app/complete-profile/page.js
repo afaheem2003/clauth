@@ -14,6 +14,10 @@ export default function CompleteProfile() {
   const [err , setErr]  = useState('');
   const [busy, setBusy] = useState(false);
 
+  // Check if user has an existing invalid username (likely from OAuth full name)
+  const hasInvalidUsername = session?.user?.displayName &&
+                              !/^[a-zA-Z0-9_]{3,20}$/.test(session.user.displayName);
+
   /* redirect if logged-out */
   useEffect(() => {
     if (status === 'loading') return;
@@ -53,8 +57,16 @@ export default function CompleteProfile() {
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-b from-gray-50 to-gray-100 px-4">
       <div className="w-full max-w-md bg-white rounded-lg shadow-xl p-6">
         <h1 className="text-3xl font-bold text-gray-800 mb-6 text-center">
-          Complete&nbsp;Your&nbsp;Profile
+          {hasInvalidUsername ? 'Update Your Username' : 'Complete Your Profile'}
         </h1>
+
+        {hasInvalidUsername && (
+          <div className="mb-4 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
+            <p className="text-sm text-yellow-800">
+              Your current username contains invalid characters. Please choose a new username with only letters, numbers, and underscores.
+            </p>
+          </div>
+        )}
 
         <form onSubmit={save} className="space-y-4">
           <label className="block text-gray-700 font-medium">
