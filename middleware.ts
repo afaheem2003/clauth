@@ -13,6 +13,20 @@ export async function middleware(req: NextRequest) {
   const isWaitlisted = token?.waitlistStatus === 'WAITLISTED' && !isAdmin
   const path = req.nextUrl.pathname
 
+  // DEBUG: Log middleware token state
+  if (token && (path === '/waitlist' || path === '/')) {
+    console.log('[MIDDLEWARE_DEBUG]', {
+      path,
+      hasToken: !!token,
+      role: token?.role,
+      waitlistStatus: token?.waitlistStatus,
+      isAdmin,
+      isApproved,
+      isWaitlisted,
+      email: token?.email
+    });
+  }
+
   const isBypassed = [
     '/api/auth/callback',
     '/api/auth/signout',
