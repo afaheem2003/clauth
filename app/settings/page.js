@@ -15,13 +15,18 @@ export default function SettingsPage() {
   const [err, setErr] = useState('');
   const [busy, setBusy] = useState(false);
 
+  // Check if user has an existing invalid username (likely from OAuth full name)
+  const hasInvalidUsername = session?.user?.displayName &&
+                              !/^[a-zA-Z0-9_]{3,20}$/.test(session.user.displayName);
+
   /* pre-fill current username once session is ready */
   useEffect(() => {
     if (status === 'loading') return;
     if (!session?.user) {
       router.push('/login');
     } else {
-      setRaw(session.user.displayName ?? session.user.name ?? '');
+      // Only pre-fill if they have a valid displayName (not their full name)
+      setRaw(session.user.displayName ?? '');
     }
   }, [status, session, router]);
 
@@ -99,6 +104,22 @@ export default function SettingsPage() {
             Account&nbsp;Settings
           </h1>
 
+          {hasInvalidUsername && (
+            <div className="mb-4 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
+              <p className="text-sm text-yellow-800">
+                Your current username contains invalid characters. Please choose a new username with only letters, numbers, and underscores.
+              </p>
+            </div>
+          )}
+
+          {!session?.user?.displayName && (
+            <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg">
+              <p className="text-sm text-red-800">
+                <strong>Username Required:</strong> You must create a username to access the site. Choose 3-20 characters (letters, numbers, or underscore only).
+              </p>
+            </div>
+          )}
+
           {/* Profile Picture Upload */}
           <div className="mb-8">
             <ImageUpload
@@ -141,6 +162,38 @@ export default function SettingsPage() {
             >
               Delete&nbsp;Account
             </button>
+          </div>
+
+          {/* DEBUG: Temporary testing button */}
+          <div className="mt-8 pt-8 border-t border-gray-200">
+            <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+              <h3 className="text-sm font-semibold text-yellow-900 mb-2">🧪 Testing Tools</h3>
+              <p className="text-xs text-yellow-700 mb-3">Temporary button for testing username flow</p>
+              <button
+                onClick={async () => {
+                  if (confirm('Clear your username? This is for testing only.')) {
+                    setBusy(true);
+                    try {
+                      const res = await fetch('/api/debug/clear-username', { method: 'POST' });
+                      if (res.ok) {
+                        alert('Username cleared! Refreshing page...');
+                        window.location.reload();
+                      } else {
+                        alert('Failed to clear username');
+                      }
+                    } catch (e) {
+                      alert('Error: ' + e.message);
+                    } finally {
+                      setBusy(false);
+                    }
+                  }
+                }}
+                disabled={busy}
+                className="px-4 py-2 rounded-md bg-yellow-600 text-white text-sm font-medium hover:bg-yellow-700 transition disabled:opacity-50"
+              >
+                Clear Username (Test Only)
+              </button>
+            </div>
           </div>
         </div>
       </div>

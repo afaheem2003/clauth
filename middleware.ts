@@ -41,20 +41,22 @@ export async function middleware(req: NextRequest) {
   // Force users to complete profile if:
   // 1. They don't have a displayName, OR
   // 2. Their displayName is invalid (contains spaces, wrong format - likely from OAuth full name)
-  // Admins can bypass this requirement
+  // Users without valid username can ONLY access: complete-profile, settings, profile, and API routes
+  // This applies to EVERYONE, including admins
   const displayNameStr = typeof token?.displayName === 'string' ? token.displayName : ''
   const hasValidUsername = displayNameStr && /^[a-zA-Z0-9_]{3,20}$/.test(displayNameStr)
-  if (token && !hasValidUsername && !isAdmin && path !== '/complete-profile' && !path.startsWith('/api/')) {
+  const allowedRoutesWithoutUsername = ['/complete-profile', '/settings', '/profile']
+  if (token && !hasValidUsername && !allowedRoutesWithoutUsername.includes(path) && !path.startsWith('/api/')) {
     return NextResponse.redirect(new URL('/complete-profile', req.url))
   }
 
-  // Allow complete-profile page for users without displayName
+  // Allow complete-profile page for users without valid username
   if (path === '/complete-profile') {
     if (!token) {
       return NextResponse.redirect(new URL('/login', req.url))
     }
-    // If they already have a username, redirect to home
-    if (token.displayName) {
+    // If they already have a VALID username, redirect to home
+    if (hasValidUsername) {
       return NextResponse.redirect(new URL('/', req.url))
     }
     return NextResponse.next()
