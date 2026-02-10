@@ -17,63 +17,122 @@ export async function GET(request) {
     const pageSize = parseInt(searchParams.get('pageSize')) || 10
     const skip = (page - 1) * pageSize
 
-    // Get total count
-    const totalCount = await prisma.waitlistDesignApplication.count()
+    // Get total count (both AI-generated and uploaded designs)
+    const [aiCount, uploadedCount] = await Promise.all([
+      prisma.waitlistDesignApplication.count(),
+      prisma.uploadedDesignWaitlistApplication.count()
+    ])
+    const totalCount = aiCount + uploadedCount
 
-    // Fetch applications with pagination
-    const applications = await prisma.waitlistDesignApplication.findMany({
-      skip,
-      take: pageSize,
-      orderBy: {
-        createdAt: 'desc'
-      },
-      include: {
-        clothingItem: {
-          select: {
-            id: true,
-            name: true,
-            imageUrl: true,
-            itemType: true,
-            gender: true,
-            description: true,
-            frontImage: true,
-            backImage: true
-          }
+    // Fetch both types of applications
+    const [aiApplications, uploadedApplications] = await Promise.all([
+      prisma.waitlistDesignApplication.findMany({
+        orderBy: {
+          createdAt: 'desc'
         },
-        applicant: {
-          select: {
-            id: true,
-            name: true,
-            displayName: true,
-            email: true
+        include: {
+          clothingItem: {
+            select: {
+              id: true,
+              name: true,
+              imageUrl: true,
+              itemType: true,
+              gender: true,
+              description: true,
+              frontImage: true,
+              backImage: true
+            }
+          },
+          applicant: {
+            select: {
+              id: true,
+              name: true,
+              displayName: true,
+              email: true
+            }
           }
         }
-      }
-    })
+      }),
+      prisma.uploadedDesignWaitlistApplication.findMany({
+        orderBy: {
+          createdAt: 'desc'
+        },
+        include: {
+          uploadedDesign: {
+            select: {
+              id: true,
+              name: true,
+              frontImage: true,
+              backImage: true,
+              itemType: true,
+              gender: true,
+              description: true
+            }
+          },
+          applicant: {
+            select: {
+              id: true,
+              name: true,
+              displayName: true,
+              email: true
+            }
+          }
+        }
+      })
+    ])
 
-    // Transform data
-    const transformedApplications = applications.map(app => ({
-      id: app.id,
-      email: app.applicant.email,
-      status: app.status || 'PENDING',
-      reviewedAt: app.reviewedAt?.toISOString() || null,
-      reviewedBy: app.reviewedBy || null,
-      createdAt: app.createdAt.toISOString(),
-      clothingItem: app.clothingItem ? {
-        id: app.clothingItem.id,
-        name: app.clothingItem.name,
-        imageUrl: app.clothingItem.imageUrl || app.clothingItem.frontImage,
-        itemType: app.clothingItem.itemType,
-        gender: app.clothingItem.gender,
-        description: app.clothingItem.description
-      } : null,
-      applicant: {
-        id: app.applicant.id,
-        name: app.applicant.name,
-        displayName: app.applicant.displayName,
-        email: app.applicant.email
-      }
-    }))
+    // Combine and transform data
+    const allApplications = [
+      ...aiApplications.map(app => ({
+        id: app.id,
+        email: app.applicant.email,
+        status: app.status || 'PENDING',
+        reviewedAt: app.reviewedAt?.toISOString() || null,
+        reviewedBy: app.reviewedBy || null,
+        createdAt: app.createdAt.toISOString(),
+        designType: 'ai-generated',
+        clothingItem: app.clothingItem ? {
+          id: app.clothingItem.id,
+          name: app.clothingItem.name,
+          imageUrl: app.clothingItem.imageUrl || app.clothingItem.frontImage,
+          itemType: app.clothingItem.itemType,
+          gender: app.clothingItem.gender,
+          description: app.clothingItem.description
+        } : null,
+        applicant: {
+          id: app.applicant.id,
+          name: app.applicant.name,
+          displayName: app.applicant.displayName,
+          email: app.applicant.email
+        }
+      })),
+      ...uploadedApplications.map(app => ({
+        id: app.id,
+        email: app.applicant.email,
+        status: app.status || 'PENDING',
+        reviewedAt: app.reviewedAt?.toISOString() || null,
+        reviewedBy: app.reviewedBy || null,
+        createdAt: app.createdAt.toISOString(),
+        designType: 'uploaded',
+        clothingItem: app.uploadedDesign ? {
+          id: app.uploadedDesign.id,
+          name: app.uploadedDesign.name,
+          imageUrl: app.uploadedDesign.frontImage,
+          itemType: app.uploadedDesign.itemType,
+          gender: app.uploadedDesign.gender,
+          description: app.uploadedDesign.description
+        } : null,
+        applicant: {
+          id: app.applicant.id,
+          name: app.applicant.name,
+          displayName: app.applicant.displayName,
+          email: app.applicant.email
+        }
+      }))
+    ].sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
+
+    // Apply pagination to combined results
+    const transformedApplications = allApplications.slice(skip, skip + pageSize)
 
     return NextResponse.json({
       entries: transformedApplications,
@@ -101,7 +160,7 @@ export async function PATCH(request) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const { id, status } = await request.json()
+    const { id, status, designType } = await request.json()
 
     if (!id || !status) {
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 })
@@ -112,14 +171,29 @@ export async function PATCH(request) {
       return NextResponse.json({ error: 'Invalid status' }, { status: 400 })
     }
 
-    const updatedApplication = await prisma.waitlistDesignApplication.update({
-      where: { id },
-      data: {
-        status,
-        reviewedAt: new Date(),
-        reviewedBy: session.user.uid
-      }
-    })
+    // Try to update both types - one will succeed, one will fail silently
+    let updatedApplication = null
+    
+    try {
+      updatedApplication = await prisma.waitlistDesignApplication.update({
+        where: { id },
+        data: {
+          status,
+          reviewedAt: new Date(),
+          reviewedBy: session.user.uid
+        }
+      })
+    } catch (e) {
+      // Not an AI-generated application, try uploaded design
+      updatedApplication = await prisma.uploadedDesignWaitlistApplication.update({
+        where: { id },
+        data: {
+          status,
+          reviewedAt: new Date(),
+          reviewedBy: session.user.uid
+        }
+      })
+    }
 
     return NextResponse.json({
       success: true,
@@ -154,9 +228,17 @@ export async function DELETE(request) {
       return NextResponse.json({ error: 'Application ID is required' }, { status: 400 })
     }
 
-    await prisma.waitlistDesignApplication.delete({
-      where: { id }
-    })
+    // Try to delete from both tables - one will succeed, one will fail silently
+    try {
+      await prisma.waitlistDesignApplication.delete({
+        where: { id }
+      })
+    } catch (e) {
+      // Not an AI-generated application, try uploaded design
+      await prisma.uploadedDesignWaitlistApplication.delete({
+        where: { id }
+      })
+    }
 
     return NextResponse.json({ success: true })
 

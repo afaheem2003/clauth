@@ -12,17 +12,19 @@ export default function AdminWaitlistClient({ entries: initialEntries, totalCoun
   const [updatingEntry, setUpdatingEntry] = useState('')
   const [deletingEntry, setDeletingEntry] = useState('')
   const [filterStatus, setFilterStatus] = useState('all')
+  const [filterDesignType, setFilterDesignType] = useState('all')
   const [searchQuery, setSearchQuery] = useState('')
 
   const totalPages = Math.ceil(totalCount / pageSize)
 
-  // Filter entries based on search and status
+  // Filter entries based on search, status, and design type
   const filteredEntries = entries.filter(entry => {
     const matchesSearch = entry.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
                          entry.applicant.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
                          entry.clothingItem?.name?.toLowerCase().includes(searchQuery.toLowerCase())
     const matchesStatus = filterStatus === 'all' || entry.status === filterStatus
-    return matchesSearch && matchesStatus
+    const matchesDesignType = filterDesignType === 'all' || entry.designType === filterDesignType
+    return matchesSearch && matchesStatus && matchesDesignType
   })
 
   const copyEmail = async (email) => {
@@ -235,6 +237,8 @@ export default function AdminWaitlistClient({ entries: initialEntries, totalCoun
   const approvedCount = entries.filter(entry => entry.status === 'APPROVED').length
   const rejectedCount = entries.filter(entry => entry.status === 'REJECTED').length
   const votingCount = entries.filter(entry => entry.status === 'IN_VOTING').length
+  const aiGeneratedCount = entries.filter(entry => entry.designType === 'ai-generated').length
+  const uploadedCount = entries.filter(entry => entry.designType === 'uploaded').length
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -262,7 +266,7 @@ export default function AdminWaitlistClient({ entries: initialEntries, totalCoun
             </div>
             
             {/* Stats */}
-            <div className="grid grid-cols-4 gap-4 mt-6">
+            <div className="grid grid-cols-6 gap-4 mt-6">
               <div className="bg-yellow-50 p-4 rounded-lg">
                 <div className="text-2xl font-bold text-yellow-600">{pendingCount}</div>
                 <div className="text-sm text-yellow-600">Pending</div>
@@ -278,6 +282,14 @@ export default function AdminWaitlistClient({ entries: initialEntries, totalCoun
               <div className="bg-red-50 p-4 rounded-lg">
                 <div className="text-2xl font-bold text-red-600">{rejectedCount}</div>
                 <div className="text-sm text-red-600">Rejected</div>
+              </div>
+              <div className="bg-purple-50 p-4 rounded-lg">
+                <div className="text-2xl font-bold text-purple-600">{aiGeneratedCount}</div>
+                <div className="text-sm text-purple-600">AI Generated</div>
+              </div>
+              <div className="bg-indigo-50 p-4 rounded-lg">
+                <div className="text-2xl font-bold text-indigo-600">{uploadedCount}</div>
+                <div className="text-sm text-indigo-600">Uploaded</div>
               </div>
             </div>
           </div>
@@ -310,6 +322,18 @@ export default function AdminWaitlistClient({ entries: initialEntries, totalCoun
                     <option value="IN_VOTING">In Voting</option>
                     <option value="APPROVED">Approved</option>
                     <option value="REJECTED">Rejected</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-semibold text-gray-900 mb-1">Design Type</label>
+                  <select
+                    value={filterDesignType}
+                    onChange={(e) => setFilterDesignType(e.target.value)}
+                    className="block px-3 py-2 border border-gray-300 rounded-md text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  >
+                    <option value="all">All Types</option>
+                    <option value="ai-generated">AI Generated</option>
+                    <option value="uploaded">Uploaded</option>
                   </select>
                 </div>
               </div>
@@ -419,6 +443,15 @@ export default function AdminWaitlistClient({ entries: initialEntries, totalCoun
                         <div className="flex items-center space-x-3">
                           <span className={getStatusBadge(entry.status)}>
                             {entry.status.replace('_', ' ')}
+                          </span>
+                          
+                          {/* Design Type Badge */}
+                          <span className={`px-3 py-1 text-xs font-semibold rounded-full ${
+                            entry.designType === 'ai-generated' 
+                              ? 'bg-purple-100 text-purple-800' 
+                              : 'bg-indigo-100 text-indigo-800'
+                          }`}>
+                            {entry.designType === 'ai-generated' ? '🤖 AI Generated' : '📤 Uploaded'}
                           </span>
                           
                           <div className="flex items-center space-x-2">

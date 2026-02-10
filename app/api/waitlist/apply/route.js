@@ -2,6 +2,11 @@ import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/authOptions'
+import OpenAI from 'openai'
+
+const openai = new OpenAI({
+  apiKey: process.env.OPENAI_API_KEY,
+})
 
 export async function POST(request) {
   try {
@@ -39,6 +44,57 @@ export async function POST(request) {
         return NextResponse.json({ 
           error: 'Design name, image, item type, and gender are required for uploaded design' 
         }, { status: 400 })
+      }
+
+      // SERVER-SIDE IMAGE VALIDATION for uploaded designs
+      if (process.env.OPENAI_API_KEY) {
+        console.log('[Server-side validation] Checking uploaded images for inappropriate content...')
+        
+        // Validate front image
+        try {
+          const frontValidation = await openai.moderations.create({
+            model: "omni-moderation-latest",
+            input: [{
+              type: "image_url",
+              image_url: { url: imageUrl }
+            }]
+          })
+          
+          const frontResult = frontValidation.results[0]
+          if (frontResult.flagged) {
+            return NextResponse.json({ 
+              error: 'Front image contains inappropriate content that violates our community guidelines. Please upload a different image.' 
+            }, { status: 400 })
+          }
+        } catch (validationError) {
+          console.error('[Server validation] Front image validation failed:', validationError)
+          // Continue anyway if validation service fails (avoid blocking legitimate users)
+        }
+
+        // Validate back image if provided
+        if (backImageUrl) {
+          try {
+            const backValidation = await openai.moderations.create({
+              model: "omni-moderation-latest",
+              input: [{
+                type: "image_url",
+                image_url: { url: backImageUrl }
+              }]
+            })
+            
+            const backResult = backValidation.results[0]
+            if (backResult.flagged) {
+              return NextResponse.json({ 
+                error: 'Back image contains inappropriate content that violates our community guidelines. Please upload a different image.' 
+              }, { status: 400 })
+            }
+          } catch (validationError) {
+            console.error('[Server validation] Back image validation failed:', validationError)
+            // Continue anyway if validation service fails
+          }
+        }
+        
+        console.log('[Server-side validation] Images passed validation')
       }
     } else {
       if (!name || !imageUrl || !itemType || !gender || !promptRaw) {
@@ -78,17 +134,48 @@ export async function POST(request) {
       }
     }
 
+    // RATE LIMITING: Check for recent applications (24 hour cooldown)
+    const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000)
+    
+    const [recentAiApp, recentUploadedApp] = await Promise.all([
+      prisma.waitlistDesignApplication.findFirst({
+        where: {
+          applicantId: session.user.uid,
+          createdAt: { gte: twentyFourHoursAgo }
+        },
+        orderBy: { createdAt: 'desc' }
+      }),
+      prisma.uploadedDesignWaitlistApplication.findFirst({
+        where: {
+          applicantId: session.user.uid,
+          createdAt: { gte: twentyFourHoursAgo }
+        },
+        orderBy: { createdAt: 'desc' }
+      })
+    ])
+
+    const recentApplication = recentAiApp || recentUploadedApp
+
+    if (recentApplication) {
+      const hoursSinceSubmission = Math.ceil((Date.now() - new Date(recentApplication.createdAt).getTime()) / (1000 * 60 * 60))
+      const hoursRemaining = 24 - hoursSinceSubmission
+      
+      return NextResponse.json({ 
+        error: `Please wait ${hoursRemaining} hour${hoursRemaining !== 1 ? 's' : ''} before submitting another application. This helps us review each design carefully.` 
+      }, { status: 429 }) // 429 = Too Many Requests
+    }
+
     // Check if user already has a pending application
-    const existingApplication = await prisma.waitlistDesignApplication.findFirst({
+    const existingPendingApp = await prisma.waitlistDesignApplication.findFirst({
       where: {
         applicantId: session.user.uid,
         status: 'PENDING'
       }
     })
 
-    if (existingApplication) {
+    if (existingPendingApp) {
       return NextResponse.json({ 
-        error: 'You already have a pending application' 
+        error: 'You already have a pending application being reviewed' 
       }, { status: 400 })
     }
 

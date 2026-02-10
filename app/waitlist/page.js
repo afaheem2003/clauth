@@ -27,6 +27,7 @@ export default function WaitlistPage() {
   const [aiGenerationEnabled, setAiGenerationEnabled] = useState(false)
   const [waitlistEnabled, setWaitlistEnabled] = useState(true)
   const hasLoadedProgress = useRef(false)
+  const isRedirecting = useRef(false)
   
   useEffect(() => {
     // #region agent log
@@ -116,8 +117,17 @@ export default function WaitlistPage() {
   // Admins should always bypass waitlist, regardless of waitlist mode
   useEffect(() => {
     // #region agent log
-    console.log('[DEBUG_WAITLIST] Redirect useEffect triggered', {location:'waitlist/page.js:103',status,hasSession:!!session,userRole:session?.user?.role,userStatus:session?.user?.waitlistStatus,waitlistEnabled,sessionEmail:session?.user?.email,hypothesisId:'B'});
+    console.log('[DEBUG_WAITLIST] Redirect useEffect triggered', {location:'waitlist/page.js:103',status,hasSession:!!session,userRole:session?.user?.role,userStatus:session?.user?.waitlistStatus,waitlistEnabled,sessionEmail:session?.user?.email,isRedirecting:isRedirecting.current,hypothesisId:'B'});
     // #endregion
+    
+    // Prevent infinite redirect loop
+    if (isRedirecting.current) {
+      // #region agent log
+      console.log('[DEBUG_WAITLIST] ⚠️ Already redirecting, skipping to prevent loop', {hypothesisId:'F'});
+      // #endregion
+      return;
+    }
+    
     if (status !== 'loading') {
       // #region agent log
       console.log('[DEBUG_WAITLIST] Status is not loading, checking admin', {location:'waitlist/page.js:106',isAdmin:session?.user?.role==='ADMIN',role:session?.user?.role,hypothesisId:'A,B'});
@@ -125,10 +135,11 @@ export default function WaitlistPage() {
       // Always redirect admins
       if (session?.user?.role === 'ADMIN') {
         // #region agent log
-        console.log('[DEBUG_WAITLIST] 🚨 ADMIN REDIRECT TRIGGERED - Using window.location', {location:'waitlist/page.js:109',role:session.user.role,email:session.user.email,currentPath:window.location.pathname,hypothesisId:'A,C,F'});
+        console.log('[DEBUG_WAITLIST] 🚨 ADMIN REDIRECT TRIGGERED - Using router.push', {location:'waitlist/page.js:109',role:session.user.role,email:session.user.email,currentPath:window.location.pathname,hypothesisId:'A,C,F'});
         // #endregion
-        // Use window.location.href for full page reload to ensure JWT cookie is sent
-        window.location.href = '/'
+        isRedirecting.current = true;
+        // Use router.push instead of window.location to avoid infinite loop
+        router.push('/')
         return
       }
       // Redirect approved users only if waitlist mode is enabled
@@ -136,8 +147,8 @@ export default function WaitlistPage() {
         // #region agent log
         console.log('[DEBUG_WAITLIST] Approved user redirect triggered', {location:'waitlist/page.js:119',waitlistStatus:session.user.waitlistStatus,hypothesisId:'A,C,F'});
         // #endregion
-        // Use window.location.href for full page reload to ensure JWT cookie is sent
-        window.location.href = '/'
+        isRedirecting.current = true;
+        router.push('/')
       }
     }
   }, [session, waitlistEnabled, status, router])
