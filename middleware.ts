@@ -7,7 +7,13 @@ export async function middleware(req: NextRequest) {
   const isMaintenance = process.env.MAINTENANCE_MODE === 'true'
   const isShopEnabled = process.env.ENABLE_SHOP === 'true'
   const waitlistEnabled = process.env.WAITLIST_ENABLED === 'true'
-  const token = await getToken({ req })
+
+  // Explicitly specify the cookie name for Vercel Edge runtime
+  const token = await getToken({
+    req,
+    secret: process.env.NEXTAUTH_SECRET,
+  })
+
   const isAdmin = token?.role === 'ADMIN'
   const isApproved = token?.waitlistStatus === 'APPROVED'
   const isWaitlisted = token?.waitlistStatus === 'WAITLISTED' && !isAdmin
