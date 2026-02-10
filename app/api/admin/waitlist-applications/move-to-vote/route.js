@@ -17,12 +17,21 @@ export async function POST(request) {
       return NextResponse.json({ error: 'Application IDs are required' }, { status: 400 })
     }
 
-    // Check if all applications exist and are in PENDING status
-    const applications = await prisma.waitlistDesignApplication.findMany({
-      where: {
-        id: { in: applicationIds }
-      }
-    })
+    // Check if all applications exist and are in PENDING status (both AI-generated and uploaded)
+    const [aiApplications, uploadedApplications] = await Promise.all([
+      prisma.waitlistDesignApplication.findMany({
+        where: {
+          id: { in: applicationIds }
+        }
+      }),
+      prisma.uploadedDesignWaitlistApplication.findMany({
+        where: {
+          id: { in: applicationIds }
+        }
+      })
+    ])
+
+    const applications = [...aiApplications, ...uploadedApplications]
 
     if (applications.length !== applicationIds.length) {
       return NextResponse.json({ error: 'Some applications not found' }, { status: 404 })
@@ -30,22 +39,44 @@ export async function POST(request) {
 
     const nonPendingApps = applications.filter(app => app.status !== 'PENDING')
     if (nonPendingApps.length > 0) {
-      return NextResponse.json({ 
-        error: 'Only pending applications can be moved to voting' 
+      return NextResponse.json({
+        error: 'Only pending applications can be moved to voting'
       }, { status: 400 })
     }
 
+    // Separate AI-generated and uploaded application IDs
+    const aiAppIds = aiApplications.map(app => app.id)
+    const uploadedAppIds = uploadedApplications.map(app => app.id)
+
     // Update all applications to IN_VOTING status
-    const updateResult = await prisma.waitlistDesignApplication.updateMany({
-      where: {
-        id: { in: applicationIds }
-      },
-      data: {
-        status: 'IN_VOTING',
-        reviewedAt: new Date(),
-        reviewedBy: session.user.uid
-      }
-    })
+    const [aiUpdateResult, uploadedUpdateResult] = await Promise.all([
+      aiAppIds.length > 0
+        ? prisma.waitlistDesignApplication.updateMany({
+            where: {
+              id: { in: aiAppIds }
+            },
+            data: {
+              status: 'IN_VOTING',
+              reviewedAt: new Date(),
+              reviewedBy: session.user.uid
+            }
+          })
+        : { count: 0 },
+      uploadedAppIds.length > 0
+        ? prisma.uploadedDesignWaitlistApplication.updateMany({
+            where: {
+              id: { in: uploadedAppIds }
+            },
+            data: {
+              status: 'IN_VOTING',
+              reviewedAt: new Date(),
+              reviewedBy: session.user.uid
+            }
+          })
+        : { count: 0 }
+    ])
+
+    const updateResult = { count: aiUpdateResult.count + uploadedUpdateResult.count }
 
     // TODO: Create a voting round and add these applications to it
     // For now, we'll just update the status

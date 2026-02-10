@@ -165,102 +165,118 @@ export async function POST(request) {
       }, { status: 429 }) // 429 = Too Many Requests
     }
 
-    // Check if user already has a pending application
-    const existingPendingApp = await prisma.waitlistDesignApplication.findFirst({
-      where: {
-        applicantId: session.user.uid,
-        status: 'PENDING'
-      }
-    })
-
-    if (existingPendingApp) {
-      return NextResponse.json({ 
-        error: 'You already have a pending application being reviewed' 
-      }, { status: 400 })
-    }
-
+    // Use a transaction to prevent race conditions between the pending check and creation
     let designItem;
     let application;
 
-    if (isUploadedDesign) {
-      // Create uploaded design
-      console.log('Creating uploaded design with data:', {
-        name: name.trim(),
-        description: description?.trim(),
-        frontImage: imageUrl,
-        backImage: backImageUrl,
-        itemType,
-        gender
-      })
+    const result = await prisma.$transaction(async (tx) => {
+      // Check if user already has a pending application (check both types)
+      const [existingAiPendingApp, existingUploadedPendingApp] = await Promise.all([
+        tx.waitlistDesignApplication.findFirst({
+          where: {
+            applicantId: session.user.uid,
+            status: 'PENDING'
+          }
+        }),
+        tx.uploadedDesignWaitlistApplication.findFirst({
+          where: {
+            applicantId: session.user.uid,
+            status: 'PENDING'
+          }
+        })
+      ])
 
-      designItem = await prisma.uploadedDesign.create({
-        data: {
+      if (existingAiPendingApp || existingUploadedPendingApp) {
+        throw new Error('PENDING_APPLICATION_EXISTS')
+      }
+
+      if (isUploadedDesign) {
+        // Create uploaded design
+        console.log('Creating uploaded design with data:', {
           name: name.trim(),
           description: description?.trim(),
           frontImage: imageUrl,
           backImage: backImageUrl,
           itemType,
-          gender,
-          creatorId: session.user.uid,
-          status: 'CONCEPT',
-          isPublished: false, // Not published until approved
-        }
-      })
+          gender
+        })
 
-      console.log('Created uploaded design:', designItem)
+        const design = await tx.uploadedDesign.create({
+          data: {
+            name: name.trim(),
+            description: description?.trim(),
+            frontImage: imageUrl,
+            backImage: backImageUrl,
+            itemType,
+            gender,
+            creatorId: session.user.uid,
+            status: 'CONCEPT',
+            isPublished: false, // Not published until approved
+          }
+        })
 
-      // Create the waitlist application linked to the uploaded design
-      application = await prisma.uploadedDesignWaitlistApplication.create({
-        data: {
-          applicantId: session.user.uid,
-          uploadedDesignId: designItem.id,
-          referralCodes: validReferralCodes,
-          status: 'PENDING'
-        }
-      })
-    } else {
-      // Create AI-generated clothing item (existing logic)
-      console.log('Creating clothing item with data:', {
-        name: name.trim(),
-        description: description?.trim(),
-        imageUrl,
-        backImage: backImageUrl,
-        promptRaw,
-        itemType,
-        gender,
-        quality: quality || 'medium',
-        modelDescription,
-        remainingOutfit
-      })
+        console.log('Created uploaded design:', design)
 
-      designItem = await prisma.clothingItem.create({
-        data: {
+        // Create the waitlist application linked to the uploaded design
+        const app = await tx.uploadedDesignWaitlistApplication.create({
+          data: {
+            applicantId: session.user.uid,
+            uploadedDesignId: design.id,
+            referralCodes: validReferralCodes,
+            status: 'PENDING'
+          }
+        })
+
+        return { designItem: design, application: app }
+      } else {
+        // Create AI-generated clothing item (existing logic)
+        console.log('Creating clothing item with data:', {
           name: name.trim(),
           description: description?.trim(),
           imageUrl,
           backImage: backImageUrl,
-          promptRaw: promptRaw + (modelDescription ? `\n\nModel: ${modelDescription}` : '') + (remainingOutfit ? `\n\nOutfit: ${remainingOutfit}` : ''),
+          promptRaw,
           itemType,
           gender,
           quality: quality || 'medium',
-          creatorId: session.user.uid,
-          status: 'CONCEPT',
-          isPublished: false, // Not published until approved
-        }
-      })
+          modelDescription,
+          remainingOutfit
+        })
 
-      console.log('Created clothing item:', designItem)
+        const design = await tx.clothingItem.create({
+          data: {
+            name: name.trim(),
+            description: description?.trim(),
+            imageUrl,
+            backImage: backImageUrl,
+            promptRaw: promptRaw + (modelDescription ? `\n\nModel: ${modelDescription}` : '') + (remainingOutfit ? `\n\nOutfit: ${remainingOutfit}` : ''),
+            itemType,
+            gender,
+            quality: quality || 'medium',
+            creatorId: session.user.uid,
+            status: 'CONCEPT',
+            isPublished: false, // Not published until approved
+          }
+        })
 
-      // Create the waitlist application linked to the clothing item
-      application = await prisma.waitlistDesignApplication.create({
-        data: {
-          applicantId: session.user.uid,
-          clothingItemId: designItem.id,
-          referralCodes: validReferralCodes,
-          status: 'PENDING'
-        }
-      })
-    }
+        console.log('Created clothing item:', design)
+
+        // Create the waitlist application linked to the clothing item
+        const app = await tx.waitlistDesignApplication.create({
+          data: {
+            applicantId: session.user.uid,
+            clothingItemId: design.id,
+            referralCodes: validReferralCodes,
+            status: 'PENDING'
+          }
+        })
+
+        return { designItem: design, application: app }
+      }
+    })
+
+    designItem = result.designItem
+    application = result.application
 
     return NextResponse.json({
       success: true,
@@ -272,6 +288,15 @@ export async function POST(request) {
 
   } catch (error) {
     console.error('Waitlist application error:', error)
+
+    // Handle the pending application check error
+    if (error.message === 'PENDING_APPLICATION_EXISTS') {
+      return NextResponse.json(
+        { error: 'You already have a pending application being reviewed' },
+        { status: 400 }
+      )
+    }
+
     return NextResponse.json(
       { error: 'Something went wrong. Please try again.' },
       { status: 500 }

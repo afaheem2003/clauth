@@ -72,40 +72,22 @@ async function getTrendingCreations() {
 
 export default async function HomePage() {
   const session = await getServerSession(authOptions);
-  
-  // #region agent log
-  console.log('[DEBUG_HOME_PAGE] Server component rendering', {
-    hasSession: !!session,
-    role: session?.user?.role,
-    waitlistStatus: session?.user?.waitlistStatus,
-    email: session?.user?.email
-  })
-  // #endregion
-  
+
   // Check if waitlist mode is enabled
   const waitlistEnabled = process.env.WAITLIST_ENABLED === 'true';
   
   // If user is not authenticated, redirect to waitlist
   if (!session && waitlistEnabled) {
-    // #region agent log
-    console.log('[DEBUG_HOME_PAGE] Redirecting to /waitlist (no session + waitlist enabled)')
-    // #endregion
     redirect('/waitlist');
   }
 
   // If user is waitlisted, redirect to waitlist status
   if (session?.user?.waitlistStatus === 'WAITLISTED' && waitlistEnabled) {
-    // #region agent log
-    console.log('[DEBUG_HOME_PAGE] Redirecting to /waitlist-status (waitlisted user)')
-    // #endregion
     redirect('/waitlist-status');
   }
   
   // If no session and waitlist not enabled, redirect to login
   if (!session) {
-    // #region agent log
-    console.log('[DEBUG_HOME_PAGE] Redirecting to /login (no session)')
-    // #endregion
     redirect('/login');
   }
 

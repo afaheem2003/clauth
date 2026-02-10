@@ -23,9 +23,19 @@ export default function ClothingAdminClient({ initialClothingItems }) {
 
   const handleDelete = async (id) => {
     if (!confirm('Delete this clothing item?')) return;
-    const res = await fetch(`/api/clothing/${id}`, { method: 'DELETE' });
-    if (res.ok) {
-      setClothingItems(clothingItems.filter(item => item.id !== id));
+
+    try {
+      const res = await fetch(`/api/clothing/${id}`, { method: 'DELETE' });
+
+      if (res.ok) {
+        setClothingItems(clothingItems.filter(item => item.id !== id));
+      } else {
+        const errorData = await res.json().catch(() => ({ error: 'Failed to delete item' }));
+        alert(`Error: ${errorData.error || 'Failed to delete item'}`);
+      }
+    } catch (error) {
+      console.error('Delete error:', error);
+      alert('An error occurred while deleting the item. Please try again.');
     }
   };
 

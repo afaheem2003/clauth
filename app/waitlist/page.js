@@ -15,13 +15,7 @@ import ImageCropper from '@/components/design/ImageCropper'
 export default function WaitlistPage() {
   const { data: session, status } = useSession()
   const router = useRouter()
-  
-  // #region agent log
-  useEffect(() => {
-    console.log('[DEBUG_WAITLIST] Component mounted/rendered', {location:'waitlist/page.js:16',status,hasSession:!!session,userRole:session?.user?.role,timestamp:new Date().toISOString(),currentPath:window.location.pathname,fullUrl:window.location.href,hypothesisId:'C,E'});
-  })
-  // #endregion
-  
+
   // Feature flag: Check if AI generation is enabled
   // Default to false so AI features are hidden until API confirms they're enabled
   const [aiGenerationEnabled, setAiGenerationEnabled] = useState(false)
@@ -30,23 +24,14 @@ export default function WaitlistPage() {
   const isRedirecting = useRef(false)
   
   useEffect(() => {
-    // #region agent log
-    console.log('[DEBUG_WAITLIST] Feature flags fetch started', {location:'waitlist/page.js:27',hypothesisId:'D'});
-    // #endregion
     // Check server-side feature flags
     fetch('/api/waitlist/feature-flags')
       .then(res => res.json())
       .then(data => {
-        // #region agent log
-        console.log('[DEBUG_WAITLIST] Feature flags received', {location:'waitlist/page.js:30',aiGenerationEnabled:data.aiGenerationEnabled,waitlistEnabled:data.waitlistEnabled,hypothesisId:'D'});
-        // #endregion
         setAiGenerationEnabled(data.aiGenerationEnabled === true)
         setWaitlistEnabled(data.waitlistEnabled !== false) // Default to true if not specified
       })
       .catch((err) => {
-        // #region agent log
-        console.log('[DEBUG_WAITLIST] Feature flags fetch failed', {location:'waitlist/page.js:34',error:err?.message,hypothesisId:'D'});
-        // #endregion
         setAiGenerationEnabled(false)
         setWaitlistEnabled(true)
       })
@@ -116,27 +101,14 @@ export default function WaitlistPage() {
   // Redirect if already approved or admin
   // Admins should always bypass waitlist, regardless of waitlist mode
   useEffect(() => {
-    // #region agent log
-    console.log('[DEBUG_WAITLIST] Redirect useEffect triggered', {location:'waitlist/page.js:103',status,hasSession:!!session,userRole:session?.user?.role,userStatus:session?.user?.waitlistStatus,waitlistEnabled,sessionEmail:session?.user?.email,isRedirecting:isRedirecting.current,hypothesisId:'B'});
-    // #endregion
-    
     // Prevent infinite redirect loop
     if (isRedirecting.current) {
-      // #region agent log
-      console.log('[DEBUG_WAITLIST] ⚠️ Already redirecting, skipping to prevent loop', {hypothesisId:'F'});
-      // #endregion
       return;
     }
-    
+
     if (status !== 'loading') {
-      // #region agent log
-      console.log('[DEBUG_WAITLIST] Status is not loading, checking admin', {location:'waitlist/page.js:106',isAdmin:session?.user?.role==='ADMIN',role:session?.user?.role,hypothesisId:'A,B'});
-      // #endregion
       // Always redirect admins
       if (session?.user?.role === 'ADMIN') {
-        // #region agent log
-        console.log('[DEBUG_WAITLIST] 🚨 ADMIN REDIRECT TRIGGERED - Using router.push', {location:'waitlist/page.js:109',role:session.user.role,email:session.user.email,currentPath:window.location.pathname,hypothesisId:'A,C,F'});
-        // #endregion
         isRedirecting.current = true;
         // Use router.push instead of window.location to avoid infinite loop
         router.push('/')
@@ -144,9 +116,6 @@ export default function WaitlistPage() {
       }
       // Redirect approved users only if waitlist mode is enabled
       if (waitlistEnabled && session?.user?.waitlistStatus === 'APPROVED') {
-        // #region agent log
-        console.log('[DEBUG_WAITLIST] Approved user redirect triggered', {location:'waitlist/page.js:119',waitlistStatus:session.user.waitlistStatus,hypothesisId:'A,C,F'});
-        // #endregion
         isRedirecting.current = true;
         router.push('/')
       }

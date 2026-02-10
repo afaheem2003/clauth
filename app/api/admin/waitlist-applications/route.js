@@ -171,29 +171,34 @@ export async function PATCH(request) {
       return NextResponse.json({ error: 'Invalid status' }, { status: 400 })
     }
 
-    // Try to update both types - one will succeed, one will fail silently
-    let updatedApplication = null
-    
-    try {
-      updatedApplication = await prisma.waitlistDesignApplication.update({
-        where: { id },
-        data: {
-          status,
-          reviewedAt: new Date(),
-          reviewedBy: session.user.uid
-        }
-      })
-    } catch (e) {
-      // Not an AI-generated application, try uploaded design
-      updatedApplication = await prisma.uploadedDesignWaitlistApplication.update({
-        where: { id },
-        data: {
-          status,
-          reviewedAt: new Date(),
-          reviewedBy: session.user.uid
-        }
-      })
+    // Determine which table the application belongs to
+    const [aiApp, uploadedApp] = await Promise.all([
+      prisma.waitlistDesignApplication.findUnique({ where: { id } }),
+      prisma.uploadedDesignWaitlistApplication.findUnique({ where: { id } })
+    ])
+
+    if (!aiApp && !uploadedApp) {
+      return NextResponse.json({ error: 'Application not found' }, { status: 404 })
     }
+
+    // Update the correct table based on which one was found
+    const updatedApplication = aiApp
+      ? await prisma.waitlistDesignApplication.update({
+          where: { id },
+          data: {
+            status,
+            reviewedAt: new Date(),
+            reviewedBy: session.user.uid
+          }
+        })
+      : await prisma.uploadedDesignWaitlistApplication.update({
+          where: { id },
+          data: {
+            status,
+            reviewedAt: new Date(),
+            reviewedBy: session.user.uid
+          }
+        })
 
     return NextResponse.json({
       success: true,
@@ -228,13 +233,22 @@ export async function DELETE(request) {
       return NextResponse.json({ error: 'Application ID is required' }, { status: 400 })
     }
 
-    // Try to delete from both tables - one will succeed, one will fail silently
-    try {
+    // Determine which table the application belongs to
+    const [aiApp, uploadedApp] = await Promise.all([
+      prisma.waitlistDesignApplication.findUnique({ where: { id } }),
+      prisma.uploadedDesignWaitlistApplication.findUnique({ where: { id } })
+    ])
+
+    if (!aiApp && !uploadedApp) {
+      return NextResponse.json({ error: 'Application not found' }, { status: 404 })
+    }
+
+    // Delete from the correct table based on which one was found
+    if (aiApp) {
       await prisma.waitlistDesignApplication.delete({
         where: { id }
       })
-    } catch (e) {
-      // Not an AI-generated application, try uploaded design
+    } else {
       await prisma.uploadedDesignWaitlistApplication.delete({
         where: { id }
       })
