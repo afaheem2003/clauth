@@ -6,9 +6,7 @@ import { useSession } from 'next-auth/react';
 import Link from 'next/link';
 import { ANGLES } from '@/utils/imageProcessing';
 import { getQualityDisplayName } from '@/utils/clientHelpers';
-import QualitySelector from '@/components/credits/QualitySelector';
 import ProgressSteps from '@/components/design/ProgressSteps';
-import UsageStats from '@/components/design/UsageStats';
 import { useDesignGeneration } from '@/hooks/useDesignGeneration';
 import DesignImageDisplay from '@/components/design/DesignImageDisplay';
 import DesignMessages from '@/components/design/DesignMessages';
@@ -78,8 +76,8 @@ export default function DesignPage() {
   // Quality selection state
   const [quality, setQuality] = useState('low');
   
-  // Upload mode state - toggle between AI generation and user uploads
-  const [uploadMode, setUploadMode] = useState(false); // Default to AI generation
+  // Upload mode - always true since we only support uploads now
+  const uploadMode = true;
   const [uploadedFrontImage, setUploadedFrontImage] = useState(null);
   const [uploadedImageView, setUploadedImageView] = useState('front'); // Track which uploaded image to show
   const [uploadedBackImage, setUploadedBackImage] = useState(null);
@@ -91,20 +89,6 @@ export default function DesignPage() {
     isOpen: false,
     image: null,
     type: null // 'front' or 'back'
-  });
-  
-  // Usage tracking state
-  const [usageStats, setUsageStats] = useState({
-    lowCredits: 0,
-    mediumCredits: 0,
-    highCredits: 0,
-    lowUsedToday: 0,
-    mediumUsedToday: 0,
-    highUsedToday: 0,
-    dailyLowCap: null,
-    dailyMediumCap: null,
-    dailyHighCap: null,
-    plan: 'Starter'
   });
 
   const steps = [
@@ -148,24 +132,8 @@ export default function DesignPage() {
     }
   };
 
-  // Fetch user usage stats
-  const fetchUsageStats = async () => {
-    if (!session?.user?.uid) return;
-    
-    try {
-      const response = await fetch('/api/usage');
-      if (response.ok) {
-        const data = await response.json();
-        setUsageStats(data.usage);
-      }
-    } catch (error) {
-      console.error('Error fetching usage stats:', error);
-    }
-  };
-
   useEffect(() => {
     if (status === 'authenticated') {
-      fetchUsageStats();
       fetchActiveChallenges();
     }
   }, [session?.user?.uid, status]);
@@ -258,7 +226,6 @@ export default function DesignPage() {
           
           // Restore form state
           setCurrentStep(progress.currentStep || 1);
-          setUploadMode(progress.uploadMode || false);
           setItemName(progress.itemName || '');
           setItemType(progress.itemType || '');
           setSelectedCategory(progress.selectedCategory || null);
@@ -373,7 +340,6 @@ export default function DesignPage() {
       setColor('');
       setModelDescription('');
       setQuality('low');
-      setUploadMode(false);
       setUploadedFrontImage(null);
       setUploadedBackImage(null);
       setUploadValidationMessages({ front: '', back: '' });
@@ -397,24 +363,6 @@ export default function DesignPage() {
     } catch (error) {
       console.error('Failed to clear design progress:', error);
       setError('Failed to start over. Please try again.');
-    }
-  };
-
-  // Function to refresh usage stats
-  const refreshUsageStats = async () => {
-    if (!session?.user?.uid) return;
-    
-    try {
-      const response = await fetch('/api/usage');
-      if (response.ok) {
-        const data = await response.json();
-        setUsageStats(data.usage);
-        
-        // Dispatch custom event to update nav bar credits immediately
-        window.dispatchEvent(new CustomEvent('creditsUpdated'));
-      }
-    } catch (error) {
-      console.error('Error refreshing usage stats:', error);
     }
   };
 
@@ -613,7 +561,6 @@ export default function DesignPage() {
         modelDescription,
         quality,
         userSession: session,
-        refreshUsageStats,
         isEditing: false, // Explicitly set to false for fresh generation
         isWaitlistApplication: false
       });
@@ -650,7 +597,6 @@ export default function DesignPage() {
         quality: targetQuality || quality,
         targetQuality: targetQuality || quality,
         userSession: session,
-        refreshUsageStats,
         originalImage: currentDesign.compositeImage,
         frontImage: currentDesign.frontImage,
         backImage: currentDesign.backImage,
@@ -694,7 +640,6 @@ export default function DesignPage() {
         quality: newQuality,
         targetQuality: newQuality,
         userSession: session,
-        refreshUsageStats,
         originalImage: currentDesign.compositeImage,
         frontImage: currentDesign.frontImage,
         backImage: currentDesign.backImage,
@@ -1001,8 +946,6 @@ export default function DesignPage() {
           </div>
         )}
 
-        {/* Usage Stats Display - Only show for AI generation mode */}
-        {!uploadMode && <UsageStats usageStats={usageStats} />}
 
         <form onSubmit={handleSubmit} className="space-y-8">
           {/* Step 1 */}
@@ -1042,52 +985,8 @@ export default function DesignPage() {
           {/* Step 2 */}
           {currentStep === 2 && (
             <div className="space-y-8">
-              {/* Mode Toggle */}
-              <div className="bg-gradient-to-r from-indigo-50 to-purple-50 border border-indigo-200 rounded-xl p-5">
-                <label className="block text-sm font-semibold text-gray-900 mb-4">
-                  Design Creation Method
-                </label>
-                <div className="grid grid-cols-2 gap-4">
-                  <button
-                    type="button"
-                    onClick={() => setUploadMode(false)}
-                    className={`flex flex-col items-center px-6 py-4 rounded-xl border-2 transition-all ${
-                      !uploadMode
-                        ? 'border-indigo-600 bg-white shadow-md'
-                        : 'border-gray-300 bg-white/50 hover:border-gray-400'
-                    }`}
-                  >
-                    <span className="text-3xl mb-2">🤖</span>
-                    <span className={`block font-semibold ${!uploadMode ? 'text-indigo-700' : 'text-gray-700'}`}>
-                      AI Generate
-                    </span>
-                    <span className="text-xs text-gray-600 mt-1 text-center">
-                      Let AI create your design
-                    </span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setUploadMode(true)}
-                    className={`flex flex-col items-center px-6 py-4 rounded-xl border-2 transition-all ${
-                      uploadMode
-                        ? 'border-indigo-600 bg-white shadow-md'
-                        : 'border-gray-300 bg-white/50 hover:border-gray-400'
-                    }`}
-                  >
-                    <span className="text-3xl mb-2">📤</span>
-                    <span className={`block font-semibold ${uploadMode ? 'text-indigo-700' : 'text-gray-700'}`}>
-                      Upload Images
-                    </span>
-                    <span className="text-xs text-gray-600 mt-1 text-center">
-                      Upload your own designs
-                    </span>
-                  </button>
-                </div>
-              </div>
-
-              {uploadMode ? (
-                /* UPLOAD MODE UI */
-                <div className="space-y-6">
+              {/* UPLOAD MODE UI */}
+              <div className="space-y-6">
                   {/* AI Generation Tips - Collapsible */}
                   <details className="group bg-white border border-gray-300 rounded-lg overflow-hidden">
                     <summary className="flex items-center justify-between px-4 py-3 cursor-pointer hover:bg-gray-50 transition-colors">
@@ -1399,64 +1298,6 @@ Customize to your preference!`}
                     />
                   </div>
                 </div>
-              ) : (
-                /* AI GENERATION MODE UI */
-                <>
-                  <div className="pt-4">
-                    <label className="block text-sm font-medium text-gray-900 mb-3">
-                      Clothing Item Design Prompt
-                    </label>
-                    <textarea
-                      value={userPrompt}
-                      onChange={(e) => setUserPrompt(e.target.value)}
-                      placeholder="Describe your design vision in detail... This will be used to generate the design but won't be publicly visible."
-                      className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-gray-900 placeholder-gray-600"
-                      rows={4}
-                      maxLength={1000}
-                      required
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-900 mb-3">
-                      Primary Color
-                    </label>
-                    <input
-                      type="text"
-                      value={color}
-                      onChange={(e) => setColor(e.target.value)}
-                      placeholder="e.g., Navy Blue, Forest Green"
-                      className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-gray-900 placeholder-gray-600"
-                      maxLength={50}
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-900 mb-3">
-                      Model and Additional Clothing Description
-                    </label>
-                    <p className="text-xs text-gray-600 mb-3">
-                      Describe the model&apos;s appearance, pose, styling, and any additional clothing items you&apos;d like them to wear (pants, shoes, accessories, etc.). Leave blank for auto-generated professional model description.
-                    </p>
-                    <textarea
-                      value={modelDescription}
-                      onChange={(e) => setModelDescription(e.target.value)}
-                      rows={3}
-                      className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-black focus:border-transparent text-gray-900 placeholder-gray-500"
-                      placeholder="e.g., &apos;Athletic young woman in black jeans and white sneakers with confident pose&apos; or &apos;Mature professional wearing dark slacks and dress shoes with formal styling&apos;"
-                    />
-                  </div>
-
-                  <div className="pt-2">
-                  <QualitySelector
-                    quality={quality}
-                    setQuality={setQuality}
-                    disabled={loading}
-                      usageStats={usageStats}
-                  />
-                  </div>
-                </>
-              )}
             </div>
           )}
 

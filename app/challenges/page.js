@@ -128,7 +128,7 @@ export default function ChallengesPage() {
   if (status === 'loading' || loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600"></div>
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900"></div>
       </div>
     );
   }
@@ -147,24 +147,20 @@ export default function ChallengesPage() {
           <div className="absolute top-0 right-0 hidden sm:block">
             <Link
               href="/challenges/past"
-              className="group relative inline-flex items-center justify-center px-6 py-3 bg-gradient-to-r from-purple-600 via-blue-600 to-indigo-700 text-white rounded-2xl shadow-lg hover:shadow-xl transform hover:scale-105 transition-all duration-300 font-semibold text-sm"
+              className="inline-flex items-center justify-center px-6 py-3 bg-gray-800 text-white rounded-lg shadow hover:bg-gray-900 transition-colors font-semibold text-sm"
             >
-              <div className="absolute inset-0 bg-gradient-to-r from-purple-700 via-blue-700 to-indigo-800 rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
-              <div className="relative flex items-center">
-                <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
-                Past Challenges
-                <div className="ml-2 w-2 h-2 bg-white/30 rounded-full group-hover:bg-white/50 transition-colors duration-300"></div>
-              </div>
+              <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+              Past Challenges
             </Link>
           </div>
-          
+
           {/* Mobile Past Challenges Button */}
           <div className="sm:hidden mt-6">
             <Link
               href="/challenges/past"
-              className="inline-flex items-center justify-center px-8 py-4 bg-gradient-to-r from-purple-600 via-blue-600 to-indigo-700 text-white rounded-2xl shadow-lg hover:shadow-xl transform hover:scale-105 transition-all duration-300 font-semibold"
+              className="inline-flex items-center justify-center px-8 py-4 bg-gray-800 text-white rounded-lg shadow hover:bg-gray-900 transition-colors font-semibold"
             >
               <svg className="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
@@ -235,7 +231,7 @@ export default function ChallengesPage() {
                         </button>
                       </>
                     ) : (
-                      <div className="inline-flex items-center justify-center px-8 py-4 bg-green-600 text-white rounded-xl font-semibold">
+                      <div className="inline-flex items-center justify-center px-8 py-4 bg-gray-700 text-white rounded-xl font-semibold">
                         <svg className="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                         </svg>
@@ -289,7 +285,7 @@ export default function ChallengesPage() {
                         </div>
                         {mySubmission.upvoteCount > 0 && (
                           <div className="absolute top-3 right-3">
-                            <div className="bg-red-500 rounded-full px-2 py-1 text-xs font-semibold text-white shadow-sm flex items-center">
+                            <div className="bg-gray-700 rounded-full px-2 py-1 text-xs font-semibold text-white shadow-sm flex items-center">
                               ❤️ {mySubmission.upvoteCount}
                             </div>
                           </div>
@@ -333,7 +329,7 @@ export default function ChallengesPage() {
                         unoptimized
                       />
                       <div className="absolute top-3 left-3">
-                        <div className="bg-blue-600 text-white rounded-full px-3 py-1 text-xs font-semibold shadow-sm">
+                        <div className="bg-gray-800 text-white rounded-full px-3 py-1 text-xs font-semibold shadow-sm">
                           My Entry
                         </div>
                       </div>
@@ -382,11 +378,11 @@ export default function ChallengesPage() {
             </div>
             
             {competitionRoom ? (
-              <div className="bg-gradient-to-br from-orange-50 to-red-50 rounded-xl border border-orange-200 p-6">
+              <div className="bg-gray-50 rounded-xl border border-gray-200 p-6">
                 <div className="flex items-center justify-between mb-4">
                   <div className="flex items-center">
-                    <div className="bg-orange-100 rounded-lg p-3 mr-4">
-                      <UsersIcon className="w-6 h-6 text-orange-600" />
+                    <div className="bg-gray-100 rounded-lg p-3 mr-4">
+                      <UsersIcon className="w-6 h-6 text-gray-700" />
                     </div>
                     <div>
                       <h3 className="text-lg font-bold text-gray-900">Room #{competitionRoom.roomNumber}</h3>
@@ -396,18 +392,18 @@ export default function ChallengesPage() {
                     </div>
                   </div>
                   <div className="text-right">
-                    <div className="text-2xl font-bold text-orange-600">{competitionRoom.submissionCount}</div>
+                    <div className="text-2xl font-bold text-gray-900">{competitionRoom.submissionCount}</div>
                     <div className="text-xs text-gray-500">submissions</div>
                   </div>
                 </div>
-                
+
                 <div className="flex items-center justify-between">
                   <p className="text-gray-600 text-sm">
                     You&apos;re competing with {competitionRoom.participantCount - 1} other designers in this room for today&apos;s challenge.
                   </p>
                   <Link
                     href={`/challenges/competition-room/${competitionRoom.id}`}
-                    className="bg-orange-600 text-white px-4 py-2 rounded-lg hover:bg-orange-700 transition-colors text-sm font-medium"
+                    className="bg-gray-800 text-white px-4 py-2 rounded-lg hover:bg-gray-900 transition-colors text-sm font-medium"
                   >
                     View Room
                   </Link>
@@ -423,7 +419,7 @@ export default function ChallengesPage() {
                 {!mySubmission && (
                   <Link
                     href="/design"
-                    className="bg-indigo-600 text-white px-6 py-2 rounded-lg hover:bg-indigo-700 transition-colors font-medium"
+                    className="bg-gray-800 text-white px-6 py-2 rounded-lg hover:bg-gray-900 transition-colors font-medium"
                   >
                     Submit to Challenge
                   </Link>
@@ -443,7 +439,7 @@ export default function ChallengesPage() {
             <div className="flex space-x-3">
               <Link
                 href="/challenges/create-group"
-                className="inline-flex items-center px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors text-sm font-medium"
+                className="inline-flex items-center px-4 py-2 bg-gray-800 text-white rounded-lg hover:bg-gray-900 transition-colors text-sm font-medium"
               >
                 <PlusIcon className="w-4 h-4 mr-2" />
                 Create Group
@@ -468,7 +464,7 @@ export default function ChallengesPage() {
               <div className="flex justify-center space-x-4">
                 <Link
                   href="/challenges/create-group"
-                  className="bg-indigo-600 text-white px-6 py-3 rounded-lg hover:bg-indigo-700 transition-colors font-medium"
+                  className="bg-gray-800 text-white px-6 py-3 rounded-lg hover:bg-gray-900 transition-colors font-medium"
                 >
                   Create Your First Group
                 </Link>
@@ -513,7 +509,7 @@ export default function ChallengesPage() {
               <div className="p-6 overflow-y-auto max-h-[60vh]">
                 {loadingDesigns ? (
                   <div className="flex items-center justify-center py-12">
-                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600"></div>
+                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900"></div>
                   </div>
                 ) : existingDesigns.length === 0 ? (
                   <div className="text-center py-12">
@@ -528,7 +524,7 @@ export default function ChallengesPage() {
                     </p>
                     <Link
                       href="/design"
-                      className="inline-flex items-center px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors"
+                      className="inline-flex items-center px-4 py-2 bg-gray-800 text-white rounded-lg hover:bg-gray-900 transition-colors"
                     >
                       Create Your First Design
                     </Link>
@@ -556,7 +552,7 @@ export default function ChallengesPage() {
                           <button
                             onClick={() => handleSubmitExistingDesign(design)}
                             disabled={submittingExisting}
-                            className="w-full bg-indigo-600 text-white py-2 px-3 rounded-lg hover:bg-indigo-700 transition-colors text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+                            className="w-full bg-gray-800 text-white py-2 px-3 rounded-lg hover:bg-gray-900 transition-colors text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed"
                           >
                             {submittingExisting ? 'Submitting...' : 'Submit This Design'}
                           </button>
@@ -597,11 +593,11 @@ function GroupCard({ group, currentChallenge }) {
         <div className="space-y-3">
           <Link
             href={`/challenges/groups/@${group.handle}`}
-            className="block w-full bg-indigo-600 text-white text-center py-3 rounded-lg hover:bg-indigo-700 transition-colors font-medium"
+            className="block w-full bg-gray-800 text-white text-center py-3 rounded-lg hover:bg-gray-900 transition-colors font-medium"
           >
             View Group Submissions
           </Link>
-          
+
           {currentChallenge && (
             <Link
               href={`/challenges/groups/@${group.handle}/challenge/${currentChallenge.id}`}
@@ -611,12 +607,12 @@ function GroupCard({ group, currentChallenge }) {
             </Link>
           )}
         </div>
-        
+
         <div className="mt-4 pt-4 border-t border-gray-100">
           <div className="flex items-center justify-between text-xs text-gray-500">
             <span>Created {dayjs(group.createdAt).format('MMM D, YYYY')}</span>
             {group.isCreator && (
-              <span className="bg-blue-100 text-blue-700 px-2 py-1 rounded-full font-medium">
+              <span className="bg-gray-200 text-gray-800 px-2 py-1 rounded-full font-medium">
                 Owner
               </span>
             )}

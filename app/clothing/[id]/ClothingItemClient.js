@@ -109,10 +109,14 @@ export default function ClothingItemClient({ clothingItem, initialComments, sess
       });
 
       if (!res.ok) {
+        // Get the actual error message from the API
+        const errorData = await res.json().catch(() => ({ error: 'Unknown error' }));
+        console.error('Like API error:', errorData);
+
         // Revert optimistic update on error
         setIsLiked(prevLiked => !prevLiked);
         setLikesCount(prevCount => prevCount + (isLiked ? 1 : -1));
-        throw new Error('Failed to toggle like');
+        throw new Error(errorData.error || 'Failed to toggle like');
       }
     } catch (e) {
       console.error('Error toggling like:', e);

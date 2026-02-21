@@ -11,49 +11,84 @@ export async function POST(request, { params }) {
   }
 
   const userId = session.user.uid;
-  const clothingItemId = params.id;
+  const { id: clothingItemId } = await params;
 
   if (!clothingItemId) {
     return NextResponse.json({ error: 'ClothingItem ID is required' }, { status: 400 });
   }
 
   try {
-    // Check if the clothing item exists
-    const clothingItem = await prisma.clothingItem.findUnique({
-      where: { id: clothingItemId },
-    });
+    // Check if the item exists in either ClothingItem or UploadedDesign table
+    const [clothingItem, uploadedDesign] = await Promise.all([
+      prisma.clothingItem.findUnique({
+        where: { id: clothingItemId },
+      }),
+      prisma.uploadedDesign.findUnique({
+        where: { id: clothingItemId },
+      })
+    ]);
 
-    if (!clothingItem) {
+    const designItem = clothingItem || uploadedDesign;
+    const isUploadedDesign = !!uploadedDesign;
+
+    if (!designItem) {
       return NextResponse.json({ error: 'Clothing item not found' }, { status: 404 });
     }
 
-    // Check if the like already exists
-    const existingLike = await prisma.like.findUnique({
-      where: {
-        userId_clothingItemId: {
-          userId,
-          clothingItemId,
-        },
-      },
-    });
-
-    if (existingLike) {
-      // User has already liked, so unlike
-      await prisma.like.delete({
+    if (isUploadedDesign) {
+      // Handle likes for uploaded designs
+      const existingLike = await prisma.uploadedDesignLike.findUnique({
         where: {
-          id: existingLike.id,
+          userId_uploadedDesignId: {
+            userId,
+            uploadedDesignId: clothingItemId,
+          },
         },
       });
-      return NextResponse.json({ message: 'Unliked successfully' }, { status: 200 });
+
+      if (existingLike) {
+        // Unlike
+        await prisma.uploadedDesignLike.delete({
+          where: { id: existingLike.id },
+        });
+        return NextResponse.json({ message: 'Unliked successfully' }, { status: 200 });
+      } else {
+        // Like
+        await prisma.uploadedDesignLike.create({
+          data: {
+            userId,
+            uploadedDesignId: clothingItemId,
+          },
+        });
+        return NextResponse.json({ message: 'Liked successfully' }, { status: 201 });
+      }
     } else {
-      // User has not liked, so like
-      await prisma.like.create({
-        data: {
-          userId,
-          clothingItemId,
+      // Handle likes for AI-generated designs (ClothingItem)
+      const existingLike = await prisma.like.findUnique({
+        where: {
+          userId_clothingItemId: {
+            userId,
+            clothingItemId,
+          },
         },
       });
-      return NextResponse.json({ message: 'Liked successfully' }, { status: 201 });
+
+      if (existingLike) {
+        // Unlike
+        await prisma.like.delete({
+          where: { id: existingLike.id },
+        });
+        return NextResponse.json({ message: 'Unliked successfully' }, { status: 200 });
+      } else {
+        // Like
+        await prisma.like.create({
+          data: {
+            userId,
+            clothingItemId,
+          },
+        });
+        return NextResponse.json({ message: 'Liked successfully' }, { status: 201 });
+      }
     }
   } catch (error) {
     console.error('Error updating like status:', error);
