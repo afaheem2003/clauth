@@ -1,11 +1,11 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import Image from 'next/image';
-import { PlusIcon, UserGroupIcon, TrophyIcon, CalendarIcon, EyeIcon, HeartIcon, UsersIcon } from '@heroicons/react/24/outline';
+import { PlusIcon, UserGroupIcon, TrophyIcon, CalendarIcon, EyeIcon, HeartIcon, UsersIcon, LightBulbIcon } from '@heroicons/react/24/outline';
 import dayjs from 'dayjs';
 import utc from 'dayjs/plugin/utc';
 import timezone from 'dayjs/plugin/timezone';
@@ -26,6 +26,16 @@ export default function ChallengesPage() {
   const [existingDesigns, setExistingDesigns] = useState([]);
   const [loadingDesigns, setLoadingDesigns] = useState(false);
   const [submittingExisting, setSubmittingExisting] = useState(false);
+
+  // Challenge ideas state
+  const [ideas, setIdeas] = useState([]);
+  const [loadingIdeas, setLoadingIdeas] = useState(false);
+  const [ideaInput, setIdeaInput] = useState('');
+  const [ideaDesc, setIdeaDesc] = useState('');
+  const [submittingIdea, setSubmittingIdea] = useState(false);
+  const [ideaError, setIdeaError] = useState('');
+  const [similarIdeas, setSimilarIdeas] = useState(null); // null = no conflict, [] = resolved
+  const [pendingIdea, setPendingIdea] = useState(null); // {title, description} waiting on user choice
 
   const EASTERN_TIMEZONE = 'America/New_York';
 
@@ -72,6 +82,98 @@ export default function ChallengesPage() {
       console.error('Error fetching challenge data:', error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchIdeas = useCallback(async () => {
+    setLoadingIdeas(true);
+    try {
+      const res = await fetch('/api/challenges/ideas');
+      if (res.ok) {
+        const data = await res.json();
+        setIdeas(data.ideas || []);
+      }
+    } catch (e) {
+      console.error('Error fetching ideas:', e);
+    } finally {
+      setLoadingIdeas(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (status === 'authenticated') fetchIdeas();
+  }, [status, fetchIdeas]);
+
+  const handleVoteIdea = async (ideaId) => {
+    // Optimistic toggle
+    setIdeas((prev) =>
+      prev.map((idea) => {
+        if (idea.id !== ideaId) return idea;
+        const wasVoted = idea.hasVoted;
+        return { ...idea, hasVoted: !wasVoted, voteCount: wasVoted ? idea.voteCount - 1 : idea.voteCount + 1 };
+      })
+    );
+    try {
+      await fetch('/api/challenges/ideas/vote', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ideaId }),
+      });
+    } catch (e) {
+      fetchIdeas(); // revert on error
+    }
+  };
+
+  const handleSubmitIdea = async (force = false, similarTargetId = null) => {
+    const title = (pendingIdea?.title ?? ideaInput).trim();
+    const description = (pendingIdea?.description ?? ideaDesc).trim();
+
+    if (!title || title.length < 3) {
+      setIdeaError('Please enter at least 3 characters.');
+      return;
+    }
+
+    setSubmittingIdea(true);
+    setIdeaError('');
+
+    try {
+      if (force && similarTargetId) {
+        // User chose to merge their idea into an existing similar one (just vote on it)
+        await handleVoteIdea(similarTargetId);
+        setSimilarIdeas(null);
+        setPendingIdea(null);
+        setIdeaInput('');
+        setIdeaDesc('');
+        return;
+      }
+
+      const res = await fetch('/api/challenges/ideas', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ title, description }),
+      });
+
+      if (res.status === 409) {
+        const data = await res.json();
+        setSimilarIdeas(data.similar || []);
+        setPendingIdea({ title, description });
+        return;
+      }
+
+      if (res.ok) {
+        setIdeaInput('');
+        setIdeaDesc('');
+        setSimilarIdeas(null);
+        setPendingIdea(null);
+        await fetchIdeas();
+      } else {
+        const data = await res.json();
+        setIdeaError(data.error || 'Failed to submit idea.');
+      }
+    } catch (e) {
+      setIdeaError('Something went wrong. Try again.');
+    } finally {
+      setSubmittingIdea(false);
     }
   };
 
@@ -480,6 +582,160 @@ export default function ChallengesPage() {
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               {groups.map((group) => (
                 <GroupCard key={group.id} group={group} currentChallenge={currentChallenge} />
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Challenge Ideas Leaderboard */}
+        <div className="mb-8">
+          <div className="flex items-center justify-between mb-6">
+            <div>
+              <h2 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
+                <LightBulbIcon className="w-6 h-6 text-yellow-500" />
+                Suggest a Challenge
+              </h2>
+              <p className="text-sm text-gray-600 mt-1">Vote on ideas to help shape upcoming challenges</p>
+            </div>
+          </div>
+
+          {/* Submit form */}
+          <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-5 mb-5">
+            <div className="flex flex-col gap-3">
+              <input
+                type="text"
+                value={ideaInput}
+                onChange={(e) => { setIdeaInput(e.target.value); setIdeaError(''); }}
+                placeholder="e.g. 90s streetwear, monochromatic fits, airport OOTD…"
+                maxLength={100}
+                className="w-full border border-gray-300 rounded-lg px-4 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-gray-400 placeholder-gray-500"
+              />
+              <textarea
+                value={ideaDesc}
+                onChange={(e) => setIdeaDesc(e.target.value)}
+                placeholder="Optional description (context, rules, vibe…)"
+                rows={2}
+                maxLength={300}
+                className="w-full border border-gray-300 rounded-lg px-4 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-gray-400 resize-none placeholder-gray-500"
+              />
+              {ideaError && <p className="text-red-600 text-xs">{ideaError}</p>}
+              <div className="flex justify-end">
+                <button
+                  onClick={() => handleSubmitIdea()}
+                  disabled={submittingIdea || ideaInput.trim().length < 3}
+                  className="bg-gray-900 text-white px-5 py-2 rounded-lg text-sm font-medium hover:bg-gray-700 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                >
+                  {submittingIdea ? 'Submitting…' : 'Submit Idea'}
+                </button>
+              </div>
+            </div>
+          </div>
+
+          {/* Similar ideas conflict resolution */}
+          {similarIdeas && (
+            <div className="bg-amber-50 border border-amber-200 rounded-xl p-5 mb-5">
+              <p className="text-sm font-semibold text-amber-800 mb-3">
+                These existing ideas look similar to &quot;{pendingIdea?.title}&quot;. Would you like to vote on one instead, or submit yours as a separate idea?
+              </p>
+              <div className="flex flex-col gap-2 mb-4">
+                {similarIdeas.map((s) => (
+                  <div key={s.id} className="flex items-center justify-between bg-white rounded-lg border border-amber-200 px-4 py-2">
+                    <span className="text-sm text-gray-900 font-medium">{s.title}</span>
+                    <div className="flex items-center gap-3">
+                      <span className="text-xs text-gray-500">{s.voteCount} vote{s.voteCount !== 1 ? 's' : ''}</span>
+                      <button
+                        onClick={() => handleSubmitIdea(true, s.id)}
+                        className="text-xs bg-amber-600 text-white px-3 py-1 rounded-lg hover:bg-amber-700 transition-colors"
+                      >
+                        Vote on this
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+              <div className="flex gap-3">
+                <button
+                  onClick={() => {
+                    // Submit as distinct idea ignoring similarity
+                    const title = pendingIdea?.title;
+                    const description = pendingIdea?.description;
+                    setSimilarIdeas(null);
+                    setPendingIdea(null);
+                    setSubmittingIdea(true);
+                    fetch('/api/challenges/ideas', {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({ title, description, force: true }),
+                    }).then(async (res) => {
+                      if (res.ok) {
+                        setIdeaInput('');
+                        setIdeaDesc('');
+                        await fetchIdeas();
+                      } else {
+                        const d = await res.json();
+                        setIdeaError(d.error || 'Failed to submit.');
+                      }
+                    }).catch(() => setIdeaError('Something went wrong.')).finally(() => setSubmittingIdea(false));
+                  }}
+                  className="text-xs border border-gray-400 text-gray-700 px-3 py-1 rounded-lg hover:bg-gray-100 transition-colors"
+                >
+                  Submit as separate idea anyway
+                </button>
+                <button
+                  onClick={() => { setSimilarIdeas(null); setPendingIdea(null); }}
+                  className="text-xs text-gray-500 hover:text-gray-700 px-2 py-1"
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* Leaderboard */}
+          {loadingIdeas ? (
+            <div className="flex justify-center py-8">
+              <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-gray-900" />
+            </div>
+          ) : ideas.length === 0 ? (
+            <div className="text-center py-8 text-gray-400 text-sm">No ideas yet — be the first to suggest one!</div>
+          ) : (
+            <div className="flex flex-col gap-3">
+              {ideas.map((idea, idx) => (
+                <div
+                  key={idea.id}
+                  className="bg-white rounded-xl border border-gray-200 shadow-sm px-5 py-4 flex items-start gap-4"
+                >
+                  {/* Rank */}
+                  <div className="flex-shrink-0 w-7 text-center">
+                    <span className={`text-sm font-bold ${idx === 0 ? 'text-yellow-500' : idx === 1 ? 'text-gray-400' : idx === 2 ? 'text-amber-700' : 'text-gray-300'}`}>
+                      #{idx + 1}
+                    </span>
+                  </div>
+
+                  {/* Content */}
+                  <div className="flex-1 min-w-0">
+                    <p className="font-semibold text-gray-900 text-sm leading-snug">{idea.title}</p>
+                    {idea.description && <p className="text-xs text-gray-500 mt-0.5 line-clamp-2">{idea.description}</p>}
+                    <div className="flex items-center gap-3 mt-1 text-xs text-gray-400">
+                      <span>by @{idea.submittedBy}</span>
+                      {idea.mergedCount > 0 && <span>· {idea.mergedCount} similar collapsed</span>}
+                    </div>
+                  </div>
+
+                  {/* Vote button */}
+                  <button
+                    onClick={() => !idea.isOwn && handleVoteIdea(idea.id)}
+                    disabled={idea.isOwn}
+                    title={idea.isOwn ? "Your idea" : idea.hasVoted ? "Remove vote" : "Vote for this idea"}
+                    className={`flex-shrink-0 flex flex-col items-center gap-0.5 px-3 py-1.5 rounded-lg border transition-colors text-xs font-semibold
+                      ${idea.isOwn ? 'border-gray-100 text-gray-300 cursor-default' :
+                        idea.hasVoted ? 'border-gray-900 bg-gray-900 text-white hover:bg-gray-700' :
+                        'border-gray-300 text-gray-600 hover:border-gray-900 hover:text-gray-900'}`}
+                  >
+                    <span>▲</span>
+                    <span>{idea.voteCount}</span>
+                  </button>
+                </div>
               ))}
             </div>
           )}

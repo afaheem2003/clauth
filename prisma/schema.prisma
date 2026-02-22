@@ -85,6 +85,10 @@ model User {
   submissionUpvotes         SubmissionUpvote[]
   competitionParticipations CompetitionParticipant[]
 
+  // Challenge idea suggestions
+  challengeIdeas      ChallengeIdea[]
+  challengeIdeaVotes  ChallengeIdeaVote[]
+
   // Waitlist tracking
   waitlistInfo         WaitlistInfo?
   waitlistApplications WaitlistDesignApplication[] // Applications they've submitted
@@ -962,6 +966,47 @@ enum SubmissionStatus {
   GENERATING // AI is generating the image
   COMPLETED // Image generated successfully
   FAILED // Generation failed
+}
+
+/**
+ * ────────────────────────────────────────────────────────────
+ * Challenge Idea Suggestions
+ * ──────────────────────────────────────────────────────────────
+ */
+model ChallengeIdea {
+  id          String   @id @default(cuid())
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId      String
+  title       String   // Short idea title / theme
+  description String?  // Optional elaboration
+  voteCount   Int      @default(1) // Starts at 1 (author's implicit vote)
+
+  // Merge support: ideas that are too similar get collapsed into a canonical one
+  canonicalId String?        // Points to the canonical idea this was merged into
+  canonical   ChallengeIdea? @relation("IdeaMerge", fields: [canonicalId], references: [id])
+  mergedIdeas ChallengeIdea[] @relation("IdeaMerge")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  votes ChallengeIdeaVote[]
+
+  @@index([voteCount])
+  @@index([userId])
+  @@index([canonicalId])
+}
+
+model ChallengeIdeaVote {
+  id      String        @id @default(cuid())
+  idea    ChallengeIdea @relation(fields: [ideaId], references: [id], onDelete: Cascade)
+  ideaId  String
+  user    User          @relation(fields: [userId], references: [id])
+  userId  String
+
+  createdAt DateTime @default(now())
+
+  @@unique([ideaId, userId])
+  @@index([userId])
 }
 
 /**
