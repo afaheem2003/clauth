@@ -24,20 +24,19 @@ export default function WaitlistPage() {
   const isRedirecting = useRef(false)
 
   // Carousel
-  const SLIDES = [
-    { src: '/images/waitlist/hf_20260221_090252_651b2f27-a75b-4633-80ca-08f3b511fa0d.png', name: 'Midnight Fog Minimalist', tag: 'Design your vision.' },
-    { src: '/images/waitlist/8394850e-fe32-41a9-a2a6-b25e8666a0d2_min.png', name: 'Shadow Leather Muse', tag: 'Compete daily.' },
-    { src: '/images/waitlist/hf_20260124_220655_aab5053c-b475-49da-9a0b-18983026c1d7_min.png', name: 'Crimson Authority', tag: 'Join the community.' },
-    { src: '/images/waitlist/hf_20260203_200854_c06f6dfa-a854-48f2-8851-0cd5fb6bfd1a_min.png', name: 'Ivory Ribbon Romance', tag: 'Express yourself.' },
-    { src: '/images/waitlist/hf_20260212_001237_bdab5d1e-191f-4d88-ad8e-a71990f2b996_min.png', name: 'Espresso Empress', tag: 'Stand out.' },
-    { src: '/images/waitlist/hf_20260220_050910_f43c6b3a-5d55-4041-b0fa-de139b39cb47_min.png', name: 'Steel Reflection', tag: 'Be iconic.' },
-  ]
+  const TAGS = ['Design your vision.', 'Compete daily.', 'Join the community.', 'Express yourself.', 'Stand out.', 'Be iconic.']
+  const [slides, setSlides] = useState([])
   const [carouselIdx, setCarouselIdx] = useState(0)
 
   useEffect(() => {
-    const t = setInterval(() => setCarouselIdx(i => (i + 1) % SLIDES.length), 4000)
-    return () => clearInterval(t)
+    fetch('/api/waitlist/images').then(r => r.json()).then(d => setSlides(d.images || []))
   }, [])
+
+  useEffect(() => {
+    if (slides.length === 0) return
+    const t = setInterval(() => setCarouselIdx(i => (i + 1) % slides.length), 4000)
+    return () => clearInterval(t)
+  }, [slides.length])
 
   useEffect(() => {
     // Check server-side feature flags
@@ -798,15 +797,15 @@ export default function WaitlistPage() {
       <div className="min-h-screen bg-white">
         {/* Carousel hero */}
         <div className="relative w-full overflow-hidden" style={{ height: '100svh' }}>
-          {SLIDES.map((slide, i) => (
+          {slides.map((src, i) => (
             <div
               key={i}
               className="absolute inset-0 transition-opacity duration-1000"
               style={{ opacity: i === carouselIdx ? 1 : 0 }}
             >
               <NextImage
-                src={slide.src}
-                alt={slide.name}
+                src={src}
+                alt=""
                 fill
                 className="object-cover object-top"
                 priority={i === 0}
@@ -832,11 +831,8 @@ export default function WaitlistPage() {
                 className="text-5xl sm:text-6xl lg:text-7xl font-extralight text-white leading-[1.05] tracking-tight mb-5"
                 key={carouselIdx}
               >
-                {SLIDES[carouselIdx].tag}
+                {TAGS[carouselIdx % TAGS.length]}
               </h1>
-              <p className="text-white/60 text-base sm:text-lg font-light mb-10 tracking-wide">
-                {SLIDES[carouselIdx].name}
-              </p>
               <div className="flex flex-col sm:flex-row gap-3">
                 <Link
                   href="/signup"
@@ -856,7 +852,7 @@ export default function WaitlistPage() {
 
           {/* Slide dots */}
           <div className="absolute bottom-8 left-8 sm:left-14 flex items-center gap-2">
-            {SLIDES.map((_, i) => (
+            {slides.map((_, i) => (
               <button
                 key={i}
                 onClick={() => setCarouselIdx(i)}
@@ -867,7 +863,7 @@ export default function WaitlistPage() {
 
           {/* Slide counter */}
           <div className="absolute bottom-8 right-8 text-white/40 text-xs font-light tracking-widest">
-            {String(carouselIdx + 1).padStart(2, '0')} / {String(SLIDES.length).padStart(2, '0')}
+            {String(carouselIdx + 1).padStart(2, '0')} / {String(slides.length).padStart(2, '0')}
           </div>
         </div>
       </div>
@@ -989,15 +985,15 @@ export default function WaitlistPage() {
 
         {/* Hero Carousel */}
         <div className="relative w-full overflow-hidden" style={{ height: '82vh' }}>
-          {SLIDES.map((slide, i) => (
+          {slides.map((src, i) => (
             <div
               key={i}
               className="absolute inset-0 transition-opacity duration-1000"
               style={{ opacity: i === carouselIdx ? 1 : 0 }}
             >
               <NextImage
-                src={slide.src}
-                alt={slide.name}
+                src={src}
+                alt=""
                 fill
                 className="object-cover object-top"
                 priority={i === 0}
@@ -1018,11 +1014,8 @@ export default function WaitlistPage() {
                 className="text-5xl sm:text-6xl lg:text-7xl font-extralight text-white leading-[1.05] tracking-tight mb-5 transition-all duration-700"
                 key={carouselIdx}
               >
-                {SLIDES[carouselIdx].tag}
+                {TAGS[carouselIdx % TAGS.length]}
               </h1>
-              <p className="text-white/60 text-base sm:text-lg font-light mb-10 tracking-wide">
-                {SLIDES[carouselIdx].name}
-              </p>
               <button
                 onClick={() => setStep(1)}
                 className="inline-flex items-center gap-3 bg-white text-black px-8 py-4 text-sm font-semibold tracking-wide hover:bg-gray-100 transition-colors rounded-xl shadow-xl"
@@ -1035,7 +1028,7 @@ export default function WaitlistPage() {
 
           {/* Slide dots */}
           <div className="absolute bottom-8 left-8 sm:left-14 flex items-center gap-2">
-            {SLIDES.map((_, i) => (
+            {slides.map((_, i) => (
               <button
                 key={i}
                 onClick={() => setCarouselIdx(i)}
@@ -1046,7 +1039,7 @@ export default function WaitlistPage() {
 
           {/* Slide number */}
           <div className="absolute bottom-8 right-8 text-white/40 text-xs font-light tracking-widest">
-            {String(carouselIdx + 1).padStart(2, '0')} / {String(SLIDES.length).padStart(2, '0')}
+            {String(carouselIdx + 1).padStart(2, '0')} / {String(slides.length).padStart(2, '0')}
           </div>
         </div>
 
