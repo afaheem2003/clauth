@@ -795,29 +795,79 @@ export default function WaitlistPage() {
 
   if (!session) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-100">
-        <div className="relative max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 pt-16 pb-24">
-          <div className="text-center">
-            <h1 className="text-6xl md:text-8xl font-extralight text-black mb-8 tracking-tight">
-              CLAUTH
-            </h1>
-            <p className="text-xl text-gray-600 mb-8 font-light">
-              Show us what you've got. Submit a design to apply for early access.
-            </p>
-            <div className="space-y-4">
-              <Link
-                href="/signup"
-                className="block w-full max-w-sm mx-auto bg-black text-white px-8 py-4 text-lg font-medium hover:bg-gray-900 transition-colors"
-              >
-                Create Account to Apply
-              </Link>
-              <Link
-                href="/login"
-                className="block w-full max-w-sm mx-auto border border-gray-300 text-gray-700 px-8 py-4 text-lg font-medium hover:bg-gray-50 transition-colors"
-              >
-                Sign In
-              </Link>
+      <div className="min-h-screen bg-white">
+        {/* Carousel hero */}
+        <div className="relative w-full overflow-hidden" style={{ height: '100svh' }}>
+          {SLIDES.map((slide, i) => (
+            <div
+              key={i}
+              className="absolute inset-0 transition-opacity duration-1000"
+              style={{ opacity: i === carouselIdx ? 1 : 0 }}
+            >
+              <NextImage
+                src={slide.src}
+                alt={slide.name}
+                fill
+                className="object-cover object-top"
+                priority={i === 0}
+                unoptimized
+              />
             </div>
+          ))}
+
+          {/* Gradients */}
+          <div className="absolute inset-0 bg-gradient-to-r from-black/85 via-black/50 to-transparent pointer-events-none" />
+          <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent pointer-events-none" />
+
+          {/* Logo */}
+          <div className="absolute top-6 left-8 sm:left-14">
+            <span className="text-white/90 text-xl font-bold tracking-widest uppercase">Clauth</span>
+          </div>
+
+          {/* Text content */}
+          <div className="absolute inset-0 flex flex-col justify-center px-8 sm:px-14 lg:px-20">
+            <div className="max-w-xl">
+              <p className="text-white/50 text-xs font-semibold tracking-[0.35em] uppercase mb-6">Early Access</p>
+              <h1
+                className="text-5xl sm:text-6xl lg:text-7xl font-extralight text-white leading-[1.05] tracking-tight mb-5"
+                key={carouselIdx}
+              >
+                {SLIDES[carouselIdx].tag}
+              </h1>
+              <p className="text-white/60 text-base sm:text-lg font-light mb-10 tracking-wide">
+                {SLIDES[carouselIdx].name}
+              </p>
+              <div className="flex flex-col sm:flex-row gap-3">
+                <Link
+                  href="/signup"
+                  className="inline-flex items-center justify-center gap-2 bg-white text-black px-8 py-4 text-sm font-semibold tracking-wide hover:bg-gray-100 transition-colors rounded-xl shadow-xl"
+                >
+                  Create Account to Apply →
+                </Link>
+                <Link
+                  href="/login"
+                  className="inline-flex items-center justify-center px-8 py-4 text-sm font-semibold tracking-wide text-white/80 border border-white/30 hover:border-white/60 hover:text-white transition-colors rounded-xl"
+                >
+                  Sign In
+                </Link>
+              </div>
+            </div>
+          </div>
+
+          {/* Slide dots */}
+          <div className="absolute bottom-8 left-8 sm:left-14 flex items-center gap-2">
+            {SLIDES.map((_, i) => (
+              <button
+                key={i}
+                onClick={() => setCarouselIdx(i)}
+                className={`h-1.5 rounded-full transition-all duration-300 ${i === carouselIdx ? 'bg-white w-8' : 'bg-white/40 w-1.5'}`}
+              />
+            ))}
+          </div>
+
+          {/* Slide counter */}
+          <div className="absolute bottom-8 right-8 text-white/40 text-xs font-light tracking-widest">
+            {String(carouselIdx + 1).padStart(2, '0')} / {String(SLIDES.length).padStart(2, '0')}
           </div>
         </div>
       </div>
