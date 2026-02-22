@@ -14,13 +14,6 @@ export async function POST(req) {
 
   const { clothingItemId, content, parentId = null } = await req.json();
 
-  console.log('=== Comment POST Debug ===');
-  console.log('clothingItemId:', clothingItemId);
-  console.log('content:', content);
-  console.log('parentId:', parentId);
-  console.log('parentId type:', typeof parentId);
-  console.log('parentId truthy:', !!parentId);
-
   const filter = new Filter();
   if (filter.isProfane(content)) {
     return NextResponse.json(
@@ -44,40 +37,27 @@ export async function POST(req) {
     const isUploadedDesign = !!uploadedDesign;
     let comment;
 
-    console.log('isUploadedDesign:', isUploadedDesign);
-
     if (isUploadedDesign) {
-      // Create comment for UploadedDesign
-      const dataToCreate = {
-        content: content,
-        author: { connect: { id: session.user.uid } },
-        uploadedDesign: { connect: { id: clothingItemId } },
-        ...(parentId && { parent: { connect: { id: parentId } } }),
-      };
-      console.log('UploadedDesignComment data:', JSON.stringify(dataToCreate, null, 2));
-
       comment = await prisma.uploadedDesignComment.create({
-        data: dataToCreate,
+        data: {
+          content: content,
+          author: { connect: { id: session.user.uid } },
+          uploadedDesign: { connect: { id: clothingItemId } },
+          ...(parentId && { parent: { connect: { id: parentId } } }),
+        },
         include: { author: true },
       });
     } else {
-      // Create comment for ClothingItem
-      const dataToCreate = {
-        content: content,
-        author: { connect: { id: session.user.uid } },
-        clothingItem: { connect: { id: clothingItemId } },
-        ...(parentId && { parent: { connect: { id: parentId } } }),
-      };
-      console.log('Comment data:', JSON.stringify(dataToCreate, null, 2));
-
       comment = await prisma.comment.create({
-        data: dataToCreate,
+        data: {
+          content: content,
+          author: { connect: { id: session.user.uid } },
+          clothingItem: { connect: { id: clothingItemId } },
+          ...(parentId && { parent: { connect: { id: parentId } } }),
+        },
         include: { author: true },
       });
     }
-
-    console.log('Created comment:', comment.id, 'with parentId:', comment.parentId);
-    console.log('=========================');
 
     return NextResponse.json({ comment });
   } catch (err) {
