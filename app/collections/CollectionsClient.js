@@ -2,154 +2,147 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { PlusIcon, FolderIcon, LockClosedIcon, GlobeAltIcon } from '@heroicons/react/24/outline'
+import { PlusIcon, LockClosedIcon, GlobeAltIcon } from '@heroicons/react/24/outline'
 
 export default function CollectionsClient({ initialCollections }) {
   const [collections] = useState(initialCollections)
   const router = useRouter()
 
   return (
-    <div className="max-w-7xl mx-auto px-4 py-8 sm:px-6 lg:px-8">
-      {/* Header */}
-      <div className="flex items-center justify-between mb-8">
-        <div>
-          <h1 className="text-3xl font-bold text-gray-900">My Collections</h1>
-          <p className="text-gray-600 mt-2">
-            Organize your clothing items into curated collections
-          </p>
+    <div className="min-h-screen bg-white">
+      {/* Page Header */}
+      <div className="border-b border-gray-100">
+        <div className="max-w-6xl mx-auto px-6 py-12">
+          <div className="flex items-end justify-between">
+            <div>
+              <p className="text-xs font-medium tracking-widest uppercase text-gray-400 mb-3">Your Archive</p>
+              <h1 className="text-4xl font-light text-gray-900 tracking-tight">Collections</h1>
+            </div>
+            <button
+              onClick={() => router.push('/collections/create')}
+              className="flex items-center gap-2 px-5 py-2.5 bg-black text-white text-sm font-medium tracking-wide hover:bg-gray-800 transition-colors"
+            >
+              <PlusIcon className="w-4 h-4" />
+              New Collection
+            </button>
+          </div>
         </div>
-        <button
-          onClick={() => router.push('/collections/create')}
-          className="inline-flex items-center px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium shadow-sm"
-        >
-          <PlusIcon className="w-5 h-5 mr-2" />
-          Create Collection
-        </button>
       </div>
 
-      {/* Collections Grid */}
-      {collections.length > 0 ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {collections.map((collection) => (
-            <div
-              key={collection.id}
-              className="bg-white rounded-xl shadow-sm border border-gray-200 hover:shadow-lg transition-all duration-200 cursor-pointer overflow-hidden flex flex-col h-full"
-              onClick={() => router.push(`/collections/${collection.id}`)}
-            >
-              {/* Header with name and privacy */}
-              <div className="p-6 pb-4 flex-shrink-0">
-                <div className="flex items-start justify-between mb-4">
-                  <div className="flex-1">
-                    <h3 className="text-xl font-semibold text-gray-900 mb-2">
-                      {collection.name || 'Untitled Collection'}
-                    </h3>
-                    <div className="flex items-center gap-2 text-sm text-gray-500">
-                      {collection.privacy === 'public' ? (
-                        <><GlobeAltIcon className="w-4 h-4" /> Public</>
-                      ) : (
-                        <><LockClosedIcon className="w-4 h-4" /> Private</>
-                      )}
-                      <span>•</span>
-                      <span>{collection.itemCount || 0} items</span>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Essential Fields */}
-                <div className="space-y-3">
-                  {/* Purpose */}
-                  <div>
-                    <p className="text-xs font-medium text-gray-500 mb-1">Purpose</p>
-                    <p className="text-sm text-gray-900 bg-gray-50 px-3 py-1 rounded-full inline-block">
-                      {collection.purpose || 'Not specified'}
-                    </p>
-                  </div>
-
-                  {/* Style & Season */}
-                  <div className="flex flex-wrap gap-2">
-                    {collection.style && (
-                      <span className="px-2 py-1 bg-blue-100 text-blue-800 text-xs font-medium rounded-full">
-                        {collection.style}
-                      </span>
-                    )}
-                    {collection.seasons && collection.seasons.length > 0 && 
-                      collection.seasons.map((season, index) => (
-                        <span key={index} className="px-2 py-1 bg-green-100 text-green-800 text-xs font-medium rounded-full">
-                          {season}
-                        </span>
-                      ))
-                    }
-                    {/* Fallback for old single season field */}
-                    {collection.season && !collection.seasons && (
-                      <span className="px-2 py-1 bg-green-100 text-green-800 text-xs font-medium rounded-full">
-                        {collection.season}
-                      </span>
-                    )}
-                  </div>
-                </div>
-              </div>
-
-              {/* Item Previews */}
-              <div className="px-6 pb-4 flex-1">
-                {collection.items && collection.items.length > 0 ? (
-                  <>
-                    <p className="text-sm font-medium text-gray-700 mb-3">Items Preview</p>
-                    <div className="grid grid-cols-4 gap-2">
-                      {collection.items.slice(0, 4).map((item, index) => (
-                        <div
-                          key={item.id || index}
-                          className="aspect-square rounded-lg overflow-hidden bg-gray-100 border border-gray-200"
-                        >
-                          <img
-                            src={item.frontImage || item.imageUrl || '/images/placeholder.png'}
-                            alt={item.name || 'Clothing item'}
-                            className="w-full h-full object-cover"
-                          />
-                        </div>
-                      ))}
-                    </div>
-                    {collection.items.length > 4 && (
-                      <p className="text-xs text-gray-500 mt-2 text-center">
-                        +{collection.items.length - 4} more items
-                      </p>
-                    )}
-                  </>
-                ) : (
-                  <div className="flex items-center justify-center h-24 text-gray-400">
-                    <div className="text-center">
-                      <FolderIcon className="w-8 h-8 mx-auto mb-2" />
-                      <p className="text-sm">No items yet</p>
-                    </div>
-                  </div>
-                )}
-              </div>
-
-              {/* Footer - Always at bottom */}
-              <div className="px-6 py-3 bg-gray-50 border-t border-gray-100 flex-shrink-0 mt-auto">
-                <p className="text-xs text-gray-500">
-                  Created {new Date(collection.createdAt).toLocaleDateString()}
-                </p>
-              </div>
-            </div>
-          ))}
-        </div>
-      ) : (
-        /* Empty State */
-        <div className="text-center py-16">
-          <FolderIcon className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-          <h3 className="text-xl font-medium text-gray-900 mb-2">No collections yet</h3>
-          <p className="text-gray-500 mb-6 max-w-md mx-auto">
-            Create your first collection to organize your clothing items by style, season, or occasion.
-          </p>
-          <button
-            onClick={() => router.push('/collections/create')}
-            className="inline-flex items-center px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium"
-          >
-            <PlusIcon className="w-5 h-5 mr-2" />
-            Create Your First Collection
-          </button>
-        </div>
-      )}
+      <div className="max-w-6xl mx-auto px-6 py-12">
+        {collections.length > 0 ? (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-px bg-gray-100 border border-gray-100">
+            {collections.map((collection) => (
+              <CollectionCard
+                key={collection.id}
+                collection={collection}
+                onClick={() => router.push(`/collections/${collection.id}`)}
+              />
+            ))}
+          </div>
+        ) : (
+          <EmptyState onCreateClick={() => router.push('/collections/create')} />
+        )}
+      </div>
     </div>
   )
-} 
+}
+
+function CollectionCard({ collection, onClick }) {
+  const items = collection.items || []
+  const previewItems = items.slice(0, 4)
+
+  return (
+    <div
+      onClick={onClick}
+      className="bg-white cursor-pointer group"
+    >
+      {/* Image area */}
+      <div className="aspect-[4/3] bg-gray-50 overflow-hidden relative">
+        {previewItems.length > 0 ? (
+          previewItems.length === 1 ? (
+            <img
+              src={previewItems[0].frontImage || previewItems[0].imageUrl}
+              alt={previewItems[0].name}
+              className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700 ease-out"
+            />
+          ) : (
+            <div className="grid grid-cols-2 h-full gap-px bg-gray-100">
+              {previewItems.map((item, i) => (
+                <div key={item.id || i} className="overflow-hidden bg-gray-50">
+                  <img
+                    src={item.frontImage || item.imageUrl}
+                    alt={item.name}
+                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700 ease-out"
+                  />
+                </div>
+              ))}
+            </div>
+          )
+        ) : (
+          <div className="w-full h-full flex items-center justify-center">
+            <p className="text-xs tracking-widest uppercase text-gray-300">No items</p>
+          </div>
+        )}
+
+        {/* Item count overlay */}
+        {items.length > 4 && (
+          <div className="absolute bottom-3 right-3 bg-black/70 text-white text-xs px-2 py-1 backdrop-blur-sm">
+            +{items.length - 4} more
+          </div>
+        )}
+      </div>
+
+      {/* Card info */}
+      <div className="p-5 border-t border-gray-100">
+        <div className="flex items-start justify-between gap-3">
+          <div className="min-w-0">
+            <h3 className="text-sm font-medium text-gray-900 tracking-tight truncate group-hover:text-gray-600 transition-colors">
+              {collection.name || 'Untitled Collection'}
+            </h3>
+            <div className="flex items-center gap-2 mt-1">
+              <span className="text-xs text-gray-400 uppercase tracking-wider">
+                {items.length} {items.length === 1 ? 'piece' : 'pieces'}
+              </span>
+              {(collection.style || (collection.seasons?.length > 0) || collection.season) && (
+                <>
+                  <span className="text-gray-200">·</span>
+                  <span className="text-xs text-gray-400 uppercase tracking-wider truncate">
+                    {collection.style || collection.seasons?.[0] || collection.season}
+                  </span>
+                </>
+              )}
+            </div>
+          </div>
+
+          <div className="flex-shrink-0 mt-0.5">
+            {collection.privacy === 'public' ? (
+              <GlobeAltIcon className="w-3.5 h-3.5 text-gray-300" />
+            ) : (
+              <LockClosedIcon className="w-3.5 h-3.5 text-gray-300" />
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function EmptyState({ onCreateClick }) {
+  return (
+    <div className="py-32 text-center">
+      <p className="text-xs font-medium tracking-widest uppercase text-gray-300 mb-6">Nothing here yet</p>
+      <h2 className="text-2xl font-light text-gray-900 mb-3">Start your first collection</h2>
+      <p className="text-sm text-gray-400 mb-10 max-w-sm mx-auto leading-relaxed">
+        Group your designs into collections by season, mood, or style — your personal fashion archive.
+      </p>
+      <button
+        onClick={onCreateClick}
+        className="inline-flex items-center gap-2 px-6 py-3 bg-black text-white text-sm font-medium tracking-wide hover:bg-gray-800 transition-colors"
+      >
+        <PlusIcon className="w-4 h-4" />
+        New Collection
+      </button>
+    </div>
+  )
+}

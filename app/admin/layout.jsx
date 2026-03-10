@@ -6,8 +6,6 @@ import { signOut }   from "next-auth/react";
 import AuthGuard     from "@/components/common/AuthGuard";
 import AdminGuard    from "@/components/common/AdminGuard";
 
-export const dynamic = 'force-dynamic';
-
 export default function AdminLayout({ children }) {
   const router = useRouter();
 
@@ -16,37 +14,27 @@ export default function AdminLayout({ children }) {
       <AdminGuard>
         <div className="flex min-h-screen">
           {/* ────────── Sidebar ────────── */}
-          <aside className="w-64 bg-gray-900 text-white p-6">
-            <h2 className="text-2xl font-bold mb-8 text-gray-100">Clauth&nbsp;Admin</h2>
+          <aside className="w-56 bg-black text-white flex flex-col p-6">
+            <h2 className="text-sm font-semibold tracking-widest uppercase text-gray-500 mb-8">Clauth Admin</h2>
 
-            <nav className="space-y-4 text-lg">
-              <Link href="/admin" className="block font-medium text-gray-200 hover:text-gray-100">
-                Dashboard
-              </Link>
-
-              <Link href="/admin/clothing" className="block font-medium text-gray-200 hover:text-gray-100">
-                Clothing Items
-              </Link>
-
-              <Link href="/admin/preorders" className="block font-medium text-gray-200 hover:text-gray-100">
-                Pre-orders
-              </Link>
-
-              <Link href="/admin/production" className="block font-medium text-gray-200 hover:text-gray-100">
-                Production
-              </Link>
-
-              <Link href="/admin/users" className="block font-medium text-gray-200 hover:text-gray-100">
-                Users
-              </Link>
-
-              <Link href="/admin/challenges" className="block font-medium text-gray-200 hover:text-gray-100">
-                Challenges
-              </Link>
-
-              <Link href="/admin/waitlist" className="block font-medium text-gray-200 hover:text-gray-100">
-                Waitlist
-              </Link>
+            <nav className="space-y-1 flex-1">
+              {[
+                { href: "/admin", label: "Dashboard" },
+                { href: "/admin/clothing", label: "Clothing" },
+                { href: "/admin/preorders", label: "Pre-orders" },
+                { href: "/admin/production", label: "Production" },
+                { href: "/admin/users", label: "Users" },
+                { href: "/admin/challenges", label: "Challenges" },
+                { href: "/admin/waitlist", label: "Waitlist" },
+              ].map(({ href, label }) => (
+                <Link
+                  key={href}
+                  href={href}
+                  className="block px-3 py-2 text-sm font-medium text-gray-400 hover:text-white hover:bg-white/5 rounded-md transition-colors"
+                >
+                  {label}
+                </Link>
+              ))}
             </nav>
 
             <button
@@ -54,14 +42,14 @@ export default function AdminLayout({ children }) {
                 await signOut();
                 router.push("/");
               }}
-              className="mt-8 bg-red-600 px-4 py-2 rounded hover:bg-red-700 font-medium text-white"
+              className="mt-6 px-3 py-2 text-sm font-medium text-gray-600 hover:text-gray-300 text-left transition-colors"
             >
-              Sign&nbsp;Out
+              Sign out
             </button>
           </aside>
 
           {/* ────────── Main content ────────── */}
-          <main className="flex-1 bg-gray-100 p-8 overflow-auto">
+          <main className="flex-1 bg-gray-50 p-8 overflow-auto">
             {children}
           </main>
         </div>

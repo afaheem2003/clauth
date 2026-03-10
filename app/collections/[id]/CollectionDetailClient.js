@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useRef } from 'react'
+import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { Switch as HeadlessSwitch } from '@headlessui/react'
 import { 
@@ -40,37 +40,23 @@ export default function CollectionDetailClient({ collection }) {
   const [bannerSettings, setBannerSettings] = useState({
     type: collection.bannerType || 'gradient',
     image: collection.bannerImage || '',
-    color: collection.bannerColor || '#667eea',
+    color: collection.bannerColor || '#111111',
     gradientColors: collection.bannerGradient && Array.isArray(collection.bannerGradient) && collection.bannerGradient.length >= 2 
       ? collection.bannerGradient 
-      : ['#667eea', '#764ba2']
+      : ['#111111', '#4b5563']
   })
 
   // Add state for the actual hero background (separate from preview)
   const [heroBackground, setHeroBackground] = useState({
     type: collection.bannerType || 'gradient',
     image: collection.bannerImage || '',
-    color: collection.bannerColor || '#667eea',
+    color: collection.bannerColor || '#111111',
     gradientColors: collection.bannerGradient && Array.isArray(collection.bannerGradient) && collection.bannerGradient.length >= 2 
       ? collection.bannerGradient 
-      : ['#667eea', '#764ba2']
+      : ['#111111', '#4b5563']
   })
 
   const router = useRouter()
-
-  // Debug the collection data
-  useEffect(() => {
-    console.log('Collection object:', collection)
-    console.log('Collection name:', collection.name)
-    console.log('Collection title:', collection.title)
-  }, [collection])
-
-  // Debug banner settings changes (only log when they actually change)
-  const prevBannerSettings = useRef()
-  useEffect(() => {
-    // Track changes without logging
-    prevBannerSettings.current = bannerSettings
-  }, [bannerSettings])
 
   const handleImageError = (itemId, reason = 'Unknown') => {
     setImageErrors(prev => new Set([...prev, itemId]))
@@ -182,13 +168,6 @@ export default function CollectionDetailClient({ collection }) {
   const saveBannerSettings = async () => {
     setIsUpdating(true)
     try {
-      console.log('Saving banner settings:', {
-        bannerType: bannerSettings.type,
-        bannerImage: bannerSettings.image,
-        bannerColor: bannerSettings.color,
-        bannerGradient: bannerSettings.gradientColors
-      })
-
       const response = await fetch(`/api/collections/${collection.id}/banner`, {
         method: 'PATCH',
         headers: {
@@ -203,13 +182,10 @@ export default function CollectionDetailClient({ collection }) {
       })
 
       if (!response.ok) {
-        const errorData = await response.text()
-        console.error('API Error:', errorData)
         throw new Error(`Failed to update banner: ${response.status}`)
       }
 
-      const result = await response.json()
-      console.log('API Response:', result)
+      await response.json()
 
       // Update the hero background with the new settings
       setHeroBackground({
@@ -219,18 +195,8 @@ export default function CollectionDetailClient({ collection }) {
         gradientColors: bannerSettings.gradientColors
       })
 
-      console.log('Hero background updated to:', {
-        type: bannerSettings.type,
-        color: bannerSettings.color
-      })
-
       toast.success('Banner updated successfully')
       setShowBannerSettings(false)
-      
-      // Force a small delay to ensure state updates
-      setTimeout(() => {
-        console.log('Current hero background after save:', heroBackground)
-      }, 100)
 
     } catch (error) {
       console.error('Error updating banner:', error)
@@ -291,7 +257,7 @@ export default function CollectionDetailClient({ collection }) {
           backgroundSize: 'cover',
           backgroundPosition: 'center',
           backgroundRepeat: 'no-repeat'
-        } : { background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)' }
+        } : { background: 'linear-gradient(135deg, #111111 0%, #4b5563 100%)' }
       
       case 'color':
         return { backgroundColor: heroBackground.color }
@@ -302,7 +268,7 @@ export default function CollectionDetailClient({ collection }) {
         }
       
       default:
-        return { background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)' }
+        return { background: 'linear-gradient(135deg, #111111 0%, #4b5563 100%)' }
     }
   }
 
@@ -318,7 +284,7 @@ export default function CollectionDetailClient({ collection }) {
             backgroundRepeat: 'no-repeat'
           }
         }
-        return { background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)' }
+        return { background: 'linear-gradient(135deg, #111111 0%, #4b5563 100%)' }
       
       case 'color':
         return { backgroundColor: bannerSettings.color }
@@ -328,7 +294,7 @@ export default function CollectionDetailClient({ collection }) {
         return { background: gradient }
       
       default:
-        return { background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)' }
+        return { background: 'linear-gradient(135deg, #111111 0%, #4b5563 100%)' }
     }
   }
 
@@ -368,47 +334,40 @@ export default function CollectionDetailClient({ collection }) {
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Navigation */}
-      <nav className="sticky top-0 z-50 bg-white border-b border-gray-200 backdrop-blur-sm bg-white/95">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center h-16">
+      <nav className="sticky top-0 z-50 bg-white/95 backdrop-blur-sm border-b border-gray-100">
+        <div className="max-w-6xl mx-auto px-6">
+          <div className="flex justify-between items-center h-14">
             <button
               onClick={() => router.back()}
-              className="flex items-center text-gray-600 hover:text-gray-900 transition-colors"
+              className="flex items-center gap-1.5 text-xs font-medium tracking-widest uppercase text-gray-400 hover:text-gray-900 transition-colors"
             >
-              <ArrowLeftIcon className="h-5 w-5 mr-2" />
-              <span className="font-medium">Back</span>
+              <ArrowLeftIcon className="h-3.5 w-3.5" />
+              Back
             </button>
-            
-            <div className="flex items-center space-x-4">
+
+            <div className="flex items-center gap-1">
               <button
                 onClick={() => setShowTemplateSelector(true)}
-                className="flex items-center px-4 py-2 text-gray-700 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors"
+                className="px-3 py-1.5 text-xs font-medium text-gray-500 hover:text-gray-900 hover:bg-gray-50 transition-colors"
               >
-                <ViewColumnsIcon className="h-5 w-5 mr-2" />
-                Template
+                Layout
               </button>
-
               <button
                 onClick={() => setShowBannerSettings(true)}
-                className="flex items-center px-4 py-2 text-gray-700 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors"
+                className="px-3 py-1.5 text-xs font-medium text-gray-500 hover:text-gray-900 hover:bg-gray-50 transition-colors"
               >
-                <PhotoIcon className="h-5 w-5 mr-2" />
-                Customize Banner
+                Banner
               </button>
-
               <button
                 onClick={handleShare}
-                className="flex items-center px-4 py-2 text-gray-700 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors"
+                className="px-3 py-1.5 text-xs font-medium text-gray-500 hover:text-gray-900 hover:bg-gray-50 transition-colors"
               >
-                <ShareIcon className="h-5 w-5 mr-2" />
                 Share
               </button>
-              
               <button
                 onClick={() => router.push(`/collections/${collection.id}/edit`)}
-                className="flex items-center px-4 py-2 bg-gray-900 text-white hover:bg-gray-800 rounded-lg transition-colors"
+                className="ml-2 px-4 py-1.5 bg-black text-white text-xs font-medium tracking-wide hover:bg-gray-800 transition-colors"
               >
-                <PencilIcon className="h-5 w-5 mr-2" />
                 Edit
               </button>
             </div>
@@ -426,36 +385,27 @@ export default function CollectionDetailClient({ collection }) {
           <div className="absolute inset-0 bg-black bg-opacity-30"></div>
         )}
         
-        <div className="relative z-10 text-center max-w-4xl mx-auto px-4">
-          <div className="mb-6">
-            <span className="inline-flex items-center px-4 py-2 rounded-full text-sm font-medium bg-black bg-opacity-50 backdrop-blur-sm border border-white border-opacity-30 text-white">
-              ✨ {collection.purpose || 'Fashion Collection'}
-            </span>
-          </div>
-          
-          <h1 className="text-6xl font-bold tracking-tight mb-6 text-white drop-shadow-2xl">
+        <div className="relative z-10 text-center max-w-3xl mx-auto px-4">
+          {collection.purpose && (
+            <p className="text-xs font-medium tracking-widest uppercase text-white/60 mb-6">
+              {collection.purpose}
+            </p>
+          )}
+
+          <h1 className="text-5xl md:text-6xl font-light tracking-tight mb-4 text-white">
             {collection.name || collection.title || 'Collection'}
           </h1>
-          
-          <p className="text-xl font-light opacity-90 max-w-2xl mx-auto leading-relaxed mb-8 text-white drop-shadow-lg">
-            {collection.notes || collection.description || 'A carefully curated collection of fashion pieces designed to inspire and elevate your style'}
-          </p>
-          
-          <div className="flex items-center justify-center space-x-8 text-sm font-medium">
-            <div className="flex items-center space-x-2 bg-black bg-opacity-50 backdrop-blur-sm px-4 py-2 rounded-full text-white">
-              <span>{collection.items?.length || 0}</span>
-              <span>pieces</span>
-            </div>
-            {collection.season && (
-              <div className="flex items-center space-x-2 bg-black bg-opacity-50 backdrop-blur-sm px-4 py-2 rounded-full text-white">
-                <span className="capitalize">{collection.season}</span>
-              </div>
-            )}
-            {collection.style && (
-              <div className="flex items-center space-x-2 bg-black bg-opacity-50 backdrop-blur-sm px-4 py-2 rounded-full text-white">
-                <span className="capitalize">{collection.style}</span>
-              </div>
-            )}
+
+          {(collection.notes || collection.description) && (
+            <p className="text-base font-light text-white/70 max-w-xl mx-auto leading-relaxed mb-8">
+              {collection.notes || collection.description}
+            </p>
+          )}
+
+          <div className="flex items-center justify-center gap-6 text-xs font-medium tracking-widest uppercase text-white/50">
+            <span>{collection.items?.length || 0} pieces</span>
+            {collection.season && <><span className="text-white/20">—</span><span>{collection.season}</span></>}
+            {collection.style && <><span className="text-white/20">—</span><span>{collection.style}</span></>}
           </div>
         </div>
       </div>
@@ -470,25 +420,23 @@ export default function CollectionDetailClient({ collection }) {
 
       {/* Banner Settings Modal */}
       {showBannerSettings && (
-        <div className="fixed inset-0 bg-gray-500 bg-opacity-75 z-50 flex items-center justify-center p-4">
+        <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl max-w-lg w-full max-h-[90vh] overflow-y-auto shadow-2xl">
             <div className="p-6">
               {/* Header */}
               <div className="flex items-center justify-between mb-6">
-                <h2 className="text-2xl font-light text-gray-900">Customize Banner</h2>
+                <h2 className="text-sm font-medium tracking-widest uppercase text-gray-900">Customize Banner</h2>
                 <button
                   onClick={() => setShowBannerSettings(false)}
                   className="p-2 hover:bg-gray-100 rounded-full transition-colors"
                 >
-                  <svg className="h-6 w-6 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                  </svg>
+                  <XMarkIcon className="h-5 w-5 text-gray-400" />
                 </button>
               </div>
 
               {/* Banner Type Selection */}
               <div className="mb-6">
-                <h3 className="text-lg font-semibold text-gray-900 mb-4">Banner Type</h3>
+                <h3 className="text-xs font-medium tracking-widest uppercase text-gray-400 mb-4">Banner Type</h3>
                 <div className="grid grid-cols-3 gap-3">
                   <button
                     onClick={() => setBannerSettings(prev => ({ ...prev, type: 'gradient' }))}
@@ -557,23 +505,23 @@ export default function CollectionDetailClient({ collection }) {
               {/* Gradient Colors */}
               {bannerSettings.type === 'gradient' && (
                 <div className="mb-6">
-                  <h3 className="text-lg font-semibold text-gray-900 mb-4">Gradient Colors</h3>
+                  <h3 className="text-xs font-medium tracking-widest uppercase text-gray-400 mb-4">Gradient Colors</h3>
                   <div className="grid grid-cols-2 gap-4">
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-2">Start Color</label>
                       <div className="relative">
                         <input
                           type="color"
-                          value={bannerSettings.gradientColors[0] || '#667eea'}
+                          value={bannerSettings.gradientColors[0] || '#111111'}
                           onChange={(e) => setBannerSettings(prev => ({
                             ...prev,
-                            gradientColors: [e.target.value, prev.gradientColors[1] || '#764ba2']
+                            gradientColors: [e.target.value, prev.gradientColors[1] || '#4b5563']
                           }))}
                           className="w-full h-12 rounded-xl border-2 border-gray-200 cursor-pointer shadow-sm"
                         />
                         <div 
                           className="absolute top-1 left-1 w-10 h-10 rounded-lg border-2 border-white shadow-sm pointer-events-none"
-                          style={{ backgroundColor: bannerSettings.gradientColors[0] || '#667eea' }}
+                          style={{ backgroundColor: bannerSettings.gradientColors[0] || '#111111' }}
                         ></div>
                       </div>
                     </div>
@@ -582,16 +530,16 @@ export default function CollectionDetailClient({ collection }) {
                       <div className="relative">
                         <input
                           type="color"
-                          value={bannerSettings.gradientColors[1] || '#764ba2'}
+                          value={bannerSettings.gradientColors[1] || '#4b5563'}
                           onChange={(e) => setBannerSettings(prev => ({
                             ...prev,
-                            gradientColors: [prev.gradientColors[0] || '#667eea', e.target.value]
+                            gradientColors: [prev.gradientColors[0] || '#111111', e.target.value]
                           }))}
                           className="w-full h-12 rounded-xl border-2 border-gray-200 cursor-pointer shadow-sm"
                         />
                         <div 
                           className="absolute top-1 left-1 w-10 h-10 rounded-lg border-2 border-white shadow-sm pointer-events-none"
-                          style={{ backgroundColor: bannerSettings.gradientColors[1] || '#764ba2' }}
+                          style={{ backgroundColor: bannerSettings.gradientColors[1] || '#4b5563' }}
                         ></div>
                       </div>
                     </div>
@@ -602,11 +550,11 @@ export default function CollectionDetailClient({ collection }) {
               {/* Solid Color */}
               {bannerSettings.type === 'color' && (
                 <div className="mb-6">
-                  <h3 className="text-lg font-semibold text-gray-900 mb-4">Banner Color</h3>
+                  <h3 className="text-xs font-medium tracking-widest uppercase text-gray-400 mb-4">Banner Color</h3>
                   <div className="relative">
                     <input
                       type="color"
-                      value={bannerSettings.color || '#667eea'}
+                      value={bannerSettings.color || '#111111'}
                       onChange={(e) => {
                         setBannerSettings(prev => ({ ...prev, color: e.target.value }))
                       }}
@@ -623,7 +571,7 @@ export default function CollectionDetailClient({ collection }) {
               {/* Image Upload */}
               {bannerSettings.type === 'image' && (
                 <div className="mb-6">
-                  <h3 className="text-lg font-semibold text-gray-900 mb-4">Upload Image</h3>
+                  <h3 className="text-xs font-medium tracking-widest uppercase text-gray-400 mb-4">Upload Image</h3>
                   <div className="border-2 border-dashed border-gray-300 rounded-xl p-6 text-center hover:border-gray-400 transition-colors">
                     <input
                       type="file"
@@ -652,7 +600,7 @@ export default function CollectionDetailClient({ collection }) {
 
               {/* Live Preview */}
               <div className="mb-6">
-                <h3 className="text-lg font-semibold text-gray-900 mb-4">Live Preview</h3>
+                <h3 className="text-xs font-medium tracking-widest uppercase text-gray-400 mb-4">Preview</h3>
                 <div 
                   className="h-32 rounded-2xl flex items-center justify-center text-white relative overflow-hidden shadow-lg border-2 border-gray-200"
                   style={getPreviewBackground()}
@@ -690,43 +638,33 @@ export default function CollectionDetailClient({ collection }) {
       )}
 
       {/* Privacy Controls */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center">
-              {isPublic ? (
-                <GlobeAltIcon className="h-5 w-5 text-green-600 mr-3" />
-              ) : (
-                <LockClosedIcon className="h-5 w-5 text-gray-600 mr-3" />
-              )}
-              <div>
-                <h3 className="text-lg font-medium text-gray-900">
-                  {isPublic ? 'Public Collection' : 'Private Collection'}
-                </h3>
-                <p className="text-sm text-gray-500">
-                  {isPublic 
-                    ? 'Anyone can view this collection' 
-                    : 'Only you can view this collection'
-                  }
-                </p>
-              </div>
-            </div>
-            
-            <HeadlessSwitch
-              checked={isPublic}
-              onChange={handlePrivacyChange}
-              disabled={isUpdating}
-              className={`${
-                isPublic ? 'bg-green-600' : 'bg-gray-200'
-              } relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 disabled:opacity-50`}
-            >
-              <span
-                className={`${
-                  isPublic ? 'translate-x-6' : 'translate-x-1'
-                } inline-block h-4 w-4 transform rounded-full bg-white transition-transform`}
-              />
-            </HeadlessSwitch>
+      <div className="max-w-6xl mx-auto px-6 py-5 border-b border-gray-100">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            {isPublic ? (
+              <GlobeAltIcon className="h-3.5 w-3.5 text-gray-400" />
+            ) : (
+              <LockClosedIcon className="h-3.5 w-3.5 text-gray-400" />
+            )}
+            <span className="text-xs font-medium tracking-widest uppercase text-gray-400">
+              {isPublic ? 'Public' : 'Private'}
+            </span>
           </div>
+
+          <HeadlessSwitch
+            checked={isPublic}
+            onChange={handlePrivacyChange}
+            disabled={isUpdating}
+            className={`${
+              isPublic ? 'bg-gray-900' : 'bg-gray-200'
+            } relative inline-flex h-5 w-9 items-center rounded-full transition-colors focus:outline-none disabled:opacity-50`}
+          >
+            <span
+              className={`${
+                isPublic ? 'translate-x-5' : 'translate-x-1'
+              } inline-block h-3 w-3 transform rounded-full bg-white transition-transform`}
+            />
+          </HeadlessSwitch>
         </div>
       </div>
 
@@ -734,35 +672,25 @@ export default function CollectionDetailClient({ collection }) {
       {renderTemplate()}
 
       {/* Footer Stats */}
-      <div className="bg-white border-t border-gray-200">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8 text-center">
+      <div className="border-t border-gray-100">
+        <div className="max-w-6xl mx-auto px-6 py-10">
+          <div className="flex items-center justify-center gap-16 text-center">
             <div>
-              <div className="text-3xl font-light text-gray-900 mb-2">
-                {collection.items?.length || 0}
-              </div>
-              <div className="text-sm font-medium text-gray-600 uppercase tracking-wider">
-                Total Pieces
-              </div>
+              <p className="text-2xl font-light text-gray-900">{collection.items?.length || 0}</p>
+              <p className="text-xs font-medium tracking-widest uppercase text-gray-400 mt-1">Pieces</p>
             </div>
-            
-            <div>
-              <div className="text-3xl font-light text-gray-900 mb-2">
-                {collection.occasions?.length || 1}
+            {collection.occasions?.length > 0 && (
+              <div>
+                <p className="text-2xl font-light text-gray-900">{collection.occasions.length}</p>
+                <p className="text-xs font-medium tracking-widest uppercase text-gray-400 mt-1">Occasions</p>
               </div>
-              <div className="text-sm font-medium text-gray-600 uppercase tracking-wider">
-                Occasions
+            )}
+            {collection.colorPalette?.length > 0 && (
+              <div>
+                <p className="text-2xl font-light text-gray-900">{collection.colorPalette.length}</p>
+                <p className="text-xs font-medium tracking-widest uppercase text-gray-400 mt-1">Colors</p>
               </div>
-            </div>
-            
-            <div>
-              <div className="text-3xl font-light text-gray-900 mb-2">
-                {collection.colorPalette?.length || 0}
-              </div>
-              <div className="text-sm font-medium text-gray-600 uppercase tracking-wider">
-                Colors
-              </div>
-            </div>
+            )}
           </div>
         </div>
       </div>

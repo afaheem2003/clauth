@@ -1,15 +1,12 @@
 'use client'
 
 import { useState } from 'react'
-import { useRouter } from 'next/navigation'
-import { ChevronLeftIcon, ChevronRightIcon, XMarkIcon, EyeIcon } from '@heroicons/react/24/outline'
+import { ChevronLeftIcon, ChevronRightIcon, XMarkIcon } from '@heroicons/react/24/outline'
 import DebugImageComponent from '../components/DebugImageComponent'
 
 export default function GalleryTemplate({ collection, imageErrors, onImageError, getImageUrl, onImageLoad }) {
   const [lightboxOpen, setLightboxOpen] = useState(false)
   const [currentImageIndex, setCurrentImageIndex] = useState(0)
-  const router = useRouter()
-
   const openLightbox = (index, e) => {
     e.stopPropagation()
     setCurrentImageIndex(index)
@@ -40,14 +37,6 @@ export default function GalleryTemplate({ collection, imageErrors, onImageError,
 
   return (
     <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 pb-12">
-      {/* Gallery Header */}
-      <div className="text-center mb-12">
-        <h2 className="text-3xl font-bold text-gray-900 mb-4">Collection Gallery</h2>
-        <p className="text-lg text-gray-600">
-          Explore {collection.items?.length || 0} items in this collection
-        </p>
-      </div>
-
       {/* Gallery Grid */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 mb-12">
         {collection.items?.map((item, index) => (

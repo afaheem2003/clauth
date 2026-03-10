@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import Image from 'next/image'
 
 export default function AdminWaitlistClient({ entries: initialEntries, totalCount, currentPage, pageSize }) {
@@ -243,17 +243,17 @@ export default function AdminWaitlistClient({ entries: initialEntries, totalCoun
   }
 
   const getStatusBadge = (status) => {
-    const baseClasses = "px-3 py-1 text-xs font-semibold rounded-full"
+    const baseClasses = "px-2 py-0.5 text-xs font-medium rounded"
     switch (status) {
       case 'APPROVED':
-        return `${baseClasses} bg-green-100 text-green-800`
+        return `${baseClasses} bg-gray-900 text-white`
       case 'REJECTED':
-        return `${baseClasses} bg-red-100 text-red-800`
+        return `${baseClasses} bg-gray-100 text-gray-500`
       case 'IN_VOTING':
-        return `${baseClasses} bg-blue-100 text-blue-800`
+        return `${baseClasses} bg-gray-100 text-gray-700`
       case 'PENDING':
       default:
-        return `${baseClasses} bg-yellow-100 text-yellow-800`
+        return `${baseClasses} bg-gray-50 text-gray-500 border border-gray-200`
     }
   }
 
@@ -265,364 +265,311 @@ export default function AdminWaitlistClient({ entries: initialEntries, totalCoun
   const uploadedCount = entries.filter(entry => entry.designType === 'uploaded').length
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Header */}
-        <div className="bg-white shadow-sm rounded-lg mb-6">
-          <div className="px-6 py-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <h1 className="text-3xl font-bold text-gray-900">
-                  Waitlist Management
-                </h1>
-                <p className="text-gray-600 mt-1">
-                  Review and manage design submissions from waitlisted users
-                </p>
-              </div>
-              <div className="flex items-center space-x-4">
-                <button
-                  onClick={copyAllEmails}
-                  className="bg-gray-100 text-gray-700 px-4 py-2 rounded-lg text-sm font-medium hover:bg-gray-200 transition-colors"
-                >
-                  Copy All Emails
-                </button>
-              </div>
+    <div>
+      {/* Header */}
+      <div className="mb-8">
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-2xl font-light text-gray-900 tracking-tight">Waitlist</h1>
+            <p className="text-sm text-gray-400 mt-1">Review and manage design submissions</p>
+          </div>
+          <button
+            onClick={copyAllEmails}
+            className="border border-gray-200 text-gray-600 px-4 py-2 rounded-lg text-sm hover:border-gray-400 transition-colors"
+          >
+            Copy All Emails
+          </button>
+        </div>
+
+        {/* Stats */}
+        <div className="grid grid-cols-6 gap-3 mt-6">
+          {[
+            { value: pendingCount, label: "Pending" },
+            { value: votingCount, label: "In Voting" },
+            { value: approvedCount, label: "Approved" },
+            { value: rejectedCount, label: "Rejected" },
+            { value: aiGeneratedCount, label: "AI Generated" },
+            { value: uploadedCount, label: "Uploaded" },
+          ].map(({ value, label }) => (
+            <div key={label} className="bg-white border border-gray-200 rounded-lg p-4">
+              <p className="text-2xl font-light text-gray-900">{value}</p>
+              <p className="text-xs text-gray-400 mt-1">{label}</p>
             </div>
-            
-            {/* Stats */}
-            <div className="grid grid-cols-6 gap-4 mt-6">
-              <div className="bg-yellow-50 p-4 rounded-lg">
-                <div className="text-2xl font-bold text-yellow-600">{pendingCount}</div>
-                <div className="text-sm text-yellow-600">Pending</div>
-              </div>
-              <div className="bg-blue-50 p-4 rounded-lg">
-                <div className="text-2xl font-bold text-blue-600">{votingCount}</div>
-                <div className="text-sm text-blue-600">In Voting</div>
-              </div>
-              <div className="bg-green-50 p-4 rounded-lg">
-                <div className="text-2xl font-bold text-green-600">{approvedCount}</div>
-                <div className="text-sm text-green-600">Approved</div>
-              </div>
-              <div className="bg-red-50 p-4 rounded-lg">
-                <div className="text-2xl font-bold text-red-600">{rejectedCount}</div>
-                <div className="text-sm text-red-600">Rejected</div>
-              </div>
-              <div className="bg-purple-50 p-4 rounded-lg">
-                <div className="text-2xl font-bold text-purple-600">{aiGeneratedCount}</div>
-                <div className="text-sm text-purple-600">AI Generated</div>
-              </div>
-              <div className="bg-indigo-50 p-4 rounded-lg">
-                <div className="text-2xl font-bold text-indigo-600">{uploadedCount}</div>
-                <div className="text-sm text-indigo-600">Uploaded</div>
-              </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Filters and Search */}
+      <div className="bg-white border border-gray-200 rounded-lg p-4 mb-6">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center space-x-4">
+            <div>
+              <label className="block text-xs font-medium text-gray-400 mb-1 uppercase tracking-wider">Search</label>
+              <input
+                type="text"
+                placeholder="Search by email, name, or design..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="block w-64 px-3 py-2 border border-gray-200 rounded-md text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-gray-400 focus:border-gray-400"
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-gray-400 mb-1 uppercase tracking-wider">Status</label>
+              <select
+                value={filterStatus}
+                onChange={(e) => setFilterStatus(e.target.value)}
+                className="block px-3 py-2 border border-gray-200 rounded-md text-sm text-gray-900 focus:outline-none focus:ring-1 focus:ring-gray-400 focus:border-gray-400"
+              >
+                <option value="all">All Status</option>
+                <option value="PENDING">Pending</option>
+                <option value="IN_VOTING">In Voting</option>
+                <option value="APPROVED">Approved</option>
+                <option value="REJECTED">Rejected</option>
+              </select>
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-gray-400 mb-1 uppercase tracking-wider">Type</label>
+              <select
+                value={filterDesignType}
+                onChange={(e) => setFilterDesignType(e.target.value)}
+                className="block px-3 py-2 border border-gray-200 rounded-md text-sm text-gray-900 focus:outline-none focus:ring-1 focus:ring-gray-400 focus:border-gray-400"
+              >
+                <option value="all">All Types</option>
+                <option value="ai-generated">AI Generated</option>
+                <option value="uploaded">Uploaded</option>
+              </select>
+            </div>
+          </div>
+
+          {/* Bulk Actions */}
+          {selectedEntries.size > 0 && (
+            <div className="flex items-center space-x-3">
+              <span className="text-xs text-gray-400">{selectedEntries.size} selected</span>
+              <button
+                onClick={() => moveToVote(selectedEntries)}
+                disabled={isLoading}
+                className="bg-black text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-gray-800 disabled:opacity-50 transition-colors"
+              >
+                Move to Vote
+              </button>
+              <button
+                onClick={() => masterAccept(selectedEntries)}
+                disabled={isLoading}
+                className="border border-gray-300 text-gray-700 px-4 py-2 rounded-lg text-sm font-medium hover:border-gray-500 disabled:opacity-50 transition-colors"
+              >
+                Master Accept
+              </button>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Filter note */}
+      {(searchQuery || filterStatus !== 'all' || filterDesignType !== 'all') && (
+        <div className="bg-gray-50 border border-gray-200 p-3 mb-6 rounded-lg">
+          <p className="text-xs text-gray-500">
+            Filters apply to the current page only ({entries.length} items).
+            {filteredEntries.length !== entries.length && ` Showing ${filteredEntries.length} of ${entries.length}.`}
+          </p>
+        </div>
+      )}
+
+      {/* Applications */}
+      <div className="bg-white border border-gray-200 rounded-lg">
+        <div className="px-6 py-4 border-b border-gray-200">
+          <div className="flex items-center justify-between">
+            <p className="text-sm text-gray-500">{filteredEntries.length} applications</p>
+            <div className="flex items-center space-x-2">
+              <input
+                type="checkbox"
+                checked={selectedEntries.size === filteredEntries.length && filteredEntries.length > 0}
+                onChange={toggleSelectAll}
+                className="h-3.5 w-3.5 border-gray-300 rounded"
+              />
+              <label className="text-xs text-gray-500">Select all</label>
             </div>
           </div>
         </div>
 
-        {/* Filters and Search */}
-        <div className="bg-white shadow-sm rounded-lg mb-6">
-          <div className="px-6 py-4">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center space-x-4">
-                <div>
-                  <label className="block text-sm font-semibold text-gray-900 mb-1">Search</label>
+        {filteredEntries.length === 0 ? (
+          <div className="px-6 py-12 text-center text-sm text-gray-400">
+            No applications found
+          </div>
+        ) : (
+          <div className="divide-y divide-gray-100">
+            {filteredEntries.map((entry) => (
+              <div key={entry.id} className="px-6 py-5 hover:bg-gray-50 transition-colors">
+                <div className="flex items-start space-x-4">
                   <input
-                    type="text"
-                    placeholder="Search by email, name, or design..."
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    className="block w-64 px-3 py-2 border border-gray-300 rounded-md text-sm text-gray-900 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    type="checkbox"
+                    checked={selectedEntries.has(entry.id)}
+                    onChange={() => toggleEntrySelection(entry.id)}
+                    className="mt-1 h-3.5 w-3.5 border-gray-300 rounded"
                   />
-                </div>
-                <div>
-                  <label className="block text-sm font-semibold text-gray-900 mb-1">Status</label>
-                  <select
-                    value={filterStatus}
-                    onChange={(e) => setFilterStatus(e.target.value)}
-                    className="block px-3 py-2 border border-gray-300 rounded-md text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  >
-                    <option value="all">All Status</option>
-                    <option value="PENDING">Pending</option>
-                    <option value="IN_VOTING">In Voting</option>
-                    <option value="APPROVED">Approved</option>
-                    <option value="REJECTED">Rejected</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-sm font-semibold text-gray-900 mb-1">Design Type</label>
-                  <select
-                    value={filterDesignType}
-                    onChange={(e) => setFilterDesignType(e.target.value)}
-                    className="block px-3 py-2 border border-gray-300 rounded-md text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  >
-                    <option value="all">All Types</option>
-                    <option value="ai-generated">AI Generated</option>
-                    <option value="uploaded">Uploaded</option>
-                  </select>
-                </div>
-              </div>
-              
-              {/* Bulk Actions */}
-              {selectedEntries.size > 0 && (
-                <div className="flex items-center space-x-3">
-                  <span className="text-sm text-gray-500">
-                    {selectedEntries.size} selected
-                  </span>
-                  <button
-                    onClick={() => moveToVote(selectedEntries)}
-                    disabled={isLoading}
-                    className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-blue-700 disabled:opacity-50 transition-colors"
-                  >
-                    Move to Vote
-                  </button>
-                  <button
-                    onClick={() => masterAccept(selectedEntries)}
-                    disabled={isLoading}
-                    className="bg-green-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-green-700 disabled:opacity-50 transition-colors"
-                  >
-                    Master Accept
-                  </button>
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
 
-        {/* Filter Warning */}
-        {(searchQuery || filterStatus !== 'all' || filterDesignType !== 'all') && (
-          <div className="bg-yellow-50 border-l-4 border-yellow-400 p-4 mb-6 rounded">
-            <div className="flex">
-              <div className="flex-shrink-0">
-                <svg className="h-5 w-5 text-yellow-400" viewBox="0 0 20 20" fill="currentColor">
-                  <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
-                </svg>
-              </div>
-              <div className="ml-3">
-                <p className="text-sm text-yellow-700">
-                  <strong>Note:</strong> Filters and search only apply to the current page ({entries.length} items).
-                  {filteredEntries.length !== entries.length && ` Showing ${filteredEntries.length} of ${entries.length} items on this page.`}
-                  {' '}To search across all {totalCount} applications, navigate through pages or clear filters.
-                </p>
-              </div>
-            </div>
-          </div>
-        )}
+                  {/* Design Image */}
+                  <div className="flex-shrink-0">
+                    {entry.clothingItem?.imageUrl ? (
+                      <div className="relative w-16 h-16 rounded-lg overflow-hidden bg-gray-100">
+                        <Image
+                          src={entry.clothingItem.imageUrl}
+                          alt={entry.clothingItem.name}
+                          fill
+                          className="object-cover"
+                        />
+                      </div>
+                    ) : (
+                      <div className="w-16 h-16 bg-gray-100 rounded-lg flex items-center justify-center">
+                        <span className="text-gray-300 text-xs">—</span>
+                      </div>
+                    )}
+                  </div>
 
-        {/* Applications Grid */}
-        <div className="bg-white shadow-sm rounded-lg">
-          <div className="px-6 py-4 border-b border-gray-200">
-            <div className="flex items-center justify-between">
-              <h3 className="text-lg font-medium text-gray-900">
-                Applications ({filteredEntries.length})
-              </h3>
-              <div className="flex items-center space-x-2">
-                <input
-                  type="checkbox"
-                  checked={selectedEntries.size === filteredEntries.length && filteredEntries.length > 0}
-                  onChange={toggleSelectAll}
-                  className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
-                />
-                <label className="text-sm text-gray-900 font-medium">Select All</label>
-              </div>
-            </div>
-          </div>
-          
-          {filteredEntries.length === 0 ? (
-            <div className="px-6 py-12 text-center text-gray-500">
-              No applications found
-            </div>
-          ) : (
-            <div className="divide-y divide-gray-200">
-              {filteredEntries.map((entry) => (
-                <div key={entry.id} className="px-6 py-6 hover:bg-gray-50 transition-colors">
-                  <div className="flex items-start space-x-4">
-                    <input
-                      type="checkbox"
-                      checked={selectedEntries.has(entry.id)}
-                      onChange={() => toggleEntrySelection(entry.id)}
-                      className="mt-1 h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
-                    />
-                    
-                    {/* Design Image */}
-                    <div className="flex-shrink-0">
-                      {entry.clothingItem?.imageUrl ? (
-                        <div className="relative w-20 h-20 rounded-lg overflow-hidden bg-gray-100">
-                          <Image
-                            src={entry.clothingItem.imageUrl}
-                            alt={entry.clothingItem.name}
-                            fill
-                            className="object-cover"
-                          />
-                        </div>
-                      ) : (
-                        <div className="w-20 h-20 bg-gray-200 rounded-lg flex items-center justify-center">
-                          <span className="text-gray-400 text-xs">No Image</span>
-                        </div>
-                      )}
-                          </div>
-                    
-                    {/* Content */}
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-start justify-between">
-                        <div>
-                          <h4 className="text-lg font-medium text-gray-900">
-                            {entry.clothingItem?.name || 'Untitled Design'}
-                          </h4>
-                          <p className="text-sm text-gray-600 mt-1">
-                            {entry.clothingItem?.itemType} • {entry.clothingItem?.gender}
-                          </p>
-                          <div className="flex items-center space-x-4 mt-2">
-                            <span className="text-sm text-gray-500">
-                              By {entry.applicant.displayName || entry.applicant.name}
-                            </span>
+                  {/* Content */}
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-start justify-between">
+                      <div>
+                        <h4 className="text-sm font-medium text-gray-900">
+                          {entry.clothingItem?.name || 'Untitled Design'}
+                        </h4>
+                        <p className="text-xs text-gray-400 mt-0.5">
+                          {entry.clothingItem?.itemType} · {entry.clothingItem?.gender}
+                        </p>
+                        <div className="flex items-center space-x-3 mt-1.5">
+                          <span className="text-xs text-gray-500">
+                            {entry.applicant.displayName || entry.applicant.name}
+                          </span>
                           <button
                             onClick={() => copyEmail(entry.email)}
-                              className="text-sm text-blue-600 hover:text-blue-800"
+                            className="text-xs text-gray-400 hover:text-gray-700 transition-colors"
                           >
-                              {copiedEmail === entry.email ? '✓ Copied' : entry.email}
+                            {copiedEmail === entry.email ? 'Copied' : entry.email}
                           </button>
-                          </div>
                         </div>
-                        
-                        <div className="flex items-center space-x-3">
-                          <span className={getStatusBadge(entry.status)}>
-                            {entry.status.replace('_', ' ')}
-                          </span>
-                          
-                          {/* Design Type Badge */}
-                          <span className={`px-3 py-1 text-xs font-semibold rounded-full ${
-                            entry.designType === 'ai-generated' 
-                              ? 'bg-purple-100 text-purple-800' 
-                              : 'bg-indigo-100 text-indigo-800'
-                          }`}>
-                            {entry.designType === 'ai-generated' ? '🤖 AI Generated' : '📤 Uploaded'}
-                          </span>
-                          
-                          <div className="flex items-center space-x-2">
+                      </div>
+
+                      <div className="flex items-center space-x-2 flex-shrink-0 ml-4">
+                        <span className={getStatusBadge(entry.status)}>
+                          {entry.status.replace('_', ' ')}
+                        </span>
+                        <span className="px-2 py-0.5 text-xs font-medium rounded bg-gray-100 text-gray-600">
+                          {entry.designType === 'ai-generated' ? 'AI' : 'Upload'}
+                        </span>
+
+                        <div className="flex items-center space-x-2 ml-1">
                           {entry.status === 'PENDING' && (
                             <>
                               <button
-                                  onClick={() => moveToVote(new Set([entry.id]))}
-                                  disabled={isLoading}
-                                  className="bg-blue-600 text-white px-3 py-1 rounded text-sm hover:bg-blue-700 disabled:opacity-50 transition-colors"
-                                >
-                                  Move to Vote
-                                </button>
-                                <button
-                                  onClick={() => masterAccept(new Set([entry.id]))}
-                                  disabled={isLoading}
-                                  className="bg-green-600 text-white px-3 py-1 rounded text-sm hover:bg-green-700 disabled:opacity-50 transition-colors"
+                                onClick={() => moveToVote(new Set([entry.id]))}
+                                disabled={isLoading}
+                                className="bg-black text-white px-3 py-1 rounded text-xs hover:bg-gray-800 disabled:opacity-50 transition-colors"
                               >
-                                  Master Accept
+                                Vote
+                              </button>
+                              <button
+                                onClick={() => masterAccept(new Set([entry.id]))}
+                                disabled={isLoading}
+                                className="border border-gray-300 text-gray-600 px-3 py-1 rounded text-xs hover:border-gray-500 disabled:opacity-50 transition-colors"
+                              >
+                                Accept
                               </button>
                               <button
                                 onClick={() => updateEntryStatus(entry.id, 'REJECTED')}
                                 disabled={updatingEntry === entry.id}
-                                  className="bg-red-600 text-white px-3 py-1 rounded text-sm hover:bg-red-700 disabled:opacity-50 transition-colors"
+                                className="text-gray-300 hover:text-gray-700 px-2 py-1 text-xs disabled:opacity-50 transition-colors"
                               >
-                                {updatingEntry === entry.id ? 'Updating...' : 'Reject'}
+                                {updatingEntry === entry.id ? '...' : 'Reject'}
                               </button>
                             </>
                           )}
-                          
+
                           {entry.status !== 'PENDING' && (
                             <button
                               onClick={() => updateEntryStatus(entry.id, 'PENDING')}
                               disabled={updatingEntry === entry.id}
-                                className="bg-gray-600 text-white px-3 py-1 rounded text-sm hover:bg-gray-700 disabled:opacity-50 transition-colors"
+                              className="border border-gray-200 text-gray-500 px-3 py-1 rounded text-xs hover:border-gray-400 disabled:opacity-50 transition-colors"
                             >
-                              {updatingEntry === entry.id ? 'Updating...' : 'Reset'}
+                              {updatingEntry === entry.id ? '...' : 'Reset'}
                             </button>
                           )}
 
                           <button
                             onClick={() => deleteEntry(entry.id, entry.email)}
                             disabled={deletingEntry === entry.id}
-                              className="bg-red-800 text-white px-3 py-1 rounded text-sm hover:bg-red-900 disabled:opacity-50 transition-colors"
+                            className="text-gray-300 hover:text-gray-700 text-xs disabled:opacity-50 transition-colors"
                           >
-                            {deletingEntry === entry.id ? 'Deleting...' : 'Delete'}
+                            {deletingEntry === entry.id ? '...' : 'Delete'}
                           </button>
-                          </div>
                         </div>
                       </div>
-                      
-                      {/* Additional Info */}
-                      <div className="mt-3 flex items-center space-x-6 text-sm text-gray-500">
+                    </div>
+
+                    <div className="mt-2 flex items-center space-x-4 text-xs text-gray-400">
+                      <span>
+                        {new Date(entry.createdAt).toLocaleDateString('en-US', {
+                          year: 'numeric', month: 'short', day: 'numeric',
+                        })}
+                      </span>
+                      {entry.reviewedAt && (
                         <span>
-                          Submitted: {new Date(entry.createdAt).toLocaleDateString('en-US', {
-                            year: 'numeric',
-                            month: 'short',
-                            day: 'numeric',
-                            hour: '2-digit',
-                            minute: '2-digit'
+                          Reviewed {new Date(entry.reviewedAt).toLocaleDateString('en-US', {
+                            month: 'short', day: 'numeric',
                           })}
                         </span>
-                        {entry.reviewedAt && (
-                          <span>
-                            Reviewed: {new Date(entry.reviewedAt).toLocaleDateString('en-US', {
-                              month: 'short',
-                              day: 'numeric',
-                              hour: '2-digit',
-                              minute: '2-digit'
-                            })}
-                          </span>
-                        )}
-                        {entry.clothingItem?.description && (
-                          <span className="max-w-md truncate">
-                            "{entry.clothingItem.description}"
-                          </span>
-                        )}
-                      </div>
+                      )}
+                      {entry.clothingItem?.description && (
+                        <span className="max-w-xs truncate">"{entry.clothingItem.description}"</span>
+                      )}
                     </div>
                   </div>
                 </div>
-              ))}
+              </div>
+            ))}
           </div>
-          )}
-          
-          {/* Pagination */}
-          {totalPages > 1 && (
-            <div className="px-6 py-4 bg-gray-50 border-t border-gray-200">
-              <div className="flex items-center justify-between">
-                <div className="text-sm text-gray-900 font-medium">
-                  Showing {((currentPageState - 1) * pageSize) + 1} to {Math.min(currentPageState * pageSize, totalCount)} of {totalCount} applications
-                </div>
-                <div className="flex items-center space-x-2">
-                  <button
-                    onClick={() => loadPage(currentPageState - 1)}
-                    disabled={currentPageState === 1 || isLoading}
-                    className="px-3 py-1 border border-gray-300 rounded text-sm hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    Previous
-                  </button>
-                  
-                  {Array.from({ length: totalPages }, (_, i) => i + 1).map(page => (
-                    <button
-                      key={page}
-                      onClick={() => loadPage(page)}
-                      disabled={isLoading}
-                      className={`px-3 py-1 border rounded text-sm ${
-                        page === currentPageState
-                          ? 'bg-blue-600 text-white border-blue-600'
-                          : 'border-gray-300 hover:bg-gray-50'
-                      } disabled:opacity-50 disabled:cursor-not-allowed`}
-                    >
-                      {page}
-                    </button>
-                  ))}
-                  
+        )}
+
+        {/* Pagination */}
+        {totalPages > 1 && (
+          <div className="px-6 py-4 border-t border-gray-100">
+            <div className="flex items-center justify-between">
+              <p className="text-xs text-gray-400">
+                {((currentPageState - 1) * pageSize) + 1}–{Math.min(currentPageState * pageSize, totalCount)} of {totalCount}
+              </p>
+              <div className="flex items-center space-x-1">
                 <button
-                    onClick={() => loadPage(currentPageState + 1)}
-                    disabled={currentPageState === totalPages || isLoading}
-                    className="px-3 py-1 border border-gray-300 rounded text-sm hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                  onClick={() => loadPage(currentPageState - 1)}
+                  disabled={currentPageState === 1 || isLoading}
+                  className="px-3 py-1 border border-gray-200 rounded text-xs hover:bg-gray-50 disabled:opacity-40 transition-colors"
                 >
-                    Next
+                  Prev
                 </button>
-                </div>
+
+                {Array.from({ length: totalPages }, (_, i) => i + 1).map(page => (
+                  <button
+                    key={page}
+                    onClick={() => loadPage(page)}
+                    disabled={isLoading}
+                    className={`px-3 py-1 border rounded text-xs transition-colors ${
+                      page === currentPageState
+                        ? 'bg-black text-white border-black'
+                        : 'border-gray-200 hover:bg-gray-50'
+                    } disabled:opacity-40`}
+                  >
+                    {page}
+                  </button>
+                ))}
+
+                <button
+                  onClick={() => loadPage(currentPageState + 1)}
+                  disabled={currentPageState === totalPages || isLoading}
+                  className="px-3 py-1 border border-gray-200 rounded text-xs hover:bg-gray-50 disabled:opacity-40 transition-colors"
+                >
+                  Next
+                </button>
               </div>
             </div>
-          )}
-        </div>
+          </div>
+        )}
       </div>
     </div>
   )

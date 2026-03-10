@@ -4,7 +4,7 @@ import { useState } from 'react'
 import { Switch as HeadlessSwitch } from '@headlessui/react'
 import { LockClosedIcon, GlobeAltIcon } from '@heroicons/react/24/outline'
 
-export default function FinalTouchAndShare({ formData, updateFormData, showValidation }) {
+export default function FinalTouchAndShare({ formData, updateFormData }) {
   const [isPublic, setIsPublic] = useState(formData.privacy === 'public')
 
   const handlePrivacyChange = (value) => {
@@ -13,121 +13,85 @@ export default function FinalTouchAndShare({ formData, updateFormData, showValid
   }
 
   return (
-    <div className="space-y-8">
-      {/* Preview Section */}
+    <div className="space-y-10">
+      {/* Preview */}
       <div>
-        <h3 className="text-lg font-medium text-gray-900 mb-4">Preview</h3>
-        <div className="bg-white rounded-xl border border-gray-200 p-6">
-          <div className="flex items-start justify-between mb-6">
-            <div>
-              <h2 className="text-2xl font-bold text-gray-900">{formData.name}</h2>
-              <div className="flex items-center gap-2 mt-2 text-gray-700">
-                <span>{formData.season}</span>
-                <span>•</span>
-                <span>{formData.style}</span>
-              </div>
-            </div>
-            <div className="flex items-center gap-2">
-              {formData.occasions?.map((occasion) => (
-                <span
-                  key={occasion}
-                  className="px-3 py-1 bg-gray-100 rounded-full text-sm text-gray-700"
-                >
-                  {occasion}
-                </span>
-              ))}
-            </div>
+        <p className="text-xs font-medium tracking-widest uppercase text-gray-400 mb-6">Preview</p>
+        <div className="border border-gray-100 p-6">
+          <h2 className="text-xl font-light text-gray-900 mb-1">
+            {formData.name || 'Untitled Collection'}
+          </h2>
+          <div className="flex items-center gap-3 text-xs text-gray-400 mb-6">
+            {formData.seasons?.[0] && <span>{formData.seasons[0]}</span>}
+            {formData.style && <><span className="text-gray-200">—</span><span>{formData.style}</span></>}
+            {formData.purpose && <><span className="text-gray-200">—</span><span>{formData.purpose}</span></>}
           </div>
 
-          {/* Color Palette */}
           {formData.colorPalette && (
-            <div className="mb-6">
-              <h4 className="text-sm font-medium text-gray-800 mb-2">Color Palette</h4>
-              <div className="flex gap-2">
-                {formData.colorPalette.map((color, index) => (
-                  <div
-                    key={index}
-                    className="w-8 h-8 rounded-full"
-                    style={{ backgroundColor: color }}
-                  />
-                ))}
-              </div>
+            <div className="flex gap-2 mb-6">
+              {formData.colorPalette.map((color, i) => (
+                <div key={i} className="w-6 h-6 rounded-full border border-gray-100" style={{ backgroundColor: color }} />
+              ))}
             </div>
           )}
 
-          {/* Items Grid */}
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
-            {formData.items?.map((item) => (
-              <div
-                key={item.id}
-                className="aspect-square rounded-lg overflow-hidden border border-gray-200"
-              >
-                <img
-                  src={item.frontImage || item.imageUrl || '/images/placeholder.png'}
-                  alt={item.name}
-                  className="w-full h-full object-cover"
-                />
-              </div>
-            ))}
-          </div>
+          {formData.items?.length > 0 ? (
+            <div className="grid grid-cols-4 gap-2">
+              {formData.items.slice(0, 8).map((item) => (
+                <div key={item.id} className="aspect-square overflow-hidden bg-gray-50">
+                  <img src={item.frontImage || item.imageUrl} alt={item.name} className="w-full h-full object-cover" />
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="h-24 bg-gray-50 flex items-center justify-center">
+              <p className="text-xs text-gray-300 tracking-widest uppercase">No items added</p>
+            </div>
+          )}
 
-          {/* Notes */}
           {formData.notes && (
-            <div className="mt-6">
-              <h4 className="text-sm font-medium text-gray-800 mb-2">Notes</h4>
-              <div className="bg-gray-50 rounded-lg p-4 text-gray-700">
-                {formData.notes}
-              </div>
+            <p className="mt-4 text-sm text-gray-500 leading-relaxed">{formData.notes}</p>
+          )}
+
+          {formData.occasions?.length > 0 && (
+            <div className="flex flex-wrap gap-2 mt-4">
+              {formData.occasions.map((occasion) => (
+                <span key={occasion} className="px-3 py-1 border border-gray-200 text-xs text-gray-500">
+                  {occasion}
+                </span>
+              ))}
             </div>
           )}
         </div>
       </div>
 
-      {/* Privacy Settings */}
-      <div className="bg-white rounded-xl border border-gray-200 p-6">
-        <h3 className="text-lg font-medium text-gray-900 mb-4">Privacy Settings</h3>
-        <div className="flex items-center justify-between">
-          <div>
-            <div className="flex items-center gap-2">
-              {isPublic ? (
-                <>
-                  <GlobeAltIcon className="h-5 w-5 text-gray-700" />
-                  <span className="font-medium text-gray-900">Public</span>
-                </>
-              ) : (
-                <>
-                  <LockClosedIcon className="h-5 w-5 text-gray-700" />
-                  <span className="font-medium text-gray-900">Private</span>
-                </>
-              )}
+      {/* Privacy */}
+      <div>
+        <p className="text-xs font-medium tracking-widest uppercase text-gray-400 mb-4">Visibility</p>
+        <div className="flex items-center justify-between border border-gray-100 p-5">
+          <div className="flex items-center gap-3">
+            {isPublic
+              ? <GlobeAltIcon className="h-4 w-4 text-gray-400" />
+              : <LockClosedIcon className="h-4 w-4 text-gray-400" />
+            }
+            <div>
+              <p className="text-sm font-medium text-gray-900">{isPublic ? 'Public' : 'Private'}</p>
+              <p className="text-xs text-gray-400 mt-0.5">
+                {isPublic ? 'Anyone can view this collection' : 'Only you can view this collection'}
+              </p>
             </div>
-            <p className="text-sm text-gray-700 mt-1">
-              {isPublic
-                ? 'Anyone can view this collection'
-                : 'Only you can view this collection'}
-            </p>
           </div>
           <HeadlessSwitch
             checked={isPublic}
             onChange={handlePrivacyChange}
             className={`${
-              isPublic ? 'bg-blue-600' : 'bg-gray-200'
-            } relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2`}
+              isPublic ? 'bg-gray-900' : 'bg-gray-200'
+            } relative inline-flex h-5 w-9 items-center rounded-full transition-colors focus:outline-none`}
           >
-            <span
-              className={`${
-                isPublic ? 'translate-x-6' : 'translate-x-1'
-              } inline-block h-4 w-4 transform rounded-full bg-white transition-transform`}
-            />
+            <span className={`${isPublic ? 'translate-x-5' : 'translate-x-1'} inline-block h-3 w-3 transform rounded-full bg-white transition-transform`} />
           </HeadlessSwitch>
-        </div>
-        
-        <div className="mt-4 p-4 bg-blue-50 rounded-lg">
-          <p className="text-sm text-blue-800">
-            <strong>Next:</strong> After creating your collection, you'll be able to share it with others if it's set to public.
-          </p>
         </div>
       </div>
     </div>
   )
-} 
+}

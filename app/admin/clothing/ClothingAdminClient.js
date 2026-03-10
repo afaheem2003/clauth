@@ -1,5 +1,5 @@
 'use client';
-import React, { useState } from 'react';
+import { useState } from 'react';
 import Link from 'next/link';
 
 export default function ClothingAdminClient({ initialClothingItems }) {
@@ -40,152 +40,144 @@ export default function ClothingAdminClient({ initialClothingItems }) {
   };
 
   return (
-    <div className="p-8 bg-gray-50 min-h-screen">
-      <div className="max-w-7xl mx-auto">
-        {/* Header */}
-        <div className="mb-6">
-          <h1 className="text-3xl font-bold text-gray-800">Manage Clothing Items</h1>
-          <p className="text-gray-600 mt-1">Total: {clothingItems.length} items</p>
-        </div>
+    <div>
+      {/* Header */}
+      <div className="mb-8">
+        <h1 className="text-2xl font-light text-gray-900 tracking-tight">Clothing Items</h1>
+        <p className="text-sm text-gray-400 mt-1">{clothingItems.length} items total</p>
+      </div>
 
-        {/* Stats */}
-        <div className="grid grid-cols-3 gap-4 mb-6">
-          <div className="bg-purple-50 p-4 rounded-lg border border-purple-200">
-            <div className="text-2xl font-bold text-purple-600">{aiGeneratedCount}</div>
-            <div className="text-sm text-purple-600">🤖 AI Generated</div>
-          </div>
-          <div className="bg-indigo-50 p-4 rounded-lg border border-indigo-200">
-            <div className="text-2xl font-bold text-indigo-600">{uploadedCount}</div>
-            <div className="text-sm text-indigo-600">📤 Uploaded</div>
-          </div>
-          <div className="bg-green-50 p-4 rounded-lg border border-green-200">
-            <div className="text-2xl font-bold text-green-600">{publishedCount}</div>
-            <div className="text-sm text-green-600">✓ Published</div>
-          </div>
+      {/* Stats */}
+      <div className="grid grid-cols-3 gap-4 mb-8">
+        <div className="bg-white border border-gray-200 rounded-lg p-5">
+          <p className="text-3xl font-light text-gray-900">{aiGeneratedCount}</p>
+          <p className="text-sm text-gray-400 mt-1">AI Generated</p>
         </div>
+        <div className="bg-white border border-gray-200 rounded-lg p-5">
+          <p className="text-3xl font-light text-gray-900">{uploadedCount}</p>
+          <p className="text-sm text-gray-400 mt-1">Uploaded</p>
+        </div>
+        <div className="bg-white border border-gray-200 rounded-lg p-5">
+          <p className="text-3xl font-light text-gray-900">{publishedCount}</p>
+          <p className="text-sm text-gray-400 mt-1">Published</p>
+        </div>
+      </div>
 
-        {/* Filters */}
-        <div className="bg-white p-4 rounded-lg shadow mb-6">
-          <div className="flex items-center space-x-4">
-            <div className="flex-1">
-              <label className="block text-sm font-medium text-gray-700 mb-1">Search</label>
-              <input
-                type="text"
-                placeholder="Search by name..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Design Type</label>
-              <select
-                value={filterDesignType}
-                onChange={(e) => setFilterDesignType(e.target.value)}
-                className="px-3 py-2 border border-gray-300 rounded-md text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
-              >
-                <option value="all">All Types</option>
-                <option value="ai-generated">AI Generated</option>
-                <option value="uploaded">Uploaded</option>
-              </select>
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Status</label>
-              <select
-                value={filterStatus}
-                onChange={(e) => setFilterStatus(e.target.value)}
-                className="px-3 py-2 border border-gray-300 rounded-md text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
-              >
-                <option value="all">All Status</option>
-                <option value="CONCEPT">Concept</option>
-                <option value="SELECTED">Selected</option>
-                <option value="PRODUCING">Producing</option>
-              </select>
-            </div>
+      {/* Filters */}
+      <div className="bg-white border border-gray-200 rounded-lg p-4 mb-6">
+        <div className="flex items-center space-x-4">
+          <div className="flex-1">
+            <label className="block text-xs font-medium text-gray-500 mb-1 uppercase tracking-wider">Search</label>
+            <input
+              type="text"
+              placeholder="Search by name..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full px-3 py-2 border border-gray-200 rounded-md text-sm text-gray-900 focus:outline-none focus:ring-1 focus:ring-gray-400 focus:border-gray-400"
+            />
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-gray-500 mb-1 uppercase tracking-wider">Type</label>
+            <select
+              value={filterDesignType}
+              onChange={(e) => setFilterDesignType(e.target.value)}
+              className="px-3 py-2 border border-gray-200 rounded-md text-sm text-gray-900 focus:outline-none focus:ring-1 focus:ring-gray-400 focus:border-gray-400"
+            >
+              <option value="all">All Types</option>
+              <option value="ai-generated">AI Generated</option>
+              <option value="uploaded">Uploaded</option>
+            </select>
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-gray-500 mb-1 uppercase tracking-wider">Status</label>
+            <select
+              value={filterStatus}
+              onChange={(e) => setFilterStatus(e.target.value)}
+              className="px-3 py-2 border border-gray-200 rounded-md text-sm text-gray-900 focus:outline-none focus:ring-1 focus:ring-gray-400 focus:border-gray-400"
+            >
+              <option value="all">All Status</option>
+              <option value="CONCEPT">Concept</option>
+              <option value="SELECTED">Selected</option>
+              <option value="PRODUCING">Producing</option>
+            </select>
           </div>
         </div>
+      </div>
 
-        {/* Results count */}
-        <div className="mb-4 text-sm text-gray-600">
-          Showing {filteredItems.length} of {clothingItems.length} items
-        </div>
+      {/* Results count */}
+      <div className="mb-3 text-xs text-gray-400">
+        {filteredItems.length} of {clothingItems.length} items
+      </div>
 
-        {/* Table */}
-        <div className="bg-white rounded-lg shadow overflow-hidden">
-          <table className="w-full">
-            <thead className="bg-gray-100">
-              <tr>
-                <th className="p-3 text-left font-medium text-gray-700">Image</th>
-                <th className="p-3 text-left font-medium text-gray-700">Name</th>
-                <th className="p-3 text-left font-medium text-gray-700">Type</th>
-                <th className="p-3 text-left font-medium text-gray-700">Published</th>
-                <th className="p-3 text-left font-medium text-gray-700">Status</th>
-                <th className="p-3 text-left font-medium text-gray-700">Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {filteredItems.map(item => (
-                <tr key={item.id} className="border-t hover:bg-gray-50">
-                  <td className="p-3">
-                    {item.imageUrl ? (
-                      <img src={item.imageUrl} alt={item.name} className="h-12 w-12 object-cover rounded" />
-                    ) : (
-                      <div className="h-12 w-12 bg-gray-200 rounded flex items-center justify-center text-gray-400 text-xs">
-                        No Image
-                      </div>
-                    )}
-                  </td>
-                  <td className="p-3 text-gray-800 font-medium">{item.name}</td>
-                  <td className="p-3">
-                    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                      item.designType === 'ai-generated'
-                        ? 'bg-purple-100 text-purple-800'
-                        : 'bg-indigo-100 text-indigo-800'
-                    }`}>
-                      {item.designType === 'ai-generated' ? '🤖 AI' : '📤 Upload'}
-                    </span>
-                  </td>
-                  <td className="p-3">
-                    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                      item.isPublished
-                        ? 'bg-green-100 text-green-800'
-                        : 'bg-gray-100 text-gray-800'
-                    }`}>
-                      {item.isPublished ? 'Yes' : 'No'}
-                    </span>
-                  </td>
-                  <td className="p-3">
-                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-                      {item.status}
-                    </span>
-                  </td>
-                  <td className="p-3">
-                    <div className="flex space-x-3">
-                      <Link 
-                        href={`/admin/clothing/${item.id}`} 
-                        className="text-blue-600 hover:text-blue-800 font-medium text-sm"
-                      >
-                        Edit
-                      </Link>
-                      <button 
-                        onClick={() => handleDelete(item.id)} 
-                        className="text-red-600 hover:text-red-800 font-medium text-sm"
-                      >
-                        Delete
-                      </button>
+      {/* Table */}
+      <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
+        <table className="w-full">
+          <thead>
+            <tr className="border-b border-gray-200">
+              <th className="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">Image</th>
+              <th className="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">Name</th>
+              <th className="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">Type</th>
+              <th className="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">Published</th>
+              <th className="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">Status</th>
+              <th className="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">Actions</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-gray-100">
+            {filteredItems.map(item => (
+              <tr key={item.id} className="hover:bg-gray-50 transition-colors">
+                <td className="px-4 py-3">
+                  {item.imageUrl ? (
+                    <img src={item.imageUrl} alt={item.name} className="h-10 w-10 object-cover rounded-md" />
+                  ) : (
+                    <div className="h-10 w-10 bg-gray-100 rounded-md flex items-center justify-center text-gray-300 text-xs">
+                      —
                     </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-          
-          {filteredItems.length === 0 && (
-            <div className="p-8 text-center text-gray-500">
-              No items found matching your filters
-            </div>
-          )}
-        </div>
+                  )}
+                </td>
+                <td className="px-4 py-3 text-sm font-medium text-gray-900">{item.name}</td>
+                <td className="px-4 py-3">
+                  <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-600">
+                    {item.designType === 'ai-generated' ? 'AI' : 'Upload'}
+                  </span>
+                </td>
+                <td className="px-4 py-3">
+                  <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${
+                    item.isPublished ? 'bg-gray-900 text-white' : 'bg-gray-100 text-gray-500'
+                  }`}>
+                    {item.isPublished ? 'Live' : 'Draft'}
+                  </span>
+                </td>
+                <td className="px-4 py-3">
+                  <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-600">
+                    {item.status}
+                  </span>
+                </td>
+                <td className="px-4 py-3">
+                  <div className="flex space-x-3">
+                    <Link
+                      href={`/admin/clothing/${item.id}`}
+                      className="text-sm text-gray-600 hover:text-gray-900 font-medium transition-colors"
+                    >
+                      Edit
+                    </Link>
+                    <button
+                      onClick={() => handleDelete(item.id)}
+                      className="text-sm text-gray-300 hover:text-gray-700 font-medium transition-colors"
+                    >
+                      Delete
+                    </button>
+                  </div>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+
+        {filteredItems.length === 0 && (
+          <div className="px-6 py-12 text-center text-sm text-gray-400">
+            No items found matching your filters
+          </div>
+        )}
       </div>
     </div>
   );

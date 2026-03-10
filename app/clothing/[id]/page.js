@@ -19,17 +19,22 @@ export default async function ClothingItemPage({ params }) {
         creator: true,
         likes: true,
         comments: {
+          where: { parentId: null },
           include: {
-            author: true
+            author: true,
+            replies: {
+              include: { author: true },
+              orderBy: { createdAt: 'asc' }
+            }
           },
           orderBy: {
-            createdAt: 'desc'
+            createdAt: 'asc'
           }
         }
       }
     }),
     prisma.uploadedDesign.findUnique({
-      where: { 
+      where: {
         id,
         isDeleted: false, // Don't show deleted items
       },
@@ -37,11 +42,16 @@ export default async function ClothingItemPage({ params }) {
         creator: true,
         likes: true,
         comments: {
+          where: { parentId: null },
           include: {
-            author: true
+            author: true,
+            replies: {
+              include: { author: true },
+              orderBy: { createdAt: 'asc' }
+            }
           },
           orderBy: {
-            createdAt: 'desc'
+            createdAt: 'asc'
           }
         }
       }
