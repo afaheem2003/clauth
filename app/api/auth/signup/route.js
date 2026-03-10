@@ -4,12 +4,12 @@ import bcrypt from 'bcryptjs'
 
 export async function POST(request) {
   try {
-    const { email, password, name, phone } = await request.json()
+    const { email, password, name } = await request.json()
 
     // Validate required fields
-    if (!email || !password || !name || !phone) {
+    if (!email || !password || !name) {
       return NextResponse.json(
-        { error: 'Email, password, name, and phone are required' },
+        { error: 'Email, password, and name are required' },
         { status: 400 }
       )
     }
@@ -23,15 +23,6 @@ export async function POST(request) {
       )
     }
 
-    // Validate phone format (basic validation)
-    const phoneRegex = /^\+?[\d\s\-\(\)]+$/
-    if (!phoneRegex.test(phone)) {
-      return NextResponse.json(
-        { error: 'Please enter a valid phone number' },
-        { status: 400 }
-      )
-    }
-
     // Validate password strength
     if (password.length < 8) {
       return NextResponse.json(
@@ -41,41 +32,26 @@ export async function POST(request) {
     }
 
     // Check if user already exists
-    const existingUser = await prisma.user.findFirst({
-      where: {
-        OR: [
-          { email: email.toLowerCase() },
-          { phone: phone }
-        ]
-      }
+    const existingUser = await prisma.user.findUnique({
+      where: { email: email.toLowerCase() }
     })
 
     if (existingUser) {
-      if (existingUser.email === email.toLowerCase()) {
-        return NextResponse.json(
-          { error: 'An account with this email already exists' },
-          { status: 400 }
-        )
-      }
-      if (existingUser.phone === phone) {
-        return NextResponse.json(
-          { error: 'An account with this phone number already exists' },
-          { status: 400 }
-        )
-      }
+      return NextResponse.json(
+        { error: 'An account with this email already exists' },
+        { status: 400 }
+      )
     }
 
     // Hash password
     const hashedPassword = await bcrypt.hash(password, 12)
 
-    // Create user (without phone verification initially)
     const user = await prisma.user.create({
       data: {
         email: email.toLowerCase(),
         password: hashedPassword,
         name,
-        phone,
-        phoneVerified: null, // Will be set when phone is verified
+        phoneVerified: new Date(),
         waitlistStatus: 'WAITLISTED'
       }
     })
@@ -95,9 +71,8 @@ export async function POST(request) {
     }
 
     return NextResponse.json({
-      message: 'Account created successfully. Please verify your phone number.',
+      message: 'Account created successfully.',
       userId: user.id,
-      requiresPhoneVerification: true
     })
 
   } catch (error) {
